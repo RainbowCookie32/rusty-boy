@@ -40,4 +40,10 @@ impl GameboyCart for NoMBC {
     fn write(&self, address: u16, value: u8) {
         todo!()
     }
+
+    // TODO: Goes without saying that this needs to address the currently
+    // selected ROM bank. We are also pretending RAM doesn't exist.
+    fn dbg_write(&self, address: u16, value: u8) {
+        self.rom_banks[0][address as usize].set(value);
+    }
 }

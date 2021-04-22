@@ -151,4 +151,49 @@ impl GameboyMemory {
             self.ie.set(value);
         }
     }
+
+    pub fn dbg_write(&self, address: u16, value: u8) {
+        if address <= 0x7FFF {
+            let bootrom_enabled = self.read(0xFF50) == 0;
+
+            if bootrom_enabled {
+                if address >= self.bootrom.len() as u16 {
+                    self.cartridge.dbg_write(address, value);
+                }
+                else {
+                    self.bootrom[address as usize].set(value)
+                }
+            }
+            else {
+                self.cartridge.dbg_write(address, value);
+            }
+        }
+        else if address >= 0x8000 && address <= 0x9FFF {
+            self.vram[address as usize - 0x8000].set(value);
+        }
+        else if address >= 0xA000 && address <= 0xBFFF {
+            self.cartridge.write(address, value);
+        }
+        else if address >= 0xC000 && address <= 0xDFFF {
+            self.wram[address as usize - 0xC000].set(value);
+        }
+        else if address >= 0xE000 && address <= 0xFDFF {
+            self.wram[address as usize - 0xE000].set(value);
+        }
+        else if address >= 0xFE00 && address <= 0xFE9F {
+            self.oam[address as usize - 0xFE00].set(value);
+        }
+        else if address >= 0xFEA0 && address <= 0xFEFF {
+            
+        }
+        else if address >= 0xFF00 && address <= 0xFF7F {
+            self.io[address as usize - 0xFF00].set(value);
+        }
+        else if address >= 0xFF80 && address <= 0xFFFE {
+            self.hram[address as usize - 0xFF80].set(value);
+        }
+        else {
+            self.ie.set(value);
+        }
+    }
 }

@@ -32,7 +32,7 @@ struct AppState {
     dbg_breakpoint_edit_address: ImString,
     dbg_breakpoint_edit_selected_idx: usize,
 
-    mem_viewer_edit_byte_opened: bool,
+    mem_viewer_edit_byte_active: bool,
     mem_viewer_edit_byte_address: u16,
     mem_viewer_edit_byte_value: ImString
 }
@@ -118,7 +118,7 @@ fn main() {
         dbg_breakpoint_edit_address: ImString::new(""),
         dbg_breakpoint_edit_selected_idx: 0,
 
-        mem_viewer_edit_byte_opened: false,
+        mem_viewer_edit_byte_active: false,
         mem_viewer_edit_byte_address: 0x0000,
         mem_viewer_edit_byte_value: ImString::new("")
     };
@@ -293,6 +293,7 @@ fn main() {
                 });
 
                 Window::new(im_str!("Memory Viewer")).build(&ui, || {
+                    let size = ui.calc_text_size(im_str!("FFF"), false, 0.0);
                     let mut clipper = ListClipper::new(0xFFFF / 8).items_height(ui.text_line_height()).begin(&ui);
                     clipper.step();
 
@@ -311,11 +312,35 @@ fn main() {
 
                         for (idx, value) in values.iter().enumerate() {
                             let token = ui.push_id(&format!("value{}", idx));
+                            let value_address = (current_addr - 8) + idx as u16;
 
-                            if Selectable::new(&ImString::from(format!("{:02X}", value))).allow_double_click(true).size([15.0, 0.0]).build(&ui) {
-                                app_state.mem_viewer_edit_byte_opened = true;
-                                app_state.mem_viewer_edit_byte_value = ImString::from(format!("{:02X}", value));
-                                app_state.mem_viewer_edit_byte_address = (current_addr - 8) + idx as u16;
+                            if app_state.mem_viewer_edit_byte_active && app_state.mem_viewer_edit_byte_address == value_address {
+                                let mut flags = ImGuiInputTextFlags::empty();
+
+                                flags.set(ImGuiInputTextFlags::CharsHexadecimal, true);
+                                flags.set(ImGuiInputTextFlags::EnterReturnsTrue, true);
+                                flags.set(ImGuiInputTextFlags::AutoSelectAll, true);
+                                flags.set(ImGuiInputTextFlags::NoHorizontalScroll, true);
+                                flags.set(ImGuiInputTextFlags::AlwaysInsertMode, true);
+                                
+                                ui.set_next_item_width(size[0]);
+
+                                if ui.input_text(im_str!("##data"), &mut app_state.mem_viewer_edit_byte_value).flags(flags).resize_buffer(true).build() {
+                                    if let Ok(value) = u8::from_str_radix(&app_state.mem_viewer_edit_byte_value.to_string(), 16) {
+                                        gb_mem_ui.dbg_write(value_address, value);
+                                    }
+
+                                    app_state.mem_viewer_edit_byte_address = 0;
+                                    app_state.mem_viewer_edit_byte_active = false;
+                                    app_state.mem_viewer_edit_byte_value = ImString::new("");
+                                }
+                            }
+                            else {
+                                if Selectable::new(&ImString::from(format!("{:02X}", value))).allow_double_click(true).size(size).build(&ui) {
+                                    app_state.mem_viewer_edit_byte_active = true;
+                                    app_state.mem_viewer_edit_byte_value = ImString::from(format!("{:02X}", value));
+                                    app_state.mem_viewer_edit_byte_address = (current_addr - 8) + idx as u16;
+                                }
                             }
 
                             token.pop(&ui);
@@ -327,7 +352,8 @@ fn main() {
 
                         for (idx, value) in values.iter().enumerate() {
                             let value = *value as char;
-                            if Selectable::new(&ImString::from(format!("{}", value))).allow_double_click(true).size([10.0, 0.0]).build(&ui) {
+                            let size = ui.calc_text_size(im_str!("F"), false, 0.0);
+                            if Selectable::new(&ImString::from(format!("{}", value))).allow_double_click(true).size(size).build(&ui) {
 
                             }
 
@@ -338,39 +364,6 @@ fn main() {
                     }
 
                     clipper.end();
-
-                    if app_state.mem_viewer_edit_byte_opened {
-                        let address = app_state.mem_viewer_edit_byte_address;
-
-                        ui.open_popup(&ImString::from(format!("Editing byte at address ${:04X}", address)));
-                        ui.popup_modal(&ImString::from(format!("Editing byte at address ${:04X}", address))).build(|| {
-                            ui.text_colored([1.0, 0.3, 0.0, 1.0], im_str!("Warning: You can't write to ROM regions!"));
-                            ui.separator();
-
-                            ui.text("Byte value:");
-                            ui.same_line(0.0);
-
-                            let token = ui.push_item_width(50.0);
-                            ui.input_text(im_str!(""), &mut app_state.mem_viewer_edit_byte_value).resize_buffer(true).build();
-                            token.pop(&ui);
-
-                            ui.separator();
-
-                            if ui.button(im_str!("Write"), [0.0, 0.0]) {
-                                if let Ok(value) = u8::from_str_radix(&app_state.mem_viewer_edit_byte_value.to_string(), 16) {
-                                    gb_mem_ui.write(address, value);
-                                }
-
-                                app_state.mem_viewer_edit_byte_opened = false;
-                            }
-
-                            ui.same_line(0.0);
-
-                            if ui.button(im_str!("Cancel"), [0.0, 0.0]) {
-                                app_state.mem_viewer_edit_byte_opened = false;
-                            }
-                        });
-                    }
                 });
 
                 Window::new(im_str!("Disassembler")).build(&ui, || {
@@ -459,6 +452,15 @@ fn main() {
             }
             Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
                 *control_flow = ControlFlow::Exit;
+            }
+            Event::WindowEvent { event: WindowEvent::KeyboardInput { input, ..}, ..} => {
+                if let Some(keycode) = input.virtual_keycode {
+                    if keycode == glutin::event::VirtualKeyCode::Escape {
+                        app_state.mem_viewer_edit_byte_active = false;
+                    }
+                }
+
+                winit_platform.handle_event(imgui_ctx.io_mut(), display.gl_window().window(), &event);
             }
             event => {
                 winit_platform.handle_event(imgui_ctx.io_mut(), display.gl_window().window(), &event);
