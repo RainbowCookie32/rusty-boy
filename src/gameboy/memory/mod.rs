@@ -120,7 +120,7 @@ impl GameboyMemory {
     }
 
     pub fn write(&self, address: u16, value: u8) {
-        if address <= 0x07FF {
+        if address <= 0x7FFF {
             self.cartridge.write(address, value);
         }
         else if address >= 0x8000 && address <= 0x9FFF {
