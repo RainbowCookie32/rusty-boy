@@ -1,5 +1,13 @@
 use super::*;
 
+enum TargetRegister {
+    AF,
+    BC,
+    DE,
+    HL,
+    SP
+}
+
 pub struct GameboyCPU {
     af: u16,
     bc: u16,
@@ -8,6 +16,8 @@ pub struct GameboyCPU {
 
     sp: u16,
     pc: u16,
+
+    cycles: usize,
 
     memory: Arc<GameboyMemory>
 }
@@ -23,6 +33,8 @@ impl GameboyCPU {
             sp: 0,
             pc: 0,
 
+            cycles: 0,
+
             memory
         }
     }
@@ -31,7 +43,7 @@ impl GameboyCPU {
         (&self.af, &self.bc, &self.de, &self.hl, &self.sp, &self.pc)
     }
 
-    fn read(&self, address: u16, breakpoints: &Vec<Breakpoint>) -> (bool, u8) {
+    fn read_u8(&self, address: u16, breakpoints: &Vec<Breakpoint>) -> (bool, u8) {
         let mut found_bp = false;
         let matching_bps: Vec<&Breakpoint> = breakpoints.iter().filter(|b| *b.address() == address).collect();
 
@@ -45,6 +57,22 @@ impl GameboyCPU {
         (found_bp, self.memory.read(address))
     }
 
+    fn read_u16(&self, address: u16, breakpoints: &Vec<Breakpoint>) -> (bool, u16) {
+        let mut found_bp = false;
+        let matching_bps: Vec<&Breakpoint> = breakpoints.iter().filter(|b| *b.address() == address || *b.address() == address + 1).collect();
+
+        for bp in matching_bps {
+            if *bp.read() {
+                found_bp = true;
+                break;
+            }
+        }
+
+        let values = [self.memory.read(address), self.memory.read(address + 1)];
+
+        (found_bp, u16::from_le_bytes(values))
+    }
+
     pub fn cpu_cycle(&mut self, breakpoints: &Vec<Breakpoint>, dbg_mode: &mut EmulatorMode) {
         for bp in breakpoints {
             if self.pc == *bp.address() && *bp.execute() {
@@ -55,7 +83,7 @@ impl GameboyCPU {
             }
         }
 
-        let (bp_hit, opcode) = self.read(self.pc, breakpoints);
+        let (bp_hit, opcode) = self.read_u8(self.pc, breakpoints);
 
         if bp_hit && *dbg_mode != EmulatorMode::Stepping {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -63,7 +91,28 @@ impl GameboyCPU {
         }
 
         match opcode {
-            _ => {}
+            0x31 => self.load_u16_to_register(breakpoints, dbg_mode, TargetRegister::SP),
+            _ => *dbg_mode = EmulatorMode::BreakpointHit
         }
+    }
+
+    fn load_u16_to_register(&mut self, bp: &Vec<Breakpoint>, dbg: &mut EmulatorMode, reg: TargetRegister) {
+        let (bp_hit, value) = self.read_u16(self.pc + 1, bp);
+
+        if bp_hit {
+            *dbg = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        match reg {
+            TargetRegister::AF => self.af = value,
+            TargetRegister::BC => self.bc = value,
+            TargetRegister::DE => self.de = value,
+            TargetRegister::HL => self.hl = value,
+            TargetRegister::SP => self.sp = value
+        }
+
+        self.pc += 3;
+        self.cycles += 12;
     }
 }
