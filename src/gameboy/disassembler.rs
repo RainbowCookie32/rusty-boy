@@ -36,6 +36,17 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
         0x32 => (1, String::from("LD [HL-], A")),
 
         0xAF => (1, String::from("XOR A, A")),
+
+        0xCB => get_instruction_data_prefixed(address, gb_mem),
+
         _ => (1, format!("??? (${:02X})", opcode_value))
+    }
+}
+
+pub fn get_instruction_data_prefixed(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, String) {
+    let opcode_value = gb_mem.read(address + 1);
+
+    match opcode_value {
+        _ => (2, format!("??? ($CB ${:02X})", opcode_value))
     }
 }
