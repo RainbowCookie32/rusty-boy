@@ -200,6 +200,10 @@ impl GameboyCPU {
             }
         }
 
+        self.execute_instruction(breakpoints, dbg_mode);
+    }
+
+    fn execute_instruction(&mut self, breakpoints: &Vec<Breakpoint>, dbg_mode: &mut EmulatorMode) {
         let (bp_hit, opcode) = self.read_u8(self.pc, breakpoints);
 
         if bp_hit && *dbg_mode != EmulatorMode::Stepping {
@@ -219,6 +223,21 @@ impl GameboyCPU {
 
             0xAF => self.xor_register(TargetRegister::AF, true),
 
+            0xCB => self.execute_instruction_prefixed(breakpoints, dbg_mode),
+
+            _ => *dbg_mode = EmulatorMode::BreakpointHit
+        }
+    }
+
+    fn execute_instruction_prefixed(&mut self, breakpoints: &Vec<Breakpoint>, dbg_mode: &mut EmulatorMode) {
+        let (bp_hit, opcode) = self.read_u8(self.pc + 1, breakpoints);
+
+        if bp_hit && *dbg_mode != EmulatorMode::Stepping {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        match opcode {
             _ => *dbg_mode = EmulatorMode::BreakpointHit
         }
     }
