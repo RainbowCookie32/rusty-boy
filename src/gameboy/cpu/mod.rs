@@ -143,16 +143,6 @@ impl GameboyCPU {
         }
     }
 
-    fn get_register_full(&self, reg: TargetRegister) -> u16 {
-        match reg {
-            TargetRegister::AF => self.af,
-            TargetRegister::BC => self.bc,
-            TargetRegister::DE => self.de,
-            TargetRegister::HL => self.hl,
-            TargetRegister::SP => self.sp
-        }
-    }
-
     pub fn get_all_registers(&self) -> (&u16, &u16, &u16, &u16, &u16, &u16) {
         (&self.af, &self.bc, &self.de, &self.hl, &self.sp, &self.pc)
     }
@@ -187,6 +177,19 @@ impl GameboyCPU {
         (found_bp, u16::from_le_bytes(values))
     }
 
+    fn write(&self, address: u16, value: u8, breakpoints: &Vec<Breakpoint>) -> bool {
+        let matching_bps: Vec<&Breakpoint> = breakpoints.iter().filter(|b| *b.address() == address).collect();
+
+        for bp in matching_bps {
+            if *bp.read() {
+                return true;
+            }
+        }
+
+        self.memory.write(address, value);
+        false
+    }
+
     pub fn cpu_cycle(&mut self, breakpoints: &Vec<Breakpoint>, dbg_mode: &mut EmulatorMode) {
         for bp in breakpoints {
             if self.pc == *bp.address() && *bp.execute() {
@@ -212,6 +215,7 @@ impl GameboyCPU {
             0x21 => self.load_u16_to_register(breakpoints, dbg_mode, TargetRegister::HL),
 
             0x31 => self.load_u16_to_register(breakpoints, dbg_mode, TargetRegister::SP),
+            0x32 => self.store_to_hl_and_dec(breakpoints, dbg_mode),
 
             0xAF => self.xor_register(TargetRegister::AF, true),
 
@@ -237,6 +241,22 @@ impl GameboyCPU {
 
         self.pc += 3;
         self.cycles += 12;
+    }
+
+    fn store_to_hl_and_dec(&mut self, bp: &Vec<Breakpoint>, dbg: &mut EmulatorMode) {
+        let value = self.get_register(TargetRegister::AF, true);
+        let address = self.hl;
+        
+        if self.write(address, value, bp) {
+            *dbg = EmulatorMode::BreakpointHit;
+            return;
+        }
+        else {
+            self.hl = address.wrapping_sub(1);
+
+            self.pc += 1;
+            self.cycles += 8;
+        }
     }
 
     fn xor_register(&mut self, reg: TargetRegister, high: bool) {
