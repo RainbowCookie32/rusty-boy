@@ -204,6 +204,12 @@ fn main() {
                             lock.dbg_mode = EmulatorMode::Stepping;
                             lock.dbg_do_step = true;
                         }
+
+                        ui.same_line(0.0);
+
+                        if ui.button(im_str!("Reset"), [0.0, 0.0]) {
+                            lock.gb_reset();
+                        }
     
                         ui.separator();
     

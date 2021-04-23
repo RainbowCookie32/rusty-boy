@@ -190,6 +190,16 @@ impl GameboyCPU {
         false
     }
 
+    pub fn reset(&mut self) {
+        self.af = 0;
+        self.bc = 0;
+        self.de = 0;
+        self.hl = 0;
+        self.sp = 0;
+        self.pc = 0;
+        self.cycles = 0;
+    }
+
     pub fn cpu_cycle(&mut self, breakpoints: &Vec<Breakpoint>, dbg_mode: &mut EmulatorMode) {
         for bp in breakpoints {
             if self.pc == *bp.address() && *bp.execute() {

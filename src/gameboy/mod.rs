@@ -35,6 +35,13 @@ impl Gameboy {
         }
     }
 
+    pub fn gb_reset(&mut self) {
+        self.gb_cpu.reset();
+        self.gb_mem.reset();
+
+        self.dbg_mode = EmulatorMode::Paused;
+    }
+
     pub fn gb_cpu_cycle(&mut self) {
         self.gb_cpu.cpu_cycle(&self.dbg_breakpoint_list, &mut self.dbg_mode);
     }

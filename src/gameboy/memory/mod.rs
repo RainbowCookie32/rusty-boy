@@ -74,6 +74,30 @@ impl GameboyMemory {
         &self.cartridge.get_header()
     }
 
+    pub fn reset(&self) {
+        for b in self.vram.iter() {
+            b.set(0);
+        }
+
+        for b in self.wram.iter() {
+            b.set(0);
+        }
+
+        for b in self.oam.iter() {
+            b.set(0);
+        }
+
+        for b in self.io.iter() {
+            b.set(0);
+        }
+
+        for b in self.hram.iter() {
+            b.set(0);
+        }
+
+        self.ie.set(0);
+    }
+
     pub fn read(&self, address: u16) -> u8 {
         if address <= 0x7FFF {
             let bootrom_enabled = self.read(0xFF50) == 0;
