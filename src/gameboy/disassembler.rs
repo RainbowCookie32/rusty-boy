@@ -12,6 +12,8 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
 
             (3, dis)
         },
+
+        0xAF => (1, String::from("XOR A, A")),
         _ => (1, format!("??? (${:02X})", opcode_value))
     }
 }

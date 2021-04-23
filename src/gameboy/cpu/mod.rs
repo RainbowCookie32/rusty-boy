@@ -8,6 +8,13 @@ enum TargetRegister {
     SP
 }
 
+enum TargetFlag {
+    Zero,
+    Negative,
+    HalfCarry,
+    Carry
+}
+
 pub struct GameboyCPU {
     af: u16,
     bc: u16,
@@ -36,6 +43,113 @@ impl GameboyCPU {
             cycles: 0,
 
             memory
+        }
+    }
+
+    fn get_flag(&self, flag: TargetFlag) -> bool {
+        let flags = self.af & 0x00FF;
+
+        match flag {
+            TargetFlag::Zero => (flags >> 7) & 1 != 0,
+            TargetFlag::Negative => (flags >> 6) & 1 != 0,
+            TargetFlag::HalfCarry => (flags >> 5) & 1 != 0,
+            TargetFlag::Carry => (flags >> 4) & 1 != 0,
+        }
+    }
+
+    fn set_flag(&mut self, flag: TargetFlag, value: bool) {
+        let mut flags = self.af & 0x00FF;
+
+        match flag {
+            TargetFlag::Zero => {
+                if value {
+                    flags |= 1 << 7;
+                }
+                else {
+                    flags &= !(1 << 7);
+                }
+            }
+            TargetFlag::Negative => {
+                if value {
+                    flags |= 1 << 6;
+                }
+                else {
+                    flags &= !(1 << 6);
+                }
+            }
+            TargetFlag::HalfCarry => {
+                if value {
+                    flags |= 1 << 5;
+                }
+                else {
+                    flags &= !(1 << 5);
+                }
+            }
+            TargetFlag::Carry => {
+                if value {
+                    flags |= 1 << 4;
+                }
+                else {
+                    flags &= !(1 << 4);
+                }
+            }
+        }
+
+        self.af = (self.af & 0xFF00) | flags;
+    }
+
+    fn get_register(&self, reg: TargetRegister, high: bool) -> u8 {
+        match reg {
+            TargetRegister::AF => {
+                if high {
+                    ((self.af & 0xFF00) >> 8) as u8
+                }
+                else {
+                    (self.af & 0x00FF) as u8
+                }
+            }
+            TargetRegister::BC => {
+                if high {
+                    ((self.bc & 0xFF00) >> 8) as u8
+                }
+                else {
+                    (self.bc & 0x00FF) as u8
+                }
+            }
+            TargetRegister::DE => {
+                if high {
+                    ((self.de & 0xFF00) >> 8) as u8
+                }
+                else {
+                    (self.de & 0x00FF) as u8
+                }
+            }
+            TargetRegister::HL => {
+                if high {
+                    ((self.hl & 0xFF00) >> 8) as u8
+                }
+                else {
+                    (self.hl & 0x00FF) as u8
+                }
+            }
+            TargetRegister::SP => {
+                if high {
+                    ((self.sp & 0xFF00) >> 8) as u8
+                }
+                else {
+                    (self.sp & 0x00FF) as u8
+                }
+            }
+        }
+    }
+
+    fn get_register_full(&self, reg: TargetRegister) -> u16 {
+        match reg {
+            TargetRegister::AF => self.af,
+            TargetRegister::BC => self.bc,
+            TargetRegister::DE => self.de,
+            TargetRegister::HL => self.hl,
+            TargetRegister::SP => self.sp
         }
     }
 
@@ -92,6 +206,9 @@ impl GameboyCPU {
 
         match opcode {
             0x31 => self.load_u16_to_register(breakpoints, dbg_mode, TargetRegister::SP),
+
+            0xAF => self.xor_register(TargetRegister::AF, true),
+            
             _ => *dbg_mode = EmulatorMode::BreakpointHit
         }
     }
@@ -114,5 +231,22 @@ impl GameboyCPU {
 
         self.pc += 3;
         self.cycles += 12;
+    }
+
+    fn xor_register(&mut self, reg: TargetRegister, high: bool) {
+        let value = self.get_register(reg, high);
+        let target = self.get_register(TargetRegister::AF, true);
+
+        let result = value ^ target;
+
+        self.af = (self.af & 0x00FF) | result as u16;
+
+        self.set_flag(TargetFlag::Zero, result == 0);
+        self.set_flag(TargetFlag::Negative, false);
+        self.set_flag(TargetFlag::HalfCarry, false);
+        self.set_flag(TargetFlag::Carry, false);
+
+        self.pc += 1;
+        self.cycles += 4;
     }
 }
