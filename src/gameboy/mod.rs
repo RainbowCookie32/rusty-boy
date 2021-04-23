@@ -108,7 +108,8 @@ pub enum EmulatorMode {
     Paused,
     Running,
     Stepping,
-    BreakpointHit
+    BreakpointHit,
+    UnknownInstruction(bool, u8)
 }
 
 impl fmt::Display for EmulatorMode {
@@ -118,6 +119,14 @@ impl fmt::Display for EmulatorMode {
             EmulatorMode::Running => write!(f, "Emulator running."),
             EmulatorMode::Stepping => write!(f, "Stepping through pain."),
             EmulatorMode::BreakpointHit => write!(f, "Paused on a breakpoint."),
+            EmulatorMode::UnknownInstruction(prefixed, opcode) => {
+                if *prefixed {
+                    write!(f, "Unimplemented instruction $CB ${:02X}", opcode)
+                }
+                else {
+                    write!(f, "Unimplemented instruction ${:02X}", opcode)
+                }
+            },
         }
     }
 }

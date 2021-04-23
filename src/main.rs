@@ -179,7 +179,7 @@ fn main() {
                         ui.separator();
     
                         ui.bullet_text(im_str!("CPU Controls"));
-                        ui.bullet_text(&ImString::from(format!("Current state: {}", lock.dbg_mode)));
+                        ui.bullet_text(&ImString::from(format!("Status: {}", lock.dbg_mode)));
     
                         if lock.dbg_mode == EmulatorMode::Running {
                             if ui.button(im_str!("Pause"), [0.0, 0.0]) {
