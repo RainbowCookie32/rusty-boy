@@ -47,6 +47,8 @@ pub fn get_instruction_data_prefixed(address: u16, gb_mem: &Arc<GameboyMemory>) 
     let opcode_value = gb_mem.read(address + 1);
 
     match opcode_value {
+        0x7C => (2, format!("BIT 7, H")),
+
         _ => (2, format!("??? ($CB ${:02X})", opcode_value))
     }
 }

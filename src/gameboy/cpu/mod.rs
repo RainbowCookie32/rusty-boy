@@ -238,6 +238,8 @@ impl GameboyCPU {
         }
 
         match opcode {
+            0x7C => self.bit_register(TargetRegister::HL, 7, true),
+
             _ => *dbg_mode = EmulatorMode::BreakpointHit
         }
     }
@@ -293,5 +295,17 @@ impl GameboyCPU {
 
         self.pc += 1;
         self.cycles += 4;
+    }
+
+    fn bit_register(&mut self, reg: TargetRegister, bit: u8, high: bool) {
+        let value = self.get_register(reg, high);
+        let result = (value & (1 << bit)) == 0;
+
+        self.set_flag(TargetFlag::Zero, result);
+        self.set_flag(TargetFlag::Negative, false);
+        self.set_flag(TargetFlag::HalfCarry, true);
+
+        self.pc += 2;
+        self.cycles += 8;
     }
 }
