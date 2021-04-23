@@ -140,17 +140,23 @@ fn main() {
             Event::RedrawRequested(_) => {
                 let ui = imgui_ctx.frame();
 
-                Window::new(im_str!("ROM Info")).build(&ui, || {
+                Window::new(im_str!("Cartridge Info")).build(&ui, || {
                     if let Ok(lock) = gb.read() {
                         let header = lock.ui_get_header();
 
-                        ui.text(format!("ROM Title: {}", header.title()));
+                        ui.text(format!("Cartridge Title: {}", header.title()));
+                        ui.text(format!("Cartridge Controller: {}", header.cart_type()));
                     
                         ui.separator();
 
                         ui.text(format!("ROM Size: {} ({} banks)", header.rom_size(), header.rom_banks_count()));
+                        ui.text(format!("Selected ROM Bank: {}", gb_mem_ui.cartridge().get_selected_rom_bank()));
+
+                        ui.separator();
+
                         ui.text(format!("RAM Size: {} ({} banks)", header.ram_size(), header.ram_banks_count()));
-                        ui.text(format!("Cartridge Controller: {}", header.cart_type()));
+                        ui.text(format!("RAM Access Enabled: {}", gb_mem_ui.cartridge().is_ram_enabled()));
+                        ui.text(format!("Selected RAM Bank: {}", gb_mem_ui.cartridge().get_selected_rom_bank()));
                     }
                 });
 

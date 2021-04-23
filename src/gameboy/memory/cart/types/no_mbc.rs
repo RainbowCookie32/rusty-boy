@@ -50,4 +50,16 @@ impl GameboyCart for NoMBC {
             self.rom_banks[1][address as usize - 0x4000].set(value)
         }
     }
+
+    fn is_ram_enabled(&self) -> bool {
+        false
+    }
+
+    fn get_selected_rom_bank(&self) -> usize {
+        1
+    }
+
+    fn get_selected_ram_bank(&self) -> usize {
+        0
+    }
 }

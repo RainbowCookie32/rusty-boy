@@ -70,6 +70,10 @@ impl GameboyMemory {
         }
     }
 
+    pub fn cartridge(&self) -> &Box<dyn GameboyCart + Send + Sync> {
+        &self.cartridge
+    }
+
     pub fn header(&self) -> &CartHeader {
         &self.header
     }

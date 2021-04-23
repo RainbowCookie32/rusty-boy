@@ -102,6 +102,10 @@ pub trait GameboyCart {
     fn read(&self, address: u16) -> u8;
     fn write(&self, address: u16, value: u8);
     fn dbg_write(&self, address: u16, value: u8);
+
+    fn is_ram_enabled(&self) -> bool;
+    fn get_selected_rom_bank(&self) -> usize;
+    fn get_selected_ram_bank(&self) -> usize;
 }
 
 pub fn create_cart(data: Vec<u8>) -> (CartHeader, Box<dyn GameboyCart + Send + Sync>) {
