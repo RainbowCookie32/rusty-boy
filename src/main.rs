@@ -101,6 +101,12 @@ fn main() {
                 if lock.dbg_mode == EmulatorMode::Running {
                     lock.gb_cpu_cycle();
                 }
+                else if lock.dbg_mode == EmulatorMode::Stepping {
+                    if lock.dbg_do_step {
+                        lock.gb_cpu_cycle();
+                        lock.dbg_do_step = false;
+                    }
+                }
             }
         }
     });
@@ -190,6 +196,7 @@ fn main() {
     
                         if ui.button(im_str!("Step"), [0.0, 0.0]) {
                             lock.dbg_mode = EmulatorMode::Stepping;
+                            lock.dbg_do_step = true;
                         }
     
                         ui.separator();

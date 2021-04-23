@@ -18,6 +18,7 @@ pub struct Gameboy {
     gb_mem: Arc<GameboyMemory>,
 
     pub dbg_mode: EmulatorMode,
+    pub dbg_do_step: bool,
     pub dbg_breakpoint_list: Vec<Breakpoint>
 }
 
@@ -29,6 +30,7 @@ impl Gameboy {
             gb_mem,
 
             dbg_mode: EmulatorMode::Paused,
+            dbg_do_step: false,
             dbg_breakpoint_list: Vec::new()
         }
     }
