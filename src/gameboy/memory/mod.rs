@@ -75,7 +75,7 @@ impl GameboyMemory {
     }
 
     pub fn read(&self, address: u16) -> u8 {
-        if address <= 0x07FF {
+        if address <= 0x7FFF {
             let bootrom_enabled = self.read(0xFF50) == 0;
 
             if bootrom_enabled {
