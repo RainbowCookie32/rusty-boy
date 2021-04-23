@@ -2,8 +2,7 @@ use super::GameboyCart;
 use crate::gameboy::memory::GameboyByte;
 
 pub struct NoMBC {
-    rom_banks: Vec<Vec<GameboyByte>>,
-    ram_banks: Vec<Vec<GameboyByte>>
+    rom_banks: Vec<Vec<GameboyByte>>
 }
 
 impl NoMBC {
@@ -21,8 +20,7 @@ impl NoMBC {
         };
 
         NoMBC {
-            rom_banks,
-            ram_banks: Vec::new()
+            rom_banks
         }
     }
 }
@@ -40,11 +38,10 @@ impl GameboyCart for NoMBC {
         }
     }
 
-    fn write(&self, address: u16, value: u8) {
-        todo!()
+    fn write(&self, _address: u16, _value: u8) {
+        
     }
 
-    // TODO: RAM writes.
     fn dbg_write(&self, address: u16, value: u8) {
         if address <= 0x3FFF {
             self.rom_banks[0][address as usize].set(value)
