@@ -1,12 +1,13 @@
-use super::GameboyCart;
-use crate::gameboy::memory::GameboyByte;
+use crate::gameboy::memory::cart::CartHeader;
+use crate::gameboy::memory::{GameboyCart, GameboyByte};
 
 pub struct NoMBC {
+    header: CartHeader,
     rom_banks: Vec<Vec<GameboyByte>>
 }
 
 impl NoMBC {
-    pub fn new(data: Vec<u8>) -> NoMBC {
+    pub fn new(header: CartHeader, data: Vec<u8>) -> NoMBC {
         let rom_banks = {
             let mut result = Vec::new();
             let mut chunks = data.chunks(16384);
@@ -20,6 +21,7 @@ impl NoMBC {
         };
 
         NoMBC {
+            header,
             rom_banks
         }
     }
@@ -49,6 +51,10 @@ impl GameboyCart for NoMBC {
         else if address >= 0x4000 && address <= 0x7FFF {
             self.rom_banks[1][address as usize - 0x4000].set(value)
         }
+    }
+
+    fn get_header(&self) -> &CartHeader {
+        &self.header
     }
 
     fn is_ram_enabled(&self) -> bool {

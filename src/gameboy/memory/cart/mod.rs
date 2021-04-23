@@ -103,12 +103,14 @@ pub trait GameboyCart {
     fn write(&self, address: u16, value: u8);
     fn dbg_write(&self, address: u16, value: u8);
 
+    fn get_header(&self) -> &CartHeader;
+    
     fn is_ram_enabled(&self) -> bool;
     fn get_selected_rom_bank(&self) -> usize;
     fn get_selected_ram_bank(&self) -> usize;
 }
 
-pub fn create_cart(data: Vec<u8>) -> (CartHeader, Box<dyn GameboyCart + Send + Sync>) {
+pub fn create_cart(data: Vec<u8>) -> Box<dyn GameboyCart + Send + Sync> {
     let header = CartHeader::new(&data);
 
     match header.cart_type {
@@ -117,6 +119,6 @@ pub fn create_cart(data: Vec<u8>) -> (CartHeader, Box<dyn GameboyCart + Send + S
         CartridgeType::MBC3 => todo!(),
         CartridgeType::MBC5 => todo!(),
         CartridgeType::MBC6 => todo!(),
-        CartridgeType::NoController => (header, Box::new(no_mbc::NoMBC::new(data)))
+        CartridgeType::NoController => Box::new(no_mbc::NoMBC::new(header, data))
     }
 }

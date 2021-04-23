@@ -34,8 +34,6 @@ impl Clone for GameboyByte {
 
 pub struct GameboyMemory {
     bootrom: Vec<GameboyByte>,
-
-    header: CartHeader,
     cartridge: Box<dyn GameboyCart + Send + Sync>,
 
     vram: Vec<GameboyByte>,
@@ -50,13 +48,11 @@ pub struct GameboyMemory {
 
 impl GameboyMemory {
     pub fn init(bootrom_data: Vec<u8>, romfile_data: Vec<u8>) -> GameboyMemory {
-        let (header, cartridge) = cart::create_cart(romfile_data);
+        let cartridge = cart::create_cart(romfile_data);
         let bootrom = bootrom_data.into_iter().map(|b| GameboyByte::from(b)).collect();
 
         GameboyMemory {
             bootrom,
-
-            header,
             cartridge,
             
             vram: vec![GameboyByte::from(0); 0x2000],
@@ -75,7 +71,7 @@ impl GameboyMemory {
     }
 
     pub fn header(&self) -> &CartHeader {
-        &self.header
+        &self.cartridge.get_header()
     }
 
     pub fn read(&self, address: u16) -> u8 {
