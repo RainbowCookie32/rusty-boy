@@ -205,10 +205,16 @@ impl GameboyCPU {
         }
 
         match opcode {
+            0x01 => self.load_u16_to_register(breakpoints, dbg_mode, TargetRegister::BC),
+
+            0x11 => self.load_u16_to_register(breakpoints, dbg_mode, TargetRegister::DE),
+
+            0x21 => self.load_u16_to_register(breakpoints, dbg_mode, TargetRegister::HL),
+
             0x31 => self.load_u16_to_register(breakpoints, dbg_mode, TargetRegister::SP),
 
             0xAF => self.xor_register(TargetRegister::AF, true),
-            
+
             _ => *dbg_mode = EmulatorMode::BreakpointHit
         }
     }
