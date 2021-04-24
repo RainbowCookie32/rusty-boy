@@ -181,6 +181,16 @@ fn main() {
                         ui.text(format!("SP: {:04X}", sp));
                         ui.same_line(0.0);
                         ui.text(format!("PC: {:04X}", pc));
+
+                        ui.bullet_text(im_str!("CPU Flags"));
+
+                        ui.text(format!("ZF: {}", (af & 0x80) != 0));
+                        ui.same_line(0.0);
+                        ui.text(format!("NF: {}", (af & 0x40) != 0));
+                        
+                        ui.text(format!("HF: {}", (af & 0x20) != 0));
+                        ui.same_line(0.0);
+                        ui.text(format!("CF: {}", (af & 0x10) != 0));
     
                         ui.separator();
     
