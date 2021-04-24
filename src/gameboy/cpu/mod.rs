@@ -267,10 +267,13 @@ impl GameboyCPU {
             0x20 => self.conditional_jump_relative(breakpoints, dbg_mode, JumpCondition::Zero(false)),
             0x21 => self.load_u16_to_register(breakpoints, dbg_mode, TargetRegister::HL(false)),
             0x26 => self.load_u8_to_register(breakpoints, dbg_mode, TargetRegister::HL(true)),
+            0x28 => self.conditional_jump_relative(breakpoints, dbg_mode, JumpCondition::Zero(true)),
             0x2E => self.load_u8_to_register(breakpoints, dbg_mode, TargetRegister::HL(false)),
 
+            0x30 => self.conditional_jump_relative(breakpoints, dbg_mode, JumpCondition::Carry(false)),
             0x31 => self.load_u16_to_register(breakpoints, dbg_mode, TargetRegister::SP),
             0x32 => self.store_to_hl_and_dec(breakpoints, dbg_mode),
+            0x38 => self.conditional_jump_relative(breakpoints, dbg_mode, JumpCondition::Carry(true)),
             0x3E => self.load_u8_to_register(breakpoints, dbg_mode, TargetRegister::AF(true)),
 
             0xAF => self.xor_register(TargetRegister::AF(true)),
