@@ -146,6 +146,44 @@ impl GameboyCPU {
         }
     }
 
+    fn set_register(&mut self, reg: TargetRegister, high: bool, value: u8) {
+        match reg {
+            TargetRegister::AF => {
+                if high {
+                    self.af = (self.af & 0x00FF) | (value as u16) << 8;
+                }
+                else {
+                    self.af = (self.af & 0xFF00) | ((value as u16) & 0xFFF0);
+                }
+            }
+            TargetRegister::BC => {
+                if high {
+                    self.bc = (self.bc & 0x00FF) | (value as u16) << 8;
+                }
+                else {
+                    self.bc = (self.bc & 0xFF00) | value as u16;
+                }
+            }
+            TargetRegister::DE => {
+                if high {
+                    self.de = (self.de & 0x00FF) | (value as u16) << 8;
+                }
+                else {
+                    self.de = (self.de & 0xFF00) | value as u16;
+                }
+            }
+            TargetRegister::HL => {
+                if high {
+                    self.hl = (self.hl & 0x00FF) | (value as u16) << 8;
+                }
+                else {
+                    self.hl = (self.hl & 0xFF00) | value as u16;
+                }
+            }
+            _ => unreachable!()
+        }
+    }
+
     pub fn get_all_registers(&self) -> (&u16, &u16, &u16, &u16, &u16, &u16) {
         (&self.af, &self.bc, &self.de, &self.hl, &self.sp, &self.pc)
     }
@@ -226,6 +264,7 @@ impl GameboyCPU {
 
         match opcode {
             0x01 => self.load_u16_to_register(breakpoints, dbg_mode, TargetRegister::BC),
+            0x0E => self.load_u8_to_register(breakpoints, dbg_mode, TargetRegister::BC, false),
 
             0x11 => self.load_u16_to_register(breakpoints, dbg_mode, TargetRegister::DE),
 
@@ -256,6 +295,20 @@ impl GameboyCPU {
 
             _ => *dbg_mode = EmulatorMode::UnknownInstruction(false, opcode)
         }
+    }
+
+    fn load_u8_to_register(&mut self, bp: &Vec<Breakpoint>, dbg: &mut EmulatorMode, reg: TargetRegister, high: bool) {
+        let (bp_hit, value) = self.read_u8(self.pc + 1, bp);
+
+        if bp_hit {
+            *dbg = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        self.set_register(reg, high, value);
+
+        self.pc += 2;
+        self.cycles += 8;
     }
 
     fn load_u16_to_register(&mut self, bp: &Vec<Breakpoint>, dbg: &mut EmulatorMode, reg: TargetRegister) {

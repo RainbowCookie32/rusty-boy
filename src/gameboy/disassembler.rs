@@ -12,6 +12,12 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
 
             (3, dis)
         }
+        0x0E => {
+            let value = gb_mem.read(address + 1);
+            let dis = format!("LD C, ${:04X}", value);
+
+            (2, dis)
+        }
 
         0x11 => {
             let args = [gb_mem.read(address + 1), gb_mem.read(address + 2)];
@@ -22,7 +28,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
 
         0x20 => {
             let offset = gb_mem.read(address + 1) as i8;
-            let dis = format!("JP NZ, {:04X}", address.wrapping_add(offset as u16) + 2);
+            let dis = format!("JP NZ, ${:04X}", address.wrapping_add(offset as u16) + 2);
 
             (2, dis)
         }
