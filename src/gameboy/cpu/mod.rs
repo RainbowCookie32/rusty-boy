@@ -1,5 +1,10 @@
 use super::*;
 
+enum JumpCondition {
+    Zero(bool),
+    Carry(bool)
+}
+
 enum TargetRegister {
     AF,
     BC,
@@ -47,13 +52,11 @@ impl GameboyCPU {
     }
 
     fn get_flag(&self, flag: TargetFlag) -> bool {
-        let flags = self.af & 0x00FF;
-
         match flag {
-            TargetFlag::Zero => (flags >> 7) & 1 != 0,
-            TargetFlag::Negative => (flags >> 6) & 1 != 0,
-            TargetFlag::HalfCarry => (flags >> 5) & 1 != 0,
-            TargetFlag::Carry => (flags >> 4) & 1 != 0,
+            TargetFlag::Zero => (self.af & 0x80) != 0,
+            TargetFlag::Negative => (self.af & 0x40) != 0,
+            TargetFlag::HalfCarry => (self.af & 0x20) != 0,
+            TargetFlag::Carry => (self.af & 0x10) != 0,
         }
     }
 
@@ -226,6 +229,7 @@ impl GameboyCPU {
 
             0x11 => self.load_u16_to_register(breakpoints, dbg_mode, TargetRegister::DE),
 
+            0x20 => self.conditional_jump_relative(breakpoints, dbg_mode, JumpCondition::Zero(false)),
             0x21 => self.load_u16_to_register(breakpoints, dbg_mode, TargetRegister::HL),
 
             0x31 => self.load_u16_to_register(breakpoints, dbg_mode, TargetRegister::SP),
@@ -305,6 +309,52 @@ impl GameboyCPU {
 
         self.pc += 1;
         self.cycles += 4;
+    }
+
+    fn conditional_jump_relative(&mut self, bp: &Vec<Breakpoint>, dbg: &mut EmulatorMode, condition: JumpCondition) {
+        let jump: bool;
+
+        match condition {
+            JumpCondition::Zero(set) => {
+                let zf = self.get_flag(TargetFlag::Zero);
+
+                if set {
+                    jump = zf;
+                }
+                else {
+                    jump = !zf;
+                }
+            }
+            JumpCondition::Carry(set) => {
+                let cf = self.get_flag(TargetFlag::Zero);
+
+                if set {
+                    jump = cf;
+                }
+                else {
+                    jump = !cf;
+                }
+            }
+        }
+
+        if jump {
+            let (bp_hit, offset) = self.read_u8(self.pc + 1, bp);
+
+            if bp_hit {
+                *dbg = EmulatorMode::BreakpointHit;
+                return;
+            }
+
+            let offset = offset as i8;
+            let target = self.pc.wrapping_add(offset as u16) + 2;
+
+            self.pc = target;
+            self.cycles += 12;
+        }
+        else {
+            self.pc += 2;
+            self.cycles += 8;
+        }
     }
 
     fn bit_register(&mut self, reg: TargetRegister, bit: u8, high: bool) {

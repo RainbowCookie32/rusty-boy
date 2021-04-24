@@ -11,28 +11,34 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
             let dis = format!("LD BC, ${:04X}", u16::from_le_bytes(args));
 
             (3, dis)
-        },
+        }
 
         0x11 => {
             let args = [gb_mem.read(address + 1), gb_mem.read(address + 2)];
             let dis = format!("LD DE, ${:04X}", u16::from_le_bytes(args));
 
             (3, dis)
-        },
+        }
 
+        0x20 => {
+            let offset = gb_mem.read(address + 1) as i8;
+            let dis = format!("JP NZ, {:04X}", address.wrapping_add(offset as u16) + 2);
+
+            (2, dis)
+        }
         0x21 => {
             let args = [gb_mem.read(address + 1), gb_mem.read(address + 2)];
             let dis = format!("LD HL, ${:04X}", u16::from_le_bytes(args));
 
             (3, dis)
-        },
+        }
 
         0x31 => {
             let args = [gb_mem.read(address + 1), gb_mem.read(address + 2)];
             let dis = format!("LD SP, ${:04X}", u16::from_le_bytes(args));
 
             (3, dis)
-        },
+        }
         0x32 => (1, String::from("LD [HL-], A")),
 
         0xAF => (1, String::from("XOR A, A")),
