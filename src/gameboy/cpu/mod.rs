@@ -278,7 +278,7 @@ impl GameboyCPU {
 
             0xCB => self.execute_instruction_prefixed(breakpoints, dbg_mode),
 
-            _ => *dbg_mode = EmulatorMode::UnknownInstruction(true, opcode)
+            _ => *dbg_mode = EmulatorMode::UnknownInstruction(false, opcode)
         }
     }
 
@@ -293,7 +293,7 @@ impl GameboyCPU {
         match opcode {
             0x7C => self.bit_register(TargetRegister::HL, 7, true),
 
-            _ => *dbg_mode = EmulatorMode::UnknownInstruction(false, opcode)
+            _ => *dbg_mode = EmulatorMode::UnknownInstruction(true, opcode)
         }
     }
 
