@@ -83,6 +83,12 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
             (2, dis)
         }
 
+        0xA8 => (1, String::from("XOR A, B")),
+        0xA9 => (1, String::from("XOR A, C")),
+        0xAA => (1, String::from("XOR A, D")),
+        0xAB => (1, String::from("XOR A, E")),
+        0xAC => (1, String::from("XOR A, H")),
+        0xAD => (1, String::from("XOR A, L")),
         0xAF => (1, String::from("XOR A, A")),
 
         0xCB => get_instruction_data_prefixed(address, gb_mem),
