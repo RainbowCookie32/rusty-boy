@@ -31,6 +31,8 @@ struct AppState {
     dbg_breakpoint_edit_opened: bool,
     dbg_breakpoint_edit_address: ImString,
     dbg_breakpoint_edit_selected_idx: usize,
+    
+    dbg_disassembler_position_adjusted: bool,
 
     mem_viewer_edit_byte_active: bool,
     mem_viewer_edit_byte_address: u16,
@@ -124,6 +126,8 @@ fn main() {
         dbg_breakpoint_edit_address: ImString::new(""),
         dbg_breakpoint_edit_selected_idx: 0,
 
+        dbg_disassembler_position_adjusted: false,
+
         mem_viewer_edit_byte_active: false,
         mem_viewer_edit_byte_address: 0x0000,
         mem_viewer_edit_byte_value: ImString::new("")
@@ -205,6 +209,7 @@ fn main() {
                         else {
                             if ui.button(im_str!("Resume"), [0.0, 0.0]) {
                                 lock.dbg_mode = EmulatorMode::Running;
+                                app_state.dbg_disassembler_position_adjusted = false;
                             }
                         }
     
@@ -322,8 +327,11 @@ fn main() {
                 });
 
                 Window::new(im_str!("Memory Viewer")).build(&ui, || {
+                    let style_padding = ui.push_style_var(StyleVar::FramePadding([0.0, 0.0]));
+                    let style_spacing = ui.push_style_var(StyleVar::ItemSpacing([0.0, 0.0]));
+
                     let size = ui.calc_text_size(im_str!("FFF"), false, 0.0);
-                    let mut clipper = ListClipper::new(0xFFFF / 8).items_height(ui.text_line_height()).begin(&ui);
+                    let mut clipper = ListClipper::new(0xFFFF / 8).items_height(ui.text_line_height() / 2.0).begin(&ui);
                     clipper.step();
 
                     for line in clipper.display_start()..clipper.display_end() {
@@ -393,10 +401,13 @@ fn main() {
                     }
 
                     clipper.end();
+
+                    style_padding.pop(&ui);
+                    style_spacing.pop(&ui);
                 });
 
                 Window::new(im_str!("Disassembler")).build(&ui, || {
-                    let mut clipper = ListClipper::new(0xFFFF).items_height(ui.text_line_height()).begin(&ui);
+                    let mut clipper = ListClipper::new(0xFFFF).items_height(ui.text_line_height() / 2.0).begin(&ui);
                     clipper.step();
 
                     let mut skipped_lines = 0;
@@ -408,7 +419,39 @@ fn main() {
                             let (len, dis) = disassembler::get_instruction_data(current_addr, &gb_mem_ui);
 
                             let line_p = if pc_ui == current_addr {"> "} else {""};
-                            let line_str = format!("{}{:04X}: {}", line_p, current_addr, dis);
+                            let address_p = {
+                                if current_addr <= 0x3FFF {
+                                    String::from("ROM0")
+                                }
+                                else if current_addr >= 0x4000 && current_addr <= 0x7FFF {
+                                    format!("ROM{:0X}", gb_mem_ui.cartridge().get_selected_rom_bank())
+                                }
+                                else if current_addr >= 0x8000 && current_addr <= 0x9FFF {
+                                    String::from("VRAM")
+                                }
+                                else if current_addr >= 0xA000 && current_addr <= 0xBFFF {
+                                    String::from("CRAM")
+                                }
+                                else if current_addr >= 0xC000 && current_addr <= 0xFDFF {
+                                    String::from("WRAM")
+                                }
+                                else if current_addr >= 0xFE00 && current_addr <= 0xFE9F {
+                                    String::from("OAM")
+                                }
+                                else if current_addr >= 0xFEA0 && current_addr <= 0xFEFF {
+                                    String::from("UNK")
+                                }
+                                else if current_addr >= 0xFF00 && current_addr <= 0xFF7F {
+                                    String::from("IO")
+                                }
+                                else if current_addr >= 0xFF80 && current_addr <= 0xFFFE {
+                                    String::from("HRAM")
+                                }
+                                else {
+                                    String::from("IE")
+                                }
+                            };
+                            let line_str = format!("{}{}: {:04X} - {}", line_p, address_p, current_addr, dis);
 
                             skipped_lines = 1;
                             last_instruction_len = len;
@@ -466,6 +509,21 @@ fn main() {
                     }
 
                     clipper.end();
+
+                    if let Ok(lock) = gb.read() {
+                        match lock.dbg_mode {
+                            EmulatorMode::Paused | EmulatorMode::BreakpointHit | EmulatorMode::UnknownInstruction(..) => {
+                                if !app_state.dbg_disassembler_position_adjusted {
+                                    let target = ui.cursor_start_pos()[1] + pc_ui as f32 * (ui.text_line_height() / 2.0);
+
+                                    app_state.dbg_disassembler_position_adjusted = true;
+                                    ui.set_scroll_from_pos_y(target);
+                                }
+                                
+                            }
+                            _ => {}
+                        }
+                    }
                 });
 
                 let gl_window = display.gl_window();
