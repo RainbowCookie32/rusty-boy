@@ -256,6 +256,7 @@ impl GameboyCPU {
         }
 
         match opcode {
+            0x00 => self.nop(),
             0x01 => self.load_u16_to_register(breakpoints, dbg_mode, TargetRegister::BC(false)),
             0x06 => self.load_u8_to_register(breakpoints, dbg_mode, TargetRegister::BC(true)),
             0x0E => self.load_u8_to_register(breakpoints, dbg_mode, TargetRegister::BC(false)),
@@ -303,6 +304,11 @@ impl GameboyCPU {
 
             _ => *dbg_mode = EmulatorMode::UnknownInstruction(true, opcode)
         }
+    }
+
+    fn nop(&mut self) {
+        self.pc += 1;
+        self.cycles += 4;
     }
 
     fn load_u8_to_register(&mut self, bp: &Vec<Breakpoint>, dbg: &mut EmulatorMode, reg: TargetRegister) {

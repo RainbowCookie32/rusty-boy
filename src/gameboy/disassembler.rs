@@ -6,6 +6,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
     let opcode_value = gb_mem.read(address);
 
     match opcode_value {
+        0x00 => (1, String::from("NOP")),
         0x01 => {
             let args = [gb_mem.read(address + 1), gb_mem.read(address + 2)];
             let dis = format!("LD BC, ${:04X}", u16::from_le_bytes(args));
