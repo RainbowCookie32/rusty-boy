@@ -385,10 +385,9 @@ impl GameboyCPU {
             *dbg = EmulatorMode::BreakpointHit;
             return;
         }
-        else {
-            self.pc += 1;
-            self.cycles += 8;
-        }
+        
+        self.pc += 1;
+        self.cycles += 8;
     }
 
     fn store_to_hl_and_dec(&mut self, bp: &Vec<Breakpoint>, dbg: &mut EmulatorMode) {
@@ -399,12 +398,11 @@ impl GameboyCPU {
             *dbg = EmulatorMode::BreakpointHit;
             return;
         }
-        else {
-            self.hl = address.wrapping_sub(1);
+        
+        self.hl = address.wrapping_sub(1);
 
-            self.pc += 1;
-            self.cycles += 8;
-        }
+        self.pc += 1;
+        self.cycles += 8;
     }
 
     fn store_a_to_io_c(&mut self, bp: &Vec<Breakpoint>, dbg: &mut EmulatorMode) {
@@ -415,10 +413,9 @@ impl GameboyCPU {
             *dbg = EmulatorMode::BreakpointHit;
             return;
         }
-        else {
-            self.pc += 1;
-            self.cycles += 8;
-        }
+        
+        self.pc += 1;
+        self.cycles += 8;
     }
 
     fn store_a_to_io_u8(&mut self, bp: &Vec<Breakpoint>, dbg: &mut EmulatorMode) {
