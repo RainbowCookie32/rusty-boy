@@ -19,24 +19,38 @@ use glium::{Display, Surface};
 use glium::glutin::event::{Event, WindowEvent};
 use glium::glutin::event_loop::{ControlFlow, EventLoop};
 
+#[derive(Default)]
 struct AppState {
-    dbg_breakpoint_read: bool,
-    dbg_breakpoint_write: bool,
-    dbg_breakpoint_execute: bool,
-    dbg_breakpoint_input: ImString,
+    debugger: DebuggerState,
+    disassembler: DisassemblerState,
+    memory_viewer: MemoryViewerState
+}
 
-    dbg_breakpoint_edit_read: bool,
-    dbg_breakpoint_edit_write: bool,
-    dbg_breakpoint_edit_execute: bool,
-    dbg_breakpoint_edit_opened: bool,
-    dbg_breakpoint_edit_address: ImString,
-    dbg_breakpoint_edit_selected_idx: usize,
-    
-    dbg_disassembler_position_adjusted: bool,
+#[derive(Default)]
+struct DebuggerState {
+    add_bp_read: bool,
+    add_bp_write: bool,
+    add_bp_execute: bool,
+    add_bp_address: ImString,
 
-    mem_viewer_edit_byte_active: bool,
-    mem_viewer_edit_byte_address: u16,
-    mem_viewer_edit_byte_value: ImString
+    edit_bp_read: bool,
+    edit_bp_write: bool,
+    edit_bp_execute: bool,
+    edit_bp_address: ImString,
+    edit_bp_selected: usize,
+    edit_bp_popup_opened: bool,
+}
+
+#[derive(Default)]
+struct DisassemblerState {
+    should_adjust_cursor: bool
+}
+
+#[derive(Default)]
+struct MemoryViewerState {
+    editing_byte: bool,
+    target_byte_address: u16,
+    target_byte_new_value: ImString
 }
 
 fn main() {
@@ -113,25 +127,7 @@ fn main() {
         }
     });
 
-    let mut app_state = AppState {
-        dbg_breakpoint_read: false,
-        dbg_breakpoint_write: false,
-        dbg_breakpoint_execute: false,
-        dbg_breakpoint_input: ImString::new("FFFF"),
-
-        dbg_breakpoint_edit_read: false,
-        dbg_breakpoint_edit_write: false,
-        dbg_breakpoint_edit_execute: false,
-        dbg_breakpoint_edit_opened: false,
-        dbg_breakpoint_edit_address: ImString::new(""),
-        dbg_breakpoint_edit_selected_idx: 0,
-
-        dbg_disassembler_position_adjusted: false,
-
-        mem_viewer_edit_byte_active: false,
-        mem_viewer_edit_byte_address: 0x0000,
-        mem_viewer_edit_byte_value: ImString::new("")
-    };
+    let mut app_state = AppState::default();
 
     event_loop.run(move | event, _, control_flow| {
         match event {
@@ -143,6 +139,7 @@ fn main() {
             }
             Event::RedrawRequested(_) => {
                 let ui = imgui_ctx.frame();
+                let mut pc_ui = 0;
 
                 Window::new(im_str!("Cartridge Info")).build(&ui, || {
                     if let Ok(lock) = gb.read() {
@@ -164,13 +161,13 @@ fn main() {
                     }
                 });
 
-                let mut pc_ui = 0;
-
                 Window::new(im_str!("CPU Debugger")).build(&ui, || {
                     if let Ok(mut lock) = gb.write() {
                         let (af, bc, de, hl, sp, pc) = lock.ui_get_cpu_registers();
 
                         pc_ui = *pc;
+
+                        ui.columns(2, im_str!("cpu_cols"), true);
 
                         ui.bullet_text(im_str!("CPU Registers"));
                         
@@ -186,6 +183,8 @@ fn main() {
                         ui.same_line(0.0);
                         ui.text(format!("PC: {:04X}", pc));
 
+                        ui.next_column();
+
                         ui.bullet_text(im_str!("CPU Flags"));
 
                         ui.text(format!("ZF: {}", (af & 0x80) != 0));
@@ -195,6 +194,8 @@ fn main() {
                         ui.text(format!("HF: {}", (af & 0x20) != 0));
                         ui.same_line(0.0);
                         ui.text(format!("CF: {}", (af & 0x10) != 0));
+
+                        ui.columns(1, im_str!("cpu_cols"), false);
     
                         ui.separator();
     
@@ -209,7 +210,7 @@ fn main() {
                         else {
                             if ui.button(im_str!("Resume"), [0.0, 0.0]) {
                                 lock.dbg_mode = EmulatorMode::Running;
-                                app_state.dbg_disassembler_position_adjusted = false;
+                                app_state.disassembler.should_adjust_cursor = false;
                             }
                         }
     
@@ -231,8 +232,7 @@ fn main() {
                         ui.bullet_text(im_str!("CPU Breakpoints"));
                         ListBox::new(im_str!("")).size([220.0, 70.0]).build(&ui, || {
                             for (idx, bp) in lock.dbg_breakpoint_list.iter().enumerate() {
-                                let bp_string = format!(
-                                    "{:04X} - {}{}{}",
+                                let bp_string = format!("{:04X} - {}{}{}",
                                     bp.address(),
                                     if *bp.read() {"r"} else {""},
                                     if *bp.write() {"w"} else {""},
@@ -241,57 +241,57 @@ fn main() {
     
                                 if Selectable::new(&ImString::from(bp_string)).allow_double_click(true).build(&ui) {
                                     if ui.is_mouse_double_clicked(MouseButton::Left) {
-                                        app_state.dbg_breakpoint_edit_read = *bp.read();
-                                        app_state.dbg_breakpoint_edit_write = *bp.write();
-                                        app_state.dbg_breakpoint_edit_execute = *bp.execute();
-                                        app_state.dbg_breakpoint_edit_address = ImString::new(format!("{:04X}", bp.address()));
+                                        app_state.debugger.edit_bp_read = *bp.read();
+                                        app_state.debugger.edit_bp_write = *bp.write();
+                                        app_state.debugger.edit_bp_execute = *bp.execute();
+                                        app_state.debugger.edit_bp_address = ImString::new(format!("{:04X}", bp.address()));
 
-                                        app_state.dbg_breakpoint_edit_opened = true;
-                                        app_state.dbg_breakpoint_edit_selected_idx = idx;
+                                        app_state.debugger.edit_bp_selected = idx;
+                                        app_state.debugger.edit_bp_popup_opened = true;
                                     }
                                 }
                             }
                         });
 
-                        if app_state.dbg_breakpoint_edit_opened {
+                        if app_state.debugger.edit_bp_popup_opened {
                             ui.open_popup(im_str!("Edit breakpoint"));
                             ui.popup_modal(im_str!("Edit breakpoint")).build(|| {
-                                ui.input_text(im_str!("Address"), &mut app_state.dbg_breakpoint_edit_address).resize_buffer(true).build();
+                                ui.input_text(im_str!("Address"), &mut app_state.debugger.edit_bp_address).resize_buffer(true).build();
                                 ui.separator();
 
-                                ui.checkbox(im_str!("Read"), &mut app_state.dbg_breakpoint_edit_read);
+                                ui.checkbox(im_str!("Read"), &mut app_state.debugger.edit_bp_read);
                                 ui.same_line(0.0);
-                                ui.checkbox(im_str!("Write"), &mut app_state.dbg_breakpoint_edit_write);
+                                ui.checkbox(im_str!("Write"), &mut app_state.debugger.edit_bp_write);
                                 ui.same_line(0.0);
-                                ui.checkbox(im_str!("Execute"), &mut app_state.dbg_breakpoint_edit_execute);
+                                ui.checkbox(im_str!("Execute"), &mut app_state.debugger.edit_bp_execute);
 
                                 ui.separator();
 
                                 if ui.button(im_str!("Save"), [0.0, 0.0]) {
-                                    if let Some(bp) = lock.dbg_breakpoint_list.get_mut(app_state.dbg_breakpoint_edit_selected_idx) {
-                                        if let Ok(address) = u16::from_str_radix(&app_state.dbg_breakpoint_edit_address.to_string(), 16) {
+                                    if let Some(bp) = lock.dbg_breakpoint_list.get_mut(app_state.debugger.edit_bp_selected) {
+                                        if let Ok(address) = u16::from_str_radix(&app_state.debugger.edit_bp_address.to_string(), 16) {
                                             bp.set_address(address);
                                         }
 
-                                        bp.set_read(app_state.dbg_breakpoint_edit_read);
-                                        bp.set_write(app_state.dbg_breakpoint_edit_write);
-                                        bp.set_execute(app_state.dbg_breakpoint_edit_execute);
+                                        bp.set_read(app_state.debugger.edit_bp_read);
+                                        bp.set_write(app_state.debugger.edit_bp_write);
+                                        bp.set_execute(app_state.debugger.edit_bp_execute);
                                     }
 
-                                    app_state.dbg_breakpoint_edit_opened = false;
+                                    app_state.debugger.edit_bp_popup_opened = false;
                                 }
 
                                 ui.same_line(0.0);
 
                                 if ui.button(im_str!("Remove"), [0.0, 0.0]) {
-                                    lock.dbg_breakpoint_list.remove(app_state.dbg_breakpoint_edit_selected_idx);
-                                    app_state.dbg_breakpoint_edit_opened = false;
+                                    lock.dbg_breakpoint_list.remove(app_state.debugger.edit_bp_selected);
+                                    app_state.debugger.edit_bp_popup_opened = false;
                                 }
 
                                 ui.same_line(0.0);
 
                                 if ui.button(im_str!("Cancel"), [0.0, 0.0]) {
-                                    app_state.dbg_breakpoint_edit_opened = false;
+                                    app_state.debugger.edit_bp_popup_opened = false;
                                 }
                             });
                         }
@@ -299,24 +299,29 @@ fn main() {
                         let submitted_input: bool;
                         let submitted_button: bool;
     
-                        submitted_input = ui.input_text(im_str!(""), &mut app_state.dbg_breakpoint_input).enter_returns_true(true).build();
+                        submitted_input = ui.input_text(im_str!(""), &mut app_state.debugger.add_bp_address).enter_returns_true(true).build();
                         ui.same_line(0.0);
                         submitted_button = ui.button(im_str!("Add"), [0.0, 0.0]);
     
-                        ui.checkbox(im_str!("Read"), &mut app_state.dbg_breakpoint_read);
+                        ui.checkbox(im_str!("Read"), &mut app_state.debugger.add_bp_read);
                         ui.same_line(0.0);
-                        ui.checkbox(im_str!("Write"), &mut app_state.dbg_breakpoint_write);
+                        ui.checkbox(im_str!("Write"), &mut app_state.debugger.add_bp_write);
                         ui.same_line(0.0);
-                        ui.checkbox(im_str!("Execute"), &mut app_state.dbg_breakpoint_execute);
+                        ui.checkbox(im_str!("Execute"), &mut app_state.debugger.add_bp_execute);
     
                         if submitted_input || submitted_button {
-                            if app_state.dbg_breakpoint_read || app_state.dbg_breakpoint_write || app_state.dbg_breakpoint_execute {
-                                if let Ok(address) = u16::from_str_radix(&app_state.dbg_breakpoint_input.to_string(), 16) {
+                            let valid_bp = (app_state.debugger.add_bp_read || 
+                                app_state.debugger.add_bp_write || app_state.debugger.add_bp_execute) && 
+                                !app_state.debugger.add_bp_address.is_empty()
+                            ;
+
+                            if valid_bp {
+                                if let Ok(address) = u16::from_str_radix(&app_state.debugger.add_bp_address.to_string(), 16) {
                                     lock.dbg_breakpoint_list.push(
                                         Breakpoint::new(
-                                            app_state.dbg_breakpoint_read,
-                                            app_state.dbg_breakpoint_write,
-                                            app_state.dbg_breakpoint_execute,
+                                            app_state.debugger.add_bp_read,
+                                            app_state.debugger.add_bp_write,
+                                            app_state.debugger.edit_bp_execute,
                                             address
                                         )
                                     );
@@ -351,7 +356,7 @@ fn main() {
                             let token = ui.push_id(&format!("value{}", idx));
                             let value_address = (current_addr - 8) + idx as u16;
 
-                            if app_state.mem_viewer_edit_byte_active && app_state.mem_viewer_edit_byte_address == value_address {
+                            if app_state.memory_viewer.editing_byte && app_state.memory_viewer.target_byte_address == value_address {
                                 let mut flags = ImGuiInputTextFlags::empty();
 
                                 flags.set(ImGuiInputTextFlags::CharsHexadecimal, true);
@@ -362,21 +367,21 @@ fn main() {
                                 
                                 ui.set_next_item_width(size[0]);
 
-                                if ui.input_text(im_str!("##data"), &mut app_state.mem_viewer_edit_byte_value).flags(flags).resize_buffer(true).build() {
-                                    if let Ok(value) = u8::from_str_radix(&app_state.mem_viewer_edit_byte_value.to_string(), 16) {
+                                if ui.input_text(im_str!("##data"), &mut app_state.memory_viewer.target_byte_new_value).flags(flags).resize_buffer(true).build() {
+                                    if let Ok(value) = u8::from_str_radix(&app_state.memory_viewer.target_byte_new_value.to_string(), 16) {
                                         gb_mem_ui.dbg_write(value_address, value);
                                     }
 
-                                    app_state.mem_viewer_edit_byte_address = 0;
-                                    app_state.mem_viewer_edit_byte_active = false;
-                                    app_state.mem_viewer_edit_byte_value = ImString::new("");
+                                    app_state.memory_viewer.editing_byte = false;
+                                    app_state.memory_viewer.target_byte_address = 0;
+                                    app_state.memory_viewer.target_byte_new_value = ImString::new("");
                                 }
                             }
                             else {
                                 if Selectable::new(&ImString::from(format!("{:02X}", value))).allow_double_click(true).size(size).build(&ui) {
-                                    app_state.mem_viewer_edit_byte_active = true;
-                                    app_state.mem_viewer_edit_byte_value = ImString::from(format!("{:02X}", value));
-                                    app_state.mem_viewer_edit_byte_address = (current_addr - 8) + idx as u16;
+                                    app_state.memory_viewer.editing_byte = true;
+                                    app_state.memory_viewer.target_byte_address = (current_addr - 8) + idx as u16;
+                                    app_state.memory_viewer.target_byte_new_value = ImString::from(format!("{:02X}", value));
                                 }
                             }
 
@@ -513,10 +518,10 @@ fn main() {
                     if let Ok(lock) = gb.read() {
                         match lock.dbg_mode {
                             EmulatorMode::Paused | EmulatorMode::BreakpointHit | EmulatorMode::UnknownInstruction(..) => {
-                                if !app_state.dbg_disassembler_position_adjusted {
+                                if !app_state.disassembler.should_adjust_cursor {
                                     let target = ui.cursor_start_pos()[1] + pc_ui as f32 * (ui.text_line_height() / 2.0);
 
-                                    app_state.dbg_disassembler_position_adjusted = true;
+                                    app_state.disassembler.should_adjust_cursor = true;
                                     ui.set_scroll_from_pos_y(target);
                                 }
                                 
@@ -543,7 +548,7 @@ fn main() {
             Event::WindowEvent { event: WindowEvent::KeyboardInput { input, ..}, ..} => {
                 if let Some(keycode) = input.virtual_keycode {
                     if keycode == glutin::event::VirtualKeyCode::Escape {
-                        app_state.mem_viewer_edit_byte_active = false;
+                        app_state.memory_viewer.editing_byte = false;
                     }
                 }
 
