@@ -2,8 +2,6 @@ pub mod no_mbc;
 
 use std::fmt;
 
-use super::GameboyCart;
-
 pub enum CartridgeType {
     MBC1,
     MBC2,
