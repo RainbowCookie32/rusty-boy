@@ -14,10 +14,10 @@ enum TargetRegister {
 }
 
 enum TargetFlag {
-    Zero,
-    Negative,
-    HalfCarry,
-    Carry
+    Zero(bool),
+    Negative(bool),
+    HalfCarry(bool),
+    Carry(bool)
 }
 
 pub struct GameboyCPU {
@@ -53,18 +53,18 @@ impl GameboyCPU {
 
     fn get_flag(&self, flag: TargetFlag) -> bool {
         match flag {
-            TargetFlag::Zero => (self.af & 0x80) != 0,
-            TargetFlag::Negative => (self.af & 0x40) != 0,
-            TargetFlag::HalfCarry => (self.af & 0x20) != 0,
-            TargetFlag::Carry => (self.af & 0x10) != 0,
+            TargetFlag::Zero(_) => (self.af & 0x80) != 0,
+            TargetFlag::Negative(_) => (self.af & 0x40) != 0,
+            TargetFlag::HalfCarry(_) => (self.af & 0x20) != 0,
+            TargetFlag::Carry(_) => (self.af & 0x10) != 0,
         }
     }
 
-    fn set_flag(&mut self, flag: TargetFlag, value: bool) {
+    fn set_flag(&mut self, flag: TargetFlag) {
         let mut flags = self.af & 0x00FF;
 
         match flag {
-            TargetFlag::Zero => {
+            TargetFlag::Zero(value) => {
                 if value {
                     flags |= 1 << 7;
                 }
@@ -72,7 +72,7 @@ impl GameboyCPU {
                     flags &= !(1 << 7);
                 }
             }
-            TargetFlag::Negative => {
+            TargetFlag::Negative(value) => {
                 if value {
                     flags |= 1 << 6;
                 }
@@ -80,7 +80,7 @@ impl GameboyCPU {
                     flags &= !(1 << 6);
                 }
             }
-            TargetFlag::HalfCarry => {
+            TargetFlag::HalfCarry(value) => {
                 if value {
                     flags |= 1 << 5;
                 }
@@ -88,7 +88,7 @@ impl GameboyCPU {
                     flags &= !(1 << 5);
                 }
             }
-            TargetFlag::Carry => {
+            TargetFlag::Carry(value) => {
                 if value {
                     flags |= 1 << 4;
                 }
@@ -429,9 +429,9 @@ impl GameboyCPU {
 
         self.set_register(reg, result);
         
-        self.set_flag(TargetFlag::Zero, zero);
-        self.set_flag(TargetFlag::Negative, false);
-        self.set_flag(TargetFlag::HalfCarry, half_carry);
+        self.set_flag(TargetFlag::Zero(zero));
+        self.set_flag(TargetFlag::Negative(false));
+        self.set_flag(TargetFlag::HalfCarry(half_carry));
 
         self.pc += 1;
         self.cycles += 4;
@@ -445,10 +445,10 @@ impl GameboyCPU {
 
         self.af = (self.af & 0x00FF) | result as u16;
 
-        self.set_flag(TargetFlag::Zero, result == 0);
-        self.set_flag(TargetFlag::Negative, false);
-        self.set_flag(TargetFlag::HalfCarry, false);
-        self.set_flag(TargetFlag::Carry, false);
+        self.set_flag(TargetFlag::Zero(result == 0));
+        self.set_flag(TargetFlag::Negative(false));
+        self.set_flag(TargetFlag::HalfCarry(false));
+        self.set_flag(TargetFlag::Carry(false));
 
         self.pc += 1;
         self.cycles += 4;
@@ -459,7 +459,7 @@ impl GameboyCPU {
 
         match condition {
             JumpCondition::Zero(set) => {
-                let zf = self.get_flag(TargetFlag::Zero);
+                let zf = self.get_flag(TargetFlag::Zero(false));
 
                 if set {
                     jump = zf;
@@ -469,7 +469,7 @@ impl GameboyCPU {
                 }
             }
             JumpCondition::Carry(set) => {
-                let cf = self.get_flag(TargetFlag::Zero);
+                let cf = self.get_flag(TargetFlag::Zero(false));
 
                 if set {
                     jump = cf;
@@ -504,9 +504,9 @@ impl GameboyCPU {
         let value = self.get_register(&reg);
         let result = (value & (1 << bit)) == 0;
 
-        self.set_flag(TargetFlag::Zero, result);
-        self.set_flag(TargetFlag::Negative, false);
-        self.set_flag(TargetFlag::HalfCarry, true);
+        self.set_flag(TargetFlag::Zero(result));
+        self.set_flag(TargetFlag::Negative(false));
+        self.set_flag(TargetFlag::HalfCarry(true));
 
         self.pc += 2;
         self.cycles += 8;
