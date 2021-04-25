@@ -302,6 +302,7 @@ impl GameboyCPU {
 
             0xCB => self.execute_instruction_prefixed(breakpoints, dbg_mode),
 
+            0xE0 => self.store_a_to_io_u8(breakpoints, dbg_mode),
             0xE2 => self.store_a_to_io_c(breakpoints, dbg_mode),
 
             _ => *dbg_mode = EmulatorMode::UnknownInstruction(false, opcode)
@@ -418,6 +419,26 @@ impl GameboyCPU {
             self.pc += 1;
             self.cycles += 8;
         }
+    }
+
+    fn store_a_to_io_u8(&mut self, bp: &Vec<Breakpoint>, dbg: &mut EmulatorMode) {
+        let (bp_hit, offset) = self.read_u8(self.pc + 1, bp);
+
+        if bp_hit {
+            *dbg = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        let address = 0xFF00 + offset as u16;
+        let value = self.get_register(&TargetRegister::AF(true));
+
+        if self.write(address, value, bp) {
+            *dbg = EmulatorMode::BreakpointHit;
+            return;
+        }
+        
+        self.pc += 2;
+        self.cycles += 12;
     }
 
     fn inc_register(&mut self, reg: TargetRegister) {
