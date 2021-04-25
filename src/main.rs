@@ -333,9 +333,9 @@ fn main() {
 
                 Window::new(im_str!("Memory Viewer")).build(&ui, || {
                     let style_padding = ui.push_style_var(StyleVar::FramePadding([0.0, 0.0]));
-                    let style_spacing = ui.push_style_var(StyleVar::ItemSpacing([0.0, 0.0]));
+                    let style_spacing = ui.push_style_var(StyleVar::ItemSpacing([5.0, 1.0]));
 
-                    let size = ui.calc_text_size(im_str!("FFF"), false, 0.0);
+                    let size = ui.calc_text_size(im_str!("FF"), false, 0.0);
                     let mut clipper = ListClipper::new(0xFFFF / 8).items_height(ui.text_line_height() / 2.0).begin(&ui);
                     clipper.step();
 
@@ -348,7 +348,7 @@ fn main() {
                             current_addr += 1;
                         }
 
-                        ui.text(format!("{:04X} | ", current_addr - 8));
+                        ui.text(format!("{:04X} |", current_addr - 8));
 
                         ui.same_line(0.0);
 
