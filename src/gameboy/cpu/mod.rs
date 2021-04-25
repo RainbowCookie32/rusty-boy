@@ -284,6 +284,14 @@ impl GameboyCPU {
             0x3C => self.inc_register(TargetRegister::AF(true)),
             0x3E => self.load_u8_to_register(breakpoints, dbg_mode, TargetRegister::AF(true)),
 
+            0x70 => self.store_register_to_hl(breakpoints, dbg_mode, TargetRegister::BC(true)),
+            0x71 => self.store_register_to_hl(breakpoints, dbg_mode, TargetRegister::BC(false)),
+            0x72 => self.store_register_to_hl(breakpoints, dbg_mode, TargetRegister::DE(true)),
+            0x73 => self.store_register_to_hl(breakpoints, dbg_mode, TargetRegister::DE(false)),
+            0x74 => self.store_register_to_hl(breakpoints, dbg_mode, TargetRegister::HL(true)),
+            0x75 => self.store_register_to_hl(breakpoints, dbg_mode, TargetRegister::HL(false)),
+            0x77 => self.store_register_to_hl(breakpoints, dbg_mode, TargetRegister::AF(true)),
+
             0xA8 => self.xor_register(TargetRegister::BC(true)),
             0xA9 => self.xor_register(TargetRegister::BC(false)),
             0xAA => self.xor_register(TargetRegister::DE(true)),
@@ -334,6 +342,20 @@ impl GameboyCPU {
         self.cycles += 8;
     }
 
+    fn load_u8_to_register_from_hl(&mut self, bp: &Vec<Breakpoint>, dbg: &mut EmulatorMode, reg: TargetRegister) {
+        let (bp_hit, value) = self.read_u8(self.hl, bp);
+
+        if bp_hit {
+            *dbg = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        self.set_register(reg, value);
+
+        self.pc += 1;
+        self.cycles += 8;
+    }
+
     fn load_u16_to_register(&mut self, bp: &Vec<Breakpoint>, dbg: &mut EmulatorMode, reg: TargetRegister) {
         let (bp_hit, value) = self.read_u16(self.pc + 1, bp);
 
@@ -352,6 +374,20 @@ impl GameboyCPU {
 
         self.pc += 3;
         self.cycles += 12;
+    }
+
+    fn store_register_to_hl(&mut self, bp: &Vec<Breakpoint>, dbg: &mut EmulatorMode, reg: TargetRegister) {
+        let value = self.get_register(&reg);
+        let address = self.hl;
+        
+        if self.write(address, value, bp) {
+            *dbg = EmulatorMode::BreakpointHit;
+            return;
+        }
+        else {
+            self.pc += 1;
+            self.cycles += 8;
+        }
     }
 
     fn store_to_hl_and_dec(&mut self, bp: &Vec<Breakpoint>, dbg: &mut EmulatorMode) {

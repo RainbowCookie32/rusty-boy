@@ -91,6 +91,14 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
             (2, dis)
         }
 
+        0x70 => (1, String::from("LD (HL), B")),
+        0x71 => (1, String::from("LD (HL), C")),
+        0x72 => (1, String::from("LD (HL), D")),
+        0x73 => (1, String::from("LD (HL), E")),
+        0x74 => (1, String::from("LD (HL), H")),
+        0x75 => (1, String::from("LD (HL), L")),
+        0x77 => (1, String::from("LD (HL), A")),
+
         0xA8 => (1, String::from("XOR A, B")),
         0xA9 => (1, String::from("XOR A, C")),
         0xAA => (1, String::from("XOR A, D")),
