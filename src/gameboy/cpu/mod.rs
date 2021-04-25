@@ -101,10 +101,10 @@ impl GameboyCPU {
         self.af = (self.af & 0xFF00) | flags;
     }
 
-    fn get_register(&self, reg: TargetRegister) -> u8 {
+    fn get_register(&self, reg: &TargetRegister) -> u8 {
         match reg {
             TargetRegister::AF(high) => {
-                if high {
+                if *high {
                     ((self.af & 0xFF00) >> 8) as u8
                 }
                 else {
@@ -112,7 +112,7 @@ impl GameboyCPU {
                 }
             }
             TargetRegister::BC(high) => {
-                if high {
+                if *high {
                     ((self.bc & 0xFF00) >> 8) as u8
                 }
                 else {
@@ -120,7 +120,7 @@ impl GameboyCPU {
                 }
             }
             TargetRegister::DE(high) => {
-                if high {
+                if *high {
                     ((self.de & 0xFF00) >> 8) as u8
                 }
                 else {
@@ -128,7 +128,7 @@ impl GameboyCPU {
                 }
             }
             TargetRegister::HL(high) => {
-                if high {
+                if *high {
                     ((self.hl & 0xFF00) >> 8) as u8
                 }
                 else {
@@ -258,23 +258,30 @@ impl GameboyCPU {
         match opcode {
             0x00 => self.nop(),
             0x01 => self.load_u16_to_register(breakpoints, dbg_mode, TargetRegister::BC(false)),
+            0x04 => self.inc_register(TargetRegister::BC(true)),
             0x06 => self.load_u8_to_register(breakpoints, dbg_mode, TargetRegister::BC(true)),
+            0x0C => self.inc_register(TargetRegister::BC(false)),
             0x0E => self.load_u8_to_register(breakpoints, dbg_mode, TargetRegister::BC(false)),
 
             0x11 => self.load_u16_to_register(breakpoints, dbg_mode, TargetRegister::DE(false)),
+            0x14 => self.inc_register(TargetRegister::DE(true)),
             0x16 => self.load_u8_to_register(breakpoints, dbg_mode, TargetRegister::DE(true)),
+            0x1C => self.inc_register(TargetRegister::DE(false)),
             0x1E => self.load_u8_to_register(breakpoints, dbg_mode, TargetRegister::DE(false)),
 
             0x20 => self.conditional_jump_relative(breakpoints, dbg_mode, JumpCondition::Zero(false)),
             0x21 => self.load_u16_to_register(breakpoints, dbg_mode, TargetRegister::HL(false)),
+            0x24 => self.inc_register(TargetRegister::HL(true)),
             0x26 => self.load_u8_to_register(breakpoints, dbg_mode, TargetRegister::HL(true)),
             0x28 => self.conditional_jump_relative(breakpoints, dbg_mode, JumpCondition::Zero(true)),
+            0x2C => self.inc_register(TargetRegister::HL(false)),
             0x2E => self.load_u8_to_register(breakpoints, dbg_mode, TargetRegister::HL(false)),
 
             0x30 => self.conditional_jump_relative(breakpoints, dbg_mode, JumpCondition::Carry(false)),
             0x31 => self.load_u16_to_register(breakpoints, dbg_mode, TargetRegister::SP),
             0x32 => self.store_to_hl_and_dec(breakpoints, dbg_mode),
             0x38 => self.conditional_jump_relative(breakpoints, dbg_mode, JumpCondition::Carry(true)),
+            0x3C => self.inc_register(TargetRegister::AF(true)),
             0x3E => self.load_u8_to_register(breakpoints, dbg_mode, TargetRegister::AF(true)),
 
             0xA8 => self.xor_register(TargetRegister::BC(true)),
@@ -348,7 +355,7 @@ impl GameboyCPU {
     }
 
     fn store_to_hl_and_dec(&mut self, bp: &Vec<Breakpoint>, dbg: &mut EmulatorMode) {
-        let value = self.get_register(TargetRegister::AF(true));
+        let value = self.get_register(&TargetRegister::AF(true));
         let address = self.hl;
         
         if self.write(address, value, bp) {
@@ -364,8 +371,8 @@ impl GameboyCPU {
     }
 
     fn store_a_to_io_c(&mut self, bp: &Vec<Breakpoint>, dbg: &mut EmulatorMode) {
-        let value = self.get_register(TargetRegister::AF(true));
-        let address = 0xFF00 + self.get_register(TargetRegister::BC(false)) as u16;
+        let value = self.get_register(&TargetRegister::AF(true));
+        let address = 0xFF00 + self.get_register(&TargetRegister::BC(false)) as u16;
 
         if self.write(address, value, bp) {
             *dbg = EmulatorMode::BreakpointHit;
@@ -377,9 +384,26 @@ impl GameboyCPU {
         }
     }
 
+    fn inc_register(&mut self, reg: TargetRegister) {
+        let value = self.get_register(&reg);
+        let result = value.wrapping_add(1);
+
+        let zero = result == 0;
+        let half_carry = (value & 0x0F) + 1 > 0x0F;
+
+        self.set_register(reg, result);
+        
+        self.set_flag(TargetFlag::Zero, zero);
+        self.set_flag(TargetFlag::Negative, false);
+        self.set_flag(TargetFlag::HalfCarry, half_carry);
+
+        self.pc += 1;
+        self.cycles += 4;
+    }
+
     fn xor_register(&mut self, reg: TargetRegister) {
-        let value = self.get_register(reg);
-        let target = self.get_register(TargetRegister::AF(true));
+        let value = self.get_register(&reg);
+        let target = self.get_register(&TargetRegister::AF(true));
 
         let result = value ^ target;
 
@@ -441,7 +465,7 @@ impl GameboyCPU {
     }
 
     fn bit_register(&mut self, reg: TargetRegister, bit: u8) {
-        let value = self.get_register(reg);
+        let value = self.get_register(&reg);
         let result = (value & (1 << bit)) == 0;
 
         self.set_flag(TargetFlag::Zero, result);
