@@ -94,6 +94,8 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
 
         0xCB => get_instruction_data_prefixed(address, gb_mem),
 
+        0xE2 => (1, String::from("LD (FF00+C), A")),
+
         _ => (1, format!("??? (${:02X})", opcode_value))
     }
 }
