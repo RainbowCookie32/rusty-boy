@@ -110,6 +110,12 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
         0xAF => (1, String::from("XOR A, A")),
 
         0xCB => get_instruction_data_prefixed(address, gb_mem),
+        0xCD => {
+            let args = [gb_mem.read(address + 1), gb_mem.read(address + 2)];
+            let dis = format!("CALL ${:04X}", u16::from_le_bytes(args));
+
+            (3, dis)
+        }
 
         0xE0 => {
             let offset = gb_mem.read(address + 1);
