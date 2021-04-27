@@ -224,6 +224,39 @@ impl GameboyCPU {
         false
     }
 
+    fn stack_read(&mut self, breakpoints: &Vec<Breakpoint>) -> (bool, u16) {
+        let mut found_bp = false;
+        let matching_bps: Vec<&Breakpoint> = breakpoints.iter().filter(|b| *b.address() == self.sp - 1 || *b.address() == self.sp - 2).collect();
+
+        for bp in matching_bps {
+            if *bp.read() {
+                found_bp = true;
+                break;
+            }
+        }
+
+        let values = [self.memory.read(self.sp - 1), self.memory.read(self.sp - 2)];
+        self.sp -= 2;
+
+        (found_bp, u16::from_le_bytes(values))
+    }
+
+    fn stack_write(&mut self, value: u16, breakpoints: &Vec<Breakpoint>) -> bool {
+        let bytes = value.to_le_bytes();
+
+        self.sp -= 1;
+        if self.write(self.sp, bytes[0], breakpoints) {
+            return true;
+        }
+
+        self.sp -= 1;
+        if self.write(self.sp, bytes[1], breakpoints) {
+            return true;
+        }
+
+        false
+    }
+
     pub fn reset(&mut self) {
         self.af = 0;
         self.bc = 0;
