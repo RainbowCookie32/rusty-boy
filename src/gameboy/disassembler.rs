@@ -20,7 +20,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
 
             (2, dis)
         }
-        0x1A => (1, String::from("LD A, (BC)")),
+        0x0A => (1, String::from("LD A, (BC)")),
         0x0C => (1, String::from("INC C")),
         0x0E => {
             let value = gb_mem.read(address + 1);
