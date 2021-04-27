@@ -260,12 +260,14 @@ impl GameboyCPU {
             0x01 => self.load_u16_to_register(breakpoints, dbg_mode, TargetRegister::BC(false)),
             0x04 => self.inc_register(TargetRegister::BC(true)),
             0x06 => self.load_u8_to_register(breakpoints, dbg_mode, TargetRegister::BC(true)),
+            0x0A => self.load_a_from_register(breakpoints, dbg_mode, TargetRegister::BC(false)),
             0x0C => self.inc_register(TargetRegister::BC(false)),
             0x0E => self.load_u8_to_register(breakpoints, dbg_mode, TargetRegister::BC(false)),
 
             0x11 => self.load_u16_to_register(breakpoints, dbg_mode, TargetRegister::DE(false)),
             0x14 => self.inc_register(TargetRegister::DE(true)),
             0x16 => self.load_u8_to_register(breakpoints, dbg_mode, TargetRegister::DE(true)),
+            0x1A => self.load_a_from_register(breakpoints, dbg_mode, TargetRegister::DE(false)),
             0x1C => self.inc_register(TargetRegister::DE(false)),
             0x1E => self.load_u8_to_register(breakpoints, dbg_mode, TargetRegister::DE(false)),
 
@@ -410,6 +412,27 @@ impl GameboyCPU {
         }
 
         self.set_register(reg, value);
+
+        self.pc += 1;
+        self.cycles += 8;
+    }
+
+    fn load_a_from_register(&mut self, bp: &Vec<Breakpoint>, dbg: &mut EmulatorMode, reg: TargetRegister) {
+        let address = {
+            match reg {
+                TargetRegister::BC(_) => self.bc,
+                TargetRegister::DE(_) => self.de,
+                _ => unreachable!()
+            }
+        };
+        let (bp_hit, value) = self.read_u8(address, bp);
+
+        if bp_hit {
+            *dbg = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        self.set_register(TargetRegister::AF(true), value);
 
         self.pc += 1;
         self.cycles += 8;
