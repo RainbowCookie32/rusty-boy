@@ -20,6 +20,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
 
             (2, dis)
         }
+        0x08 => (3, format!("??? (${:02X})", opcode_value)),
         0x0A => (1, String::from("LD A, (BC)")),
         0x0C => (1, String::from("INC C")),
         0x0E => {
@@ -29,6 +30,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
             (2, dis)
         }
 
+        0x10 => (2, format!("??? (${:02X})", opcode_value)),
         0x11 => {
             let args = [gb_mem.read(address + 1), gb_mem.read(address + 2)];
             let dis = format!("LD DE, ${:04X}", u16::from_le_bytes(args));
@@ -42,6 +44,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
 
             (2, dis)
         }
+        0x18 => (2, format!("??? (${:02X})", opcode_value)),
         0x1A => (1, String::from("LD A, (DE)")),
         0x1C => (1, String::from("INC E")),
         0x1E => {
@@ -70,6 +73,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
 
             (2, dis)
         }
+        0x28 => (2, format!("??? (${:02X})", opcode_value)),
         0x2C => (1, String::from("INC L")),
         0x2E => {
             let value = gb_mem.read(address + 1);
@@ -78,6 +82,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
             (2, dis)
         }
 
+        0x30 => (2, format!("??? (${:02X})", opcode_value)),
         0x31 => {
             let args = [gb_mem.read(address + 1), gb_mem.read(address + 2)];
             let dis = format!("LD SP, ${:04X}", u16::from_le_bytes(args));
@@ -85,6 +90,8 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
             (3, dis)
         }
         0x32 => (1, String::from("LD [HL-], A")),
+        0x36 => (2, format!("??? (${:02X})", opcode_value)),
+        0x38 => (2, format!("??? (${:02X})", opcode_value)),
         0x3C => (1, String::from("INC A")),
         0x3E => {
             let value = gb_mem.read(address + 1);
@@ -109,13 +116,27 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
         0xAD => (1, String::from("XOR A, L")),
         0xAF => (1, String::from("XOR A, A")),
 
+        0xC2 => (3, format!("??? (${:02X})", opcode_value)),
+        0xC3 => (3, format!("??? (${:02X})", opcode_value)),
+        0xC4 => (3, format!("??? (${:02X})", opcode_value)),
+        0xC6 => (2, format!("??? (${:02X})", opcode_value)),
+        0xCA => (3, format!("??? (${:02X})", opcode_value)),
         0xCB => get_instruction_data_prefixed(address, gb_mem),
+        0xCC => (3, format!("??? (${:02X})", opcode_value)),
         0xCD => {
             let args = [gb_mem.read(address + 1), gb_mem.read(address + 2)];
             let dis = format!("CALL ${:04X}", u16::from_le_bytes(args));
 
             (3, dis)
         }
+        0xCE => (2, format!("??? (${:02X})", opcode_value)),
+
+        0xD2 => (3, format!("??? (${:02X})", opcode_value)),
+        0xD4 => (3, format!("??? (${:02X})", opcode_value)),
+        0xD6 => (2, format!("??? (${:02X})", opcode_value)),
+        0xDA => (3, format!("??? (${:02X})", opcode_value)),
+        0xDC => (3, format!("??? (${:02X})", opcode_value)),
+        0xDE => (2, format!("??? (${:02X})", opcode_value)),
 
         0xE0 => {
             let offset = gb_mem.read(address + 1);
@@ -125,6 +146,16 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
             (2, dis)
         }
         0xE2 => (1, String::from("LD (FF00+C), A")),
+        0xE6 => (2, format!("??? (${:02X})", opcode_value)),
+        0xE8 => (2, format!("??? (${:02X})", opcode_value)),
+        0xEA => (3, format!("??? (${:02X})", opcode_value)),
+        0xEE => (2, format!("??? (${:02X})", opcode_value)),
+
+        0xF0 => (2, format!("??? (${:02X})", opcode_value)),
+        0xF6 => (2, format!("??? (${:02X})", opcode_value)),
+        0xF8 => (2, format!("??? (${:02X})", opcode_value)),
+        0xFA => (2, format!("??? (${:02X})", opcode_value)),
+        0xFE => (2, format!("??? (${:02X})", opcode_value)),
 
         _ => (1, format!("??? (${:02X})", opcode_value))
     }
