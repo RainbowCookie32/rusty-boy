@@ -44,6 +44,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
 
             (2, dis)
         }
+        0x17 => (1, String::from("RLA")),
         0x18 => (2, format!("??? (${:02X})", opcode_value)),
         0x1A => (1, String::from("LD A, (DE)")),
         0x1C => (1, String::from("INC E")),
@@ -168,6 +169,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
         0xAD => (1, String::from("XOR A, L")),
         0xAF => (1, String::from("XOR A, A")),
 
+        0xC1 => (1, String::from("POP BC")),
         0xC2 => (3, format!("??? (${:02X})", opcode_value)),
         0xC3 => (3, format!("??? (${:02X})", opcode_value)),
         0xC4 => (3, format!("??? (${:02X})", opcode_value)),
@@ -184,6 +186,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
         }
         0xCE => (2, format!("??? (${:02X})", opcode_value)),
 
+        0xD1 => (1, String::from("POP DE")),
         0xD5 => (1, String::from("PUSH DE")),
         0xD2 => (3, format!("??? (${:02X})", opcode_value)),
         0xD4 => (3, format!("??? (${:02X})", opcode_value)),
@@ -199,6 +202,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
 
             (2, dis)
         }
+        0xE1 => (1, String::from("POP HL")),
         0xE2 => (1, String::from("LD (FF00+C), A")),
         0xE5 => (1, String::from("PUSH HL")),
         0xE6 => (2, format!("??? (${:02X})", opcode_value)),
@@ -207,6 +211,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
         0xEE => (2, format!("??? (${:02X})", opcode_value)),
 
         0xF0 => (2, format!("??? (${:02X})", opcode_value)),
+        0xF1 => (1, String::from("POP AF")),
         0xF5 => (1, String::from("PUSH AF")),
         0xF6 => (2, format!("??? (${:02X})", opcode_value)),
         0xF8 => (2, format!("??? (${:02X})", opcode_value)),
