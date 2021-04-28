@@ -311,6 +311,7 @@ impl GameboyCPU {
         match opcode {
             0x00 => self.nop(),
             0x01 => self.load_u16_to_rp(breakpoints, dbg_mode, Register::BC(false)),
+            0x03 => self.inc_rp(Register::BC(false)),
             0x04 => self.inc_r8(Register::BC(true)),
             0x05 => self.dec_r8(Register::BC(true)),
             0x06 => self.load_u8_to_r8(breakpoints, dbg_mode, Register::BC(true)),
@@ -320,6 +321,7 @@ impl GameboyCPU {
             0x0E => self.load_u8_to_r8(breakpoints, dbg_mode, Register::BC(false)),
 
             0x11 => self.load_u16_to_rp(breakpoints, dbg_mode, Register::DE(false)),
+            0x13 => self.inc_rp(Register::DE(false)),
             0x14 => self.inc_r8(Register::DE(true)),
             0x15 => self.dec_r8(Register::DE(true)),
             0x16 => self.load_u8_to_r8(breakpoints, dbg_mode, Register::DE(true)),
@@ -332,6 +334,7 @@ impl GameboyCPU {
             0x20 => self.conditional_jump_relative(breakpoints, dbg_mode, JumpCondition::Zero(false)),
             0x21 => self.load_u16_to_rp(breakpoints, dbg_mode, Register::HL(false)),
             0x22 => self.store_to_hl_and_inc(breakpoints, dbg_mode),
+            0x23 => self.inc_rp(Register::HL(false)),
             0x24 => self.inc_r8(Register::HL(true)),
             0x25 => self.dec_r8(Register::HL(true)),
             0x26 => self.load_u8_to_r8(breakpoints, dbg_mode, Register::HL(true)),
@@ -343,6 +346,7 @@ impl GameboyCPU {
             0x30 => self.conditional_jump_relative(breakpoints, dbg_mode, JumpCondition::Carry(false)),
             0x31 => self.load_u16_to_rp(breakpoints, dbg_mode, Register::SP),
             0x32 => self.store_to_hl_and_dec(breakpoints, dbg_mode),
+            0x33 => self.inc_rp(Register::SP),
             0x38 => self.conditional_jump_relative(breakpoints, dbg_mode, JumpCondition::Carry(true)),
             0x3C => self.inc_r8(Register::AF(true)),
             0x3D => self.dec_r8(Register::AF(true)),
@@ -686,6 +690,15 @@ impl GameboyCPU {
 
         self.pc += 1;
         self.cycles += 16;
+    }
+
+    fn inc_rp(&mut self, reg: Register) {
+        let value = self.get_rp(&reg);
+
+        self.set_rp(reg, value.wrapping_add(1));
+        
+        self.pc += 1;
+        self.cycles += 8;
     }
 
     fn inc_r8(&mut self, reg: Register) {
