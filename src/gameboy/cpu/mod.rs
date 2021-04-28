@@ -319,6 +319,51 @@ impl GameboyCPU {
             0x3C => self.inc_register(TargetRegister::AF(true)),
             0x3E => self.load_u8_to_register(breakpoints, dbg_mode, TargetRegister::AF(true)),
 
+            0x40 => self.load_register_to_register(TargetRegister::BC(true), TargetRegister::BC(true)),
+            0x41 => self.load_register_to_register(TargetRegister::BC(true), TargetRegister::BC(false)),
+            0x42 => self.load_register_to_register(TargetRegister::BC(true), TargetRegister::DE(true)),
+            0x43 => self.load_register_to_register(TargetRegister::BC(true), TargetRegister::DE(false)),
+            0x44 => self.load_register_to_register(TargetRegister::BC(true), TargetRegister::HL(true)),
+            0x45 => self.load_register_to_register(TargetRegister::BC(true), TargetRegister::HL(false)),
+            0x47 => self.load_register_to_register(TargetRegister::BC(true), TargetRegister::AF(true)),
+            0x48 => self.load_register_to_register(TargetRegister::BC(false), TargetRegister::BC(true)),
+            0x49 => self.load_register_to_register(TargetRegister::BC(false), TargetRegister::BC(false)),
+            0x4A => self.load_register_to_register(TargetRegister::BC(false), TargetRegister::DE(true)),
+            0x4B => self.load_register_to_register(TargetRegister::BC(false), TargetRegister::DE(false)),
+            0x4C => self.load_register_to_register(TargetRegister::BC(false), TargetRegister::HL(true)),
+            0x4D => self.load_register_to_register(TargetRegister::BC(false), TargetRegister::HL(false)),
+            0x4F => self.load_register_to_register(TargetRegister::BC(false), TargetRegister::AF(true)),
+
+            0x50 => self.load_register_to_register(TargetRegister::DE(true), TargetRegister::BC(true)),
+            0x51 => self.load_register_to_register(TargetRegister::DE(true), TargetRegister::BC(false)),
+            0x52 => self.load_register_to_register(TargetRegister::DE(true), TargetRegister::DE(true)),
+            0x53 => self.load_register_to_register(TargetRegister::DE(true), TargetRegister::DE(false)),
+            0x54 => self.load_register_to_register(TargetRegister::DE(true), TargetRegister::HL(true)),
+            0x55 => self.load_register_to_register(TargetRegister::DE(true), TargetRegister::HL(false)),
+            0x57 => self.load_register_to_register(TargetRegister::DE(true), TargetRegister::AF(true)),
+            0x58 => self.load_register_to_register(TargetRegister::DE(false), TargetRegister::BC(true)),
+            0x59 => self.load_register_to_register(TargetRegister::DE(false), TargetRegister::BC(false)),
+            0x5A => self.load_register_to_register(TargetRegister::DE(false), TargetRegister::DE(true)),
+            0x5B => self.load_register_to_register(TargetRegister::DE(false), TargetRegister::DE(false)),
+            0x5C => self.load_register_to_register(TargetRegister::DE(false), TargetRegister::HL(true)),
+            0x5D => self.load_register_to_register(TargetRegister::DE(false), TargetRegister::HL(false)),
+            0x5F => self.load_register_to_register(TargetRegister::DE(false), TargetRegister::AF(true)),
+
+            0x60 => self.load_register_to_register(TargetRegister::HL(true), TargetRegister::BC(true)),
+            0x61 => self.load_register_to_register(TargetRegister::HL(true), TargetRegister::BC(false)),
+            0x62 => self.load_register_to_register(TargetRegister::HL(true), TargetRegister::DE(true)),
+            0x63 => self.load_register_to_register(TargetRegister::HL(true), TargetRegister::DE(false)),
+            0x64 => self.load_register_to_register(TargetRegister::HL(true), TargetRegister::HL(true)),
+            0x65 => self.load_register_to_register(TargetRegister::HL(true), TargetRegister::HL(false)),
+            0x67 => self.load_register_to_register(TargetRegister::HL(true), TargetRegister::AF(true)),
+            0x68 => self.load_register_to_register(TargetRegister::HL(false), TargetRegister::BC(true)),
+            0x69 => self.load_register_to_register(TargetRegister::HL(false), TargetRegister::BC(false)),
+            0x6A => self.load_register_to_register(TargetRegister::HL(false), TargetRegister::DE(true)),
+            0x6B => self.load_register_to_register(TargetRegister::HL(false), TargetRegister::DE(false)),
+            0x6C => self.load_register_to_register(TargetRegister::HL(false), TargetRegister::HL(true)),
+            0x6D => self.load_register_to_register(TargetRegister::HL(false), TargetRegister::HL(false)),
+            0x6F => self.load_register_to_register(TargetRegister::HL(false), TargetRegister::AF(true)),
+
             0x70 => self.store_register_to_hl(breakpoints, dbg_mode, TargetRegister::BC(true)),
             0x71 => self.store_register_to_hl(breakpoints, dbg_mode, TargetRegister::BC(false)),
             0x72 => self.store_register_to_hl(breakpoints, dbg_mode, TargetRegister::DE(true)),
@@ -326,6 +371,13 @@ impl GameboyCPU {
             0x74 => self.store_register_to_hl(breakpoints, dbg_mode, TargetRegister::HL(true)),
             0x75 => self.store_register_to_hl(breakpoints, dbg_mode, TargetRegister::HL(false)),
             0x77 => self.store_register_to_hl(breakpoints, dbg_mode, TargetRegister::AF(true)),
+            0x78 => self.load_register_to_register(TargetRegister::AF(true), TargetRegister::BC(true)),
+            0x79 => self.load_register_to_register(TargetRegister::AF(true), TargetRegister::BC(false)),
+            0x7A => self.load_register_to_register(TargetRegister::AF(true), TargetRegister::DE(true)),
+            0x7B => self.load_register_to_register(TargetRegister::AF(true), TargetRegister::DE(false)),
+            0x7C => self.load_register_to_register(TargetRegister::AF(true), TargetRegister::HL(true)),
+            0x7D => self.load_register_to_register(TargetRegister::AF(true), TargetRegister::HL(false)),
+            0x7F => self.load_register_to_register(TargetRegister::AF(true), TargetRegister::AF(true)),
 
             0xA8 => self.xor_register(TargetRegister::BC(true)),
             0xA9 => self.xor_register(TargetRegister::BC(false)),
@@ -490,6 +542,13 @@ impl GameboyCPU {
 
         self.pc += 3;
         self.cycles += 12;
+    }
+
+    fn load_register_to_register(&mut self, target: TargetRegister, source: TargetRegister) {
+        self.set_register(target, self.get_register(&source));
+        
+        self.pc += 1;
+        self.cycles += 4;
     }
 
     fn store_register_to_hl(&mut self, bp: &Vec<Breakpoint>, dbg: &mut EmulatorMode, reg: TargetRegister) {
