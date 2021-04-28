@@ -387,11 +387,17 @@ impl GameboyCPU {
             0xAD => self.xor_register(TargetRegister::HL(false)),
             0xAF => self.xor_register(TargetRegister::AF(true)),
 
+            0xC5 => self.push_register(breakpoints, dbg_mode, TargetRegister::BC(false)),
             0xCB => self.execute_instruction_prefixed(breakpoints, dbg_mode),
             0xCD => self.call(breakpoints, dbg_mode),
 
+            0xD5 => self.push_register(breakpoints, dbg_mode, TargetRegister::DE(false)),
+
             0xE0 => self.store_a_to_io_u8(breakpoints, dbg_mode),
             0xE2 => self.store_a_to_io_c(breakpoints, dbg_mode),
+            0xE5 => self.push_register(breakpoints, dbg_mode, TargetRegister::HL(false)),
+
+            0xF5 => self.push_register(breakpoints, dbg_mode, TargetRegister::AF(false)),
 
             _ => *dbg_mode = EmulatorMode::UnknownInstruction(false, opcode)
         }
@@ -610,6 +616,24 @@ impl GameboyCPU {
         
         self.pc += 2;
         self.cycles += 12;
+    }
+
+    fn push_register(&mut self, bp: &Vec<Breakpoint>, dbg: &mut EmulatorMode, register: TargetRegister) {
+        let value = match register {
+            TargetRegister::AF(_) => self.af,
+            TargetRegister::BC(_) => self.bc,
+            TargetRegister::DE(_) => self.de,
+            TargetRegister::HL(_) => self.hl,
+            _ => unreachable!()
+        };
+
+        if self.stack_write(value, bp) {
+            *dbg = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        self.pc += 1;
+        self.cycles += 16;
     }
 
     fn inc_register(&mut self, reg: TargetRegister) {
