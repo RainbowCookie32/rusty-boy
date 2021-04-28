@@ -292,25 +292,31 @@ impl GameboyCPU {
             0x00 => self.nop(),
             0x01 => self.load_u16_to_register(breakpoints, dbg_mode, TargetRegister::BC(false)),
             0x04 => self.inc_register(TargetRegister::BC(true)),
+            0x05 => self.dec_register(TargetRegister::BC(true)),
             0x06 => self.load_u8_to_register(breakpoints, dbg_mode, TargetRegister::BC(true)),
             0x0A => self.load_a_from_register(breakpoints, dbg_mode, TargetRegister::BC(false)),
             0x0C => self.inc_register(TargetRegister::BC(false)),
+            0x0D => self.dec_register(TargetRegister::BC(false)),
             0x0E => self.load_u8_to_register(breakpoints, dbg_mode, TargetRegister::BC(false)),
 
             0x11 => self.load_u16_to_register(breakpoints, dbg_mode, TargetRegister::DE(false)),
             0x14 => self.inc_register(TargetRegister::DE(true)),
+            0x15 => self.dec_register(TargetRegister::DE(true)),
             0x16 => self.load_u8_to_register(breakpoints, dbg_mode, TargetRegister::DE(true)),
             0x17 => self.rla(),
             0x1A => self.load_a_from_register(breakpoints, dbg_mode, TargetRegister::DE(false)),
             0x1C => self.inc_register(TargetRegister::DE(false)),
+            0x1D => self.dec_register(TargetRegister::DE(false)),
             0x1E => self.load_u8_to_register(breakpoints, dbg_mode, TargetRegister::DE(false)),
 
             0x20 => self.conditional_jump_relative(breakpoints, dbg_mode, JumpCondition::Zero(false)),
             0x21 => self.load_u16_to_register(breakpoints, dbg_mode, TargetRegister::HL(false)),
             0x24 => self.inc_register(TargetRegister::HL(true)),
+            0x25 => self.dec_register(TargetRegister::HL(true)),
             0x26 => self.load_u8_to_register(breakpoints, dbg_mode, TargetRegister::HL(true)),
             0x28 => self.conditional_jump_relative(breakpoints, dbg_mode, JumpCondition::Zero(true)),
             0x2C => self.inc_register(TargetRegister::HL(false)),
+            0x2D => self.dec_register(TargetRegister::HL(false)),
             0x2E => self.load_u8_to_register(breakpoints, dbg_mode, TargetRegister::HL(false)),
 
             0x30 => self.conditional_jump_relative(breakpoints, dbg_mode, JumpCondition::Carry(false)),
@@ -318,6 +324,7 @@ impl GameboyCPU {
             0x32 => self.store_to_hl_and_dec(breakpoints, dbg_mode),
             0x38 => self.conditional_jump_relative(breakpoints, dbg_mode, JumpCondition::Carry(true)),
             0x3C => self.inc_register(TargetRegister::AF(true)),
+            0x3D => self.dec_register(TargetRegister::AF(true)),
             0x3E => self.load_u8_to_register(breakpoints, dbg_mode, TargetRegister::AF(true)),
 
             0x40 => self.load_register_to_register(TargetRegister::BC(true), TargetRegister::BC(true)),
@@ -680,6 +687,23 @@ impl GameboyCPU {
         
         self.set_flag(TargetFlag::Zero(zero));
         self.set_flag(TargetFlag::Negative(false));
+        self.set_flag(TargetFlag::HalfCarry(half_carry));
+
+        self.pc += 1;
+        self.cycles += 4;
+    }
+
+    fn dec_register(&mut self, reg: TargetRegister) {
+        let value = self.get_register(&reg);
+        let result = value.wrapping_sub(1);
+
+        let zero = result == 0;
+        let half_carry = (value & 0x0F) < 1;
+
+        self.set_register(reg, result);
+
+        self.set_flag(TargetFlag::Zero(zero));
+        self.set_flag(TargetFlag::Negative(true));
         self.set_flag(TargetFlag::HalfCarry(half_carry));
 
         self.pc += 1;
