@@ -221,6 +221,14 @@ pub fn get_instruction_data_prefixed(address: u16, gb_mem: &Arc<GameboyMemory>) 
     let opcode_value = gb_mem.read(address + 1);
 
     match opcode_value {
+        0x10 => (2, String::from("RL B")),
+        0x11 => (2, String::from("RL C")),
+        0x12 => (2, String::from("RL D")),
+        0x13 => (2, String::from("RL E")),
+        0x14 => (2, String::from("RL H")),
+        0x15 => (2, String::from("RL L")),
+        0x17 => (2, String::from("RL A")),
+        
         0x40 => (2, format!("BIT 0, B")),
         0x41 => (2, format!("BIT 0, C")),
         0x42 => (2, format!("BIT 0, D")),

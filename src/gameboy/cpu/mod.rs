@@ -412,6 +412,14 @@ impl GameboyCPU {
         }
 
         match opcode {
+            0x10 => self.rl_register(TargetRegister::BC(true)),
+            0x11 => self.rl_register(TargetRegister::BC(false)),
+            0x12 => self.rl_register(TargetRegister::DE(true)),
+            0x13 => self.rl_register(TargetRegister::DE(false)),
+            0x14 => self.rl_register(TargetRegister::HL(true)),
+            0x15 => self.rl_register(TargetRegister::HL(false)),
+            0x17 => self.rl_register(TargetRegister::AF(true)),
+
             0x40 => self.bit_register(TargetRegister::BC(true), 0),
             0x41 => self.bit_register(TargetRegister::BC(false), 0),
             0x42 => self.bit_register(TargetRegister::DE(true), 0),
@@ -731,6 +739,28 @@ impl GameboyCPU {
             self.pc += 2;
             self.cycles += 8;
         }
+    }
+
+    fn rl_register(&mut self, reg: TargetRegister) {
+        let value = self.get_register(&reg);
+        let top_bit = (value >> 7) == 1;
+        let carry = self.get_flag(TargetFlag::Carry(false));
+        
+        let mut result = value << 1;
+
+        if carry {
+            result |= 1;
+        }
+
+        self.set_register(reg, result);
+
+        self.set_flag(TargetFlag::Zero(result == 0));
+        self.set_flag(TargetFlag::Negative(false));
+        self.set_flag(TargetFlag::HalfCarry(false));
+        self.set_flag(TargetFlag::Carry(top_bit));
+
+        self.pc += 2;
+        self.cycles += 8;
     }
 
     fn bit_register(&mut self, reg: TargetRegister, bit: u8) {
