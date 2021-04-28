@@ -437,6 +437,7 @@ impl GameboyCPU {
 
             0xF1 => self.pop_rp(breakpoints, dbg_mode, Register::AF(false)),
             0xF5 => self.push_rp(breakpoints, dbg_mode, Register::AF(false)),
+            0xFE => self.cp_u8(breakpoints, dbg_mode),
 
             _ => *dbg_mode = EmulatorMode::UnknownInstruction(false, opcode)
         }
@@ -752,6 +753,26 @@ impl GameboyCPU {
 
         self.pc += 1;
         self.cycles += 4;
+    }
+
+    fn cp_u8(&mut self, breakpoints: &Vec<Breakpoint>, dbg_mode: &mut EmulatorMode) {
+        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints);
+
+        if bp_hit {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        let reg = self.get_r8(&Register::AF(true));
+        let result = reg.wrapping_sub(value);
+
+        self.set_flag(Flag::Zero(result == 0));
+        self.set_flag(Flag::Negative(true));
+        self.set_flag(Flag::HalfCarry((reg & 0x0F) < (value & 0x0F)));
+        self.set_flag(Flag::Carry(reg > value));
+
+        self.pc += 2;
+        self.cycles += 8;
     }
 
     fn call(&mut self, breakpoints: &Vec<Breakpoint>, dbg_mode: &mut EmulatorMode) {

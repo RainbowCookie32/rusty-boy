@@ -229,7 +229,12 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
         0xF6 => (2, format!("??? (${:02X})", opcode_value)),
         0xF8 => (2, format!("??? (${:02X})", opcode_value)),
         0xFA => (2, format!("??? (${:02X})", opcode_value)),
-        0xFE => (2, format!("??? (${:02X})", opcode_value)),
+        0xFE => {
+            let value = gb_mem.read(address + 1);
+            let dis = format!("CP A, {:02X}", value);
+
+            (2, dis)
+        }
 
         _ => (1, format!("??? (${:02X})", opcode_value))
     }
