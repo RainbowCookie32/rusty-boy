@@ -5,7 +5,7 @@ enum JumpCondition {
     Carry(bool)
 }
 
-enum TargetRegister {
+enum Register {
     AF(bool),
     BC(bool),
     DE(bool),
@@ -13,7 +13,7 @@ enum TargetRegister {
     SP
 }
 
-enum TargetFlag {
+enum Flag {
     Zero(bool),
     Negative(bool),
     HalfCarry(bool),
@@ -51,20 +51,20 @@ impl GameboyCPU {
         }
     }
 
-    fn get_flag(&self, flag: TargetFlag) -> bool {
+    fn get_flag(&self, flag: Flag) -> bool {
         match flag {
-            TargetFlag::Zero(_) => (self.af & 0x80) != 0,
-            TargetFlag::Negative(_) => (self.af & 0x40) != 0,
-            TargetFlag::HalfCarry(_) => (self.af & 0x20) != 0,
-            TargetFlag::Carry(_) => (self.af & 0x10) != 0,
+            Flag::Zero(_) => (self.af & 0x80) != 0,
+            Flag::Negative(_) => (self.af & 0x40) != 0,
+            Flag::HalfCarry(_) => (self.af & 0x20) != 0,
+            Flag::Carry(_) => (self.af & 0x10) != 0,
         }
     }
 
-    fn set_flag(&mut self, flag: TargetFlag) {
+    fn set_flag(&mut self, flag: Flag) {
         let mut flags = self.af & 0x00FF;
 
         match flag {
-            TargetFlag::Zero(value) => {
+            Flag::Zero(value) => {
                 if value {
                     flags |= 1 << 7;
                 }
@@ -72,7 +72,7 @@ impl GameboyCPU {
                     flags &= !(1 << 7);
                 }
             }
-            TargetFlag::Negative(value) => {
+            Flag::Negative(value) => {
                 if value {
                     flags |= 1 << 6;
                 }
@@ -80,7 +80,7 @@ impl GameboyCPU {
                     flags &= !(1 << 6);
                 }
             }
-            TargetFlag::HalfCarry(value) => {
+            Flag::HalfCarry(value) => {
                 if value {
                     flags |= 1 << 5;
                 }
@@ -88,7 +88,7 @@ impl GameboyCPU {
                     flags &= !(1 << 5);
                 }
             }
-            TargetFlag::Carry(value) => {
+            Flag::Carry(value) => {
                 if value {
                     flags |= 1 << 4;
                 }
@@ -101,9 +101,9 @@ impl GameboyCPU {
         self.af = (self.af & 0xFF00) | flags;
     }
 
-    fn get_register(&self, reg: &TargetRegister) -> u8 {
+    fn get_r8(&self, reg: &Register) -> u8 {
         match reg {
-            TargetRegister::AF(high) => {
+            Register::AF(high) => {
                 if *high {
                     ((self.af & 0xFF00) >> 8) as u8
                 }
@@ -111,7 +111,7 @@ impl GameboyCPU {
                     (self.af & 0x00FF) as u8
                 }
             }
-            TargetRegister::BC(high) => {
+            Register::BC(high) => {
                 if *high {
                     ((self.bc & 0xFF00) >> 8) as u8
                 }
@@ -119,7 +119,7 @@ impl GameboyCPU {
                     (self.bc & 0x00FF) as u8
                 }
             }
-            TargetRegister::DE(high) => {
+            Register::DE(high) => {
                 if *high {
                     ((self.de & 0xFF00) >> 8) as u8
                 }
@@ -127,7 +127,7 @@ impl GameboyCPU {
                     (self.de & 0x00FF) as u8
                 }
             }
-            TargetRegister::HL(high) => {
+            Register::HL(high) => {
                 if *high {
                     ((self.hl & 0xFF00) >> 8) as u8
                 }
@@ -139,9 +139,9 @@ impl GameboyCPU {
         }
     }
 
-    fn set_register(&mut self, reg: TargetRegister, value: u8) {
+    fn set_r8(&mut self, reg: Register, value: u8) {
         match reg {
-            TargetRegister::AF(high) => {
+            Register::AF(high) => {
                 if high {
                     self.af = (self.af & 0x00FF) | (value as u16) << 8;
                 }
@@ -149,7 +149,7 @@ impl GameboyCPU {
                     self.af = (self.af & 0xFF00) | ((value as u16) & 0xFFF0);
                 }
             }
-            TargetRegister::BC(high) => {
+            Register::BC(high) => {
                 if high {
                     self.bc = (self.bc & 0x00FF) | (value as u16) << 8;
                 }
@@ -157,7 +157,7 @@ impl GameboyCPU {
                     self.bc = (self.bc & 0xFF00) | value as u16;
                 }
             }
-            TargetRegister::DE(high) => {
+            Register::DE(high) => {
                 if high {
                     self.de = (self.de & 0x00FF) | (value as u16) << 8;
                 }
@@ -165,7 +165,7 @@ impl GameboyCPU {
                     self.de = (self.de & 0xFF00) | value as u16;
                 }
             }
-            TargetRegister::HL(high) => {
+            Register::HL(high) => {
                 if high {
                     self.hl = (self.hl & 0x00FF) | (value as u16) << 8;
                 }
@@ -174,6 +174,26 @@ impl GameboyCPU {
                 }
             }
             _ => unreachable!()
+        }
+    }
+
+    fn get_rp(&self, reg: &Register) -> u16 {
+        match reg {
+            Register::AF(_) => self.af,
+            Register::BC(_) => self.bc,
+            Register::DE(_) => self.de,
+            Register::HL(_) => self.hl,
+            Register::SP => self.sp
+        }
+    }
+
+    fn set_rp(&mut self, reg: Register, value: u16) {
+        match reg {
+            Register::AF(_) => self.af = value & 0xFFF0,
+            Register::BC(_) => self.bc = value,
+            Register::DE(_) => self.de = value,
+            Register::HL(_) => self.hl = value,
+            Register::SP => self.sp = value
         }
     }
 
@@ -290,127 +310,127 @@ impl GameboyCPU {
 
         match opcode {
             0x00 => self.nop(),
-            0x01 => self.load_u16_to_register(breakpoints, dbg_mode, TargetRegister::BC(false)),
-            0x04 => self.inc_register(TargetRegister::BC(true)),
-            0x05 => self.dec_register(TargetRegister::BC(true)),
-            0x06 => self.load_u8_to_register(breakpoints, dbg_mode, TargetRegister::BC(true)),
-            0x0A => self.load_a_from_register(breakpoints, dbg_mode, TargetRegister::BC(false)),
-            0x0C => self.inc_register(TargetRegister::BC(false)),
-            0x0D => self.dec_register(TargetRegister::BC(false)),
-            0x0E => self.load_u8_to_register(breakpoints, dbg_mode, TargetRegister::BC(false)),
+            0x01 => self.load_u16_to_rp(breakpoints, dbg_mode, Register::BC(false)),
+            0x04 => self.inc_r8(Register::BC(true)),
+            0x05 => self.dec_r8(Register::BC(true)),
+            0x06 => self.load_u8_to_r8(breakpoints, dbg_mode, Register::BC(true)),
+            0x0A => self.load_a_from_rp(breakpoints, dbg_mode, Register::BC(false)),
+            0x0C => self.inc_r8(Register::BC(false)),
+            0x0D => self.dec_r8(Register::BC(false)),
+            0x0E => self.load_u8_to_r8(breakpoints, dbg_mode, Register::BC(false)),
 
-            0x11 => self.load_u16_to_register(breakpoints, dbg_mode, TargetRegister::DE(false)),
-            0x14 => self.inc_register(TargetRegister::DE(true)),
-            0x15 => self.dec_register(TargetRegister::DE(true)),
-            0x16 => self.load_u8_to_register(breakpoints, dbg_mode, TargetRegister::DE(true)),
+            0x11 => self.load_u16_to_rp(breakpoints, dbg_mode, Register::DE(false)),
+            0x14 => self.inc_r8(Register::DE(true)),
+            0x15 => self.dec_r8(Register::DE(true)),
+            0x16 => self.load_u8_to_r8(breakpoints, dbg_mode, Register::DE(true)),
             0x17 => self.rla(),
-            0x1A => self.load_a_from_register(breakpoints, dbg_mode, TargetRegister::DE(false)),
-            0x1C => self.inc_register(TargetRegister::DE(false)),
-            0x1D => self.dec_register(TargetRegister::DE(false)),
-            0x1E => self.load_u8_to_register(breakpoints, dbg_mode, TargetRegister::DE(false)),
+            0x1A => self.load_a_from_rp(breakpoints, dbg_mode, Register::DE(false)),
+            0x1C => self.inc_r8(Register::DE(false)),
+            0x1D => self.dec_r8(Register::DE(false)),
+            0x1E => self.load_u8_to_r8(breakpoints, dbg_mode, Register::DE(false)),
 
             0x20 => self.conditional_jump_relative(breakpoints, dbg_mode, JumpCondition::Zero(false)),
-            0x21 => self.load_u16_to_register(breakpoints, dbg_mode, TargetRegister::HL(false)),
+            0x21 => self.load_u16_to_rp(breakpoints, dbg_mode, Register::HL(false)),
             0x22 => self.store_to_hl_and_inc(breakpoints, dbg_mode),
-            0x24 => self.inc_register(TargetRegister::HL(true)),
-            0x25 => self.dec_register(TargetRegister::HL(true)),
-            0x26 => self.load_u8_to_register(breakpoints, dbg_mode, TargetRegister::HL(true)),
+            0x24 => self.inc_r8(Register::HL(true)),
+            0x25 => self.dec_r8(Register::HL(true)),
+            0x26 => self.load_u8_to_r8(breakpoints, dbg_mode, Register::HL(true)),
             0x28 => self.conditional_jump_relative(breakpoints, dbg_mode, JumpCondition::Zero(true)),
-            0x2C => self.inc_register(TargetRegister::HL(false)),
-            0x2D => self.dec_register(TargetRegister::HL(false)),
-            0x2E => self.load_u8_to_register(breakpoints, dbg_mode, TargetRegister::HL(false)),
+            0x2C => self.inc_r8(Register::HL(false)),
+            0x2D => self.dec_r8(Register::HL(false)),
+            0x2E => self.load_u8_to_r8(breakpoints, dbg_mode, Register::HL(false)),
 
             0x30 => self.conditional_jump_relative(breakpoints, dbg_mode, JumpCondition::Carry(false)),
-            0x31 => self.load_u16_to_register(breakpoints, dbg_mode, TargetRegister::SP),
+            0x31 => self.load_u16_to_rp(breakpoints, dbg_mode, Register::SP),
             0x32 => self.store_to_hl_and_dec(breakpoints, dbg_mode),
             0x38 => self.conditional_jump_relative(breakpoints, dbg_mode, JumpCondition::Carry(true)),
-            0x3C => self.inc_register(TargetRegister::AF(true)),
-            0x3D => self.dec_register(TargetRegister::AF(true)),
-            0x3E => self.load_u8_to_register(breakpoints, dbg_mode, TargetRegister::AF(true)),
+            0x3C => self.inc_r8(Register::AF(true)),
+            0x3D => self.dec_r8(Register::AF(true)),
+            0x3E => self.load_u8_to_r8(breakpoints, dbg_mode, Register::AF(true)),
 
-            0x40 => self.load_register_to_register(TargetRegister::BC(true), TargetRegister::BC(true)),
-            0x41 => self.load_register_to_register(TargetRegister::BC(true), TargetRegister::BC(false)),
-            0x42 => self.load_register_to_register(TargetRegister::BC(true), TargetRegister::DE(true)),
-            0x43 => self.load_register_to_register(TargetRegister::BC(true), TargetRegister::DE(false)),
-            0x44 => self.load_register_to_register(TargetRegister::BC(true), TargetRegister::HL(true)),
-            0x45 => self.load_register_to_register(TargetRegister::BC(true), TargetRegister::HL(false)),
-            0x47 => self.load_register_to_register(TargetRegister::BC(true), TargetRegister::AF(true)),
-            0x48 => self.load_register_to_register(TargetRegister::BC(false), TargetRegister::BC(true)),
-            0x49 => self.load_register_to_register(TargetRegister::BC(false), TargetRegister::BC(false)),
-            0x4A => self.load_register_to_register(TargetRegister::BC(false), TargetRegister::DE(true)),
-            0x4B => self.load_register_to_register(TargetRegister::BC(false), TargetRegister::DE(false)),
-            0x4C => self.load_register_to_register(TargetRegister::BC(false), TargetRegister::HL(true)),
-            0x4D => self.load_register_to_register(TargetRegister::BC(false), TargetRegister::HL(false)),
-            0x4F => self.load_register_to_register(TargetRegister::BC(false), TargetRegister::AF(true)),
+            0x40 => self.load_r8_to_r8(Register::BC(true), Register::BC(true)),
+            0x41 => self.load_r8_to_r8(Register::BC(true), Register::BC(false)),
+            0x42 => self.load_r8_to_r8(Register::BC(true), Register::DE(true)),
+            0x43 => self.load_r8_to_r8(Register::BC(true), Register::DE(false)),
+            0x44 => self.load_r8_to_r8(Register::BC(true), Register::HL(true)),
+            0x45 => self.load_r8_to_r8(Register::BC(true), Register::HL(false)),
+            0x47 => self.load_r8_to_r8(Register::BC(true), Register::AF(true)),
+            0x48 => self.load_r8_to_r8(Register::BC(false), Register::BC(true)),
+            0x49 => self.load_r8_to_r8(Register::BC(false), Register::BC(false)),
+            0x4A => self.load_r8_to_r8(Register::BC(false), Register::DE(true)),
+            0x4B => self.load_r8_to_r8(Register::BC(false), Register::DE(false)),
+            0x4C => self.load_r8_to_r8(Register::BC(false), Register::HL(true)),
+            0x4D => self.load_r8_to_r8(Register::BC(false), Register::HL(false)),
+            0x4F => self.load_r8_to_r8(Register::BC(false), Register::AF(true)),
 
-            0x50 => self.load_register_to_register(TargetRegister::DE(true), TargetRegister::BC(true)),
-            0x51 => self.load_register_to_register(TargetRegister::DE(true), TargetRegister::BC(false)),
-            0x52 => self.load_register_to_register(TargetRegister::DE(true), TargetRegister::DE(true)),
-            0x53 => self.load_register_to_register(TargetRegister::DE(true), TargetRegister::DE(false)),
-            0x54 => self.load_register_to_register(TargetRegister::DE(true), TargetRegister::HL(true)),
-            0x55 => self.load_register_to_register(TargetRegister::DE(true), TargetRegister::HL(false)),
-            0x57 => self.load_register_to_register(TargetRegister::DE(true), TargetRegister::AF(true)),
-            0x58 => self.load_register_to_register(TargetRegister::DE(false), TargetRegister::BC(true)),
-            0x59 => self.load_register_to_register(TargetRegister::DE(false), TargetRegister::BC(false)),
-            0x5A => self.load_register_to_register(TargetRegister::DE(false), TargetRegister::DE(true)),
-            0x5B => self.load_register_to_register(TargetRegister::DE(false), TargetRegister::DE(false)),
-            0x5C => self.load_register_to_register(TargetRegister::DE(false), TargetRegister::HL(true)),
-            0x5D => self.load_register_to_register(TargetRegister::DE(false), TargetRegister::HL(false)),
-            0x5F => self.load_register_to_register(TargetRegister::DE(false), TargetRegister::AF(true)),
+            0x50 => self.load_r8_to_r8(Register::DE(true), Register::BC(true)),
+            0x51 => self.load_r8_to_r8(Register::DE(true), Register::BC(false)),
+            0x52 => self.load_r8_to_r8(Register::DE(true), Register::DE(true)),
+            0x53 => self.load_r8_to_r8(Register::DE(true), Register::DE(false)),
+            0x54 => self.load_r8_to_r8(Register::DE(true), Register::HL(true)),
+            0x55 => self.load_r8_to_r8(Register::DE(true), Register::HL(false)),
+            0x57 => self.load_r8_to_r8(Register::DE(true), Register::AF(true)),
+            0x58 => self.load_r8_to_r8(Register::DE(false), Register::BC(true)),
+            0x59 => self.load_r8_to_r8(Register::DE(false), Register::BC(false)),
+            0x5A => self.load_r8_to_r8(Register::DE(false), Register::DE(true)),
+            0x5B => self.load_r8_to_r8(Register::DE(false), Register::DE(false)),
+            0x5C => self.load_r8_to_r8(Register::DE(false), Register::HL(true)),
+            0x5D => self.load_r8_to_r8(Register::DE(false), Register::HL(false)),
+            0x5F => self.load_r8_to_r8(Register::DE(false), Register::AF(true)),
 
-            0x60 => self.load_register_to_register(TargetRegister::HL(true), TargetRegister::BC(true)),
-            0x61 => self.load_register_to_register(TargetRegister::HL(true), TargetRegister::BC(false)),
-            0x62 => self.load_register_to_register(TargetRegister::HL(true), TargetRegister::DE(true)),
-            0x63 => self.load_register_to_register(TargetRegister::HL(true), TargetRegister::DE(false)),
-            0x64 => self.load_register_to_register(TargetRegister::HL(true), TargetRegister::HL(true)),
-            0x65 => self.load_register_to_register(TargetRegister::HL(true), TargetRegister::HL(false)),
-            0x67 => self.load_register_to_register(TargetRegister::HL(true), TargetRegister::AF(true)),
-            0x68 => self.load_register_to_register(TargetRegister::HL(false), TargetRegister::BC(true)),
-            0x69 => self.load_register_to_register(TargetRegister::HL(false), TargetRegister::BC(false)),
-            0x6A => self.load_register_to_register(TargetRegister::HL(false), TargetRegister::DE(true)),
-            0x6B => self.load_register_to_register(TargetRegister::HL(false), TargetRegister::DE(false)),
-            0x6C => self.load_register_to_register(TargetRegister::HL(false), TargetRegister::HL(true)),
-            0x6D => self.load_register_to_register(TargetRegister::HL(false), TargetRegister::HL(false)),
-            0x6F => self.load_register_to_register(TargetRegister::HL(false), TargetRegister::AF(true)),
+            0x60 => self.load_r8_to_r8(Register::HL(true), Register::BC(true)),
+            0x61 => self.load_r8_to_r8(Register::HL(true), Register::BC(false)),
+            0x62 => self.load_r8_to_r8(Register::HL(true), Register::DE(true)),
+            0x63 => self.load_r8_to_r8(Register::HL(true), Register::DE(false)),
+            0x64 => self.load_r8_to_r8(Register::HL(true), Register::HL(true)),
+            0x65 => self.load_r8_to_r8(Register::HL(true), Register::HL(false)),
+            0x67 => self.load_r8_to_r8(Register::HL(true), Register::AF(true)),
+            0x68 => self.load_r8_to_r8(Register::HL(false), Register::BC(true)),
+            0x69 => self.load_r8_to_r8(Register::HL(false), Register::BC(false)),
+            0x6A => self.load_r8_to_r8(Register::HL(false), Register::DE(true)),
+            0x6B => self.load_r8_to_r8(Register::HL(false), Register::DE(false)),
+            0x6C => self.load_r8_to_r8(Register::HL(false), Register::HL(true)),
+            0x6D => self.load_r8_to_r8(Register::HL(false), Register::HL(false)),
+            0x6F => self.load_r8_to_r8(Register::HL(false), Register::AF(true)),
 
-            0x70 => self.store_register_to_hl(breakpoints, dbg_mode, TargetRegister::BC(true)),
-            0x71 => self.store_register_to_hl(breakpoints, dbg_mode, TargetRegister::BC(false)),
-            0x72 => self.store_register_to_hl(breakpoints, dbg_mode, TargetRegister::DE(true)),
-            0x73 => self.store_register_to_hl(breakpoints, dbg_mode, TargetRegister::DE(false)),
-            0x74 => self.store_register_to_hl(breakpoints, dbg_mode, TargetRegister::HL(true)),
-            0x75 => self.store_register_to_hl(breakpoints, dbg_mode, TargetRegister::HL(false)),
-            0x77 => self.store_register_to_hl(breakpoints, dbg_mode, TargetRegister::AF(true)),
-            0x78 => self.load_register_to_register(TargetRegister::AF(true), TargetRegister::BC(true)),
-            0x79 => self.load_register_to_register(TargetRegister::AF(true), TargetRegister::BC(false)),
-            0x7A => self.load_register_to_register(TargetRegister::AF(true), TargetRegister::DE(true)),
-            0x7B => self.load_register_to_register(TargetRegister::AF(true), TargetRegister::DE(false)),
-            0x7C => self.load_register_to_register(TargetRegister::AF(true), TargetRegister::HL(true)),
-            0x7D => self.load_register_to_register(TargetRegister::AF(true), TargetRegister::HL(false)),
-            0x7F => self.load_register_to_register(TargetRegister::AF(true), TargetRegister::AF(true)),
+            0x70 => self.store_r8_to_hl(breakpoints, dbg_mode, Register::BC(true)),
+            0x71 => self.store_r8_to_hl(breakpoints, dbg_mode, Register::BC(false)),
+            0x72 => self.store_r8_to_hl(breakpoints, dbg_mode, Register::DE(true)),
+            0x73 => self.store_r8_to_hl(breakpoints, dbg_mode, Register::DE(false)),
+            0x74 => self.store_r8_to_hl(breakpoints, dbg_mode, Register::HL(true)),
+            0x75 => self.store_r8_to_hl(breakpoints, dbg_mode, Register::HL(false)),
+            0x77 => self.store_r8_to_hl(breakpoints, dbg_mode, Register::AF(true)),
+            0x78 => self.load_r8_to_r8(Register::AF(true), Register::BC(true)),
+            0x79 => self.load_r8_to_r8(Register::AF(true), Register::BC(false)),
+            0x7A => self.load_r8_to_r8(Register::AF(true), Register::DE(true)),
+            0x7B => self.load_r8_to_r8(Register::AF(true), Register::DE(false)),
+            0x7C => self.load_r8_to_r8(Register::AF(true), Register::HL(true)),
+            0x7D => self.load_r8_to_r8(Register::AF(true), Register::HL(false)),
+            0x7F => self.load_r8_to_r8(Register::AF(true), Register::AF(true)),
 
-            0xA8 => self.xor_register(TargetRegister::BC(true)),
-            0xA9 => self.xor_register(TargetRegister::BC(false)),
-            0xAA => self.xor_register(TargetRegister::DE(true)),
-            0xAB => self.xor_register(TargetRegister::DE(false)),
-            0xAC => self.xor_register(TargetRegister::HL(true)),
-            0xAD => self.xor_register(TargetRegister::HL(false)),
-            0xAF => self.xor_register(TargetRegister::AF(true)),
+            0xA8 => self.xor_r8(Register::BC(true)),
+            0xA9 => self.xor_r8(Register::BC(false)),
+            0xAA => self.xor_r8(Register::DE(true)),
+            0xAB => self.xor_r8(Register::DE(false)),
+            0xAC => self.xor_r8(Register::HL(true)),
+            0xAD => self.xor_r8(Register::HL(false)),
+            0xAF => self.xor_r8(Register::AF(true)),
 
-            0xC1 => self.pop_register(breakpoints, dbg_mode, TargetRegister::BC(false)),
-            0xC5 => self.push_register(breakpoints, dbg_mode, TargetRegister::BC(false)),
+            0xC1 => self.pop_rp(breakpoints, dbg_mode, Register::BC(false)),
+            0xC5 => self.push_rp(breakpoints, dbg_mode, Register::BC(false)),
             0xCB => self.execute_instruction_prefixed(breakpoints, dbg_mode),
             0xCD => self.call(breakpoints, dbg_mode),
 
-            0xD1 => self.pop_register(breakpoints, dbg_mode, TargetRegister::DE(false)),
-            0xD5 => self.push_register(breakpoints, dbg_mode, TargetRegister::DE(false)),
+            0xD1 => self.pop_rp(breakpoints, dbg_mode, Register::DE(false)),
+            0xD5 => self.push_rp(breakpoints, dbg_mode, Register::DE(false)),
 
             0xE0 => self.store_a_to_io_u8(breakpoints, dbg_mode),
-            0xE1 => self.pop_register(breakpoints, dbg_mode, TargetRegister::HL(false)),
+            0xE1 => self.pop_rp(breakpoints, dbg_mode, Register::HL(false)),
             0xE2 => self.store_a_to_io_c(breakpoints, dbg_mode),
-            0xE5 => self.push_register(breakpoints, dbg_mode, TargetRegister::HL(false)),
+            0xE5 => self.push_rp(breakpoints, dbg_mode, Register::HL(false)),
 
-            0xF1 => self.pop_register(breakpoints, dbg_mode, TargetRegister::AF(false)),
-            0xF5 => self.push_register(breakpoints, dbg_mode, TargetRegister::AF(false)),
+            0xF1 => self.pop_rp(breakpoints, dbg_mode, Register::AF(false)),
+            0xF5 => self.push_rp(breakpoints, dbg_mode, Register::AF(false)),
 
             _ => *dbg_mode = EmulatorMode::UnknownInstruction(false, opcode)
         }
@@ -425,73 +445,73 @@ impl GameboyCPU {
         }
 
         match opcode {
-            0x10 => self.rl_register(TargetRegister::BC(true)),
-            0x11 => self.rl_register(TargetRegister::BC(false)),
-            0x12 => self.rl_register(TargetRegister::DE(true)),
-            0x13 => self.rl_register(TargetRegister::DE(false)),
-            0x14 => self.rl_register(TargetRegister::HL(true)),
-            0x15 => self.rl_register(TargetRegister::HL(false)),
-            0x17 => self.rl_register(TargetRegister::AF(true)),
+            0x10 => self.rl(Register::BC(true)),
+            0x11 => self.rl(Register::BC(false)),
+            0x12 => self.rl(Register::DE(true)),
+            0x13 => self.rl(Register::DE(false)),
+            0x14 => self.rl(Register::HL(true)),
+            0x15 => self.rl(Register::HL(false)),
+            0x17 => self.rl(Register::AF(true)),
 
-            0x40 => self.bit_register(TargetRegister::BC(true), 0),
-            0x41 => self.bit_register(TargetRegister::BC(false), 0),
-            0x42 => self.bit_register(TargetRegister::DE(true), 0),
-            0x43 => self.bit_register(TargetRegister::DE(false), 0),
-            0x44 => self.bit_register(TargetRegister::HL(true), 0),
-            0x45 => self.bit_register(TargetRegister::HL(false), 0),
-            0x47 => self.bit_register(TargetRegister::AF(true), 0),
-            0x48 => self.bit_register(TargetRegister::BC(true), 1),
-            0x49 => self.bit_register(TargetRegister::BC(false), 1),
-            0x4A => self.bit_register(TargetRegister::DE(true), 1),
-            0x4B => self.bit_register(TargetRegister::DE(false), 1),
-            0x4C => self.bit_register(TargetRegister::HL(true), 1),
-            0x4D => self.bit_register(TargetRegister::HL(false), 1),
-            0x4F => self.bit_register(TargetRegister::AF(true), 1),
+            0x40 => self.bit(Register::BC(true), 0),
+            0x41 => self.bit(Register::BC(false), 0),
+            0x42 => self.bit(Register::DE(true), 0),
+            0x43 => self.bit(Register::DE(false), 0),
+            0x44 => self.bit(Register::HL(true), 0),
+            0x45 => self.bit(Register::HL(false), 0),
+            0x47 => self.bit(Register::AF(true), 0),
+            0x48 => self.bit(Register::BC(true), 1),
+            0x49 => self.bit(Register::BC(false), 1),
+            0x4A => self.bit(Register::DE(true), 1),
+            0x4B => self.bit(Register::DE(false), 1),
+            0x4C => self.bit(Register::HL(true), 1),
+            0x4D => self.bit(Register::HL(false), 1),
+            0x4F => self.bit(Register::AF(true), 1),
 
-            0x50 => self.bit_register(TargetRegister::BC(true), 2),
-            0x51 => self.bit_register(TargetRegister::BC(false), 2),
-            0x52 => self.bit_register(TargetRegister::DE(true), 2),
-            0x53 => self.bit_register(TargetRegister::DE(false), 2),
-            0x54 => self.bit_register(TargetRegister::HL(true), 2),
-            0x55 => self.bit_register(TargetRegister::HL(false), 2),
-            0x57 => self.bit_register(TargetRegister::AF(true), 2),
-            0x58 => self.bit_register(TargetRegister::BC(true), 3),
-            0x59 => self.bit_register(TargetRegister::BC(false), 3),
-            0x5A => self.bit_register(TargetRegister::DE(true), 3),
-            0x5B => self.bit_register(TargetRegister::DE(false), 3),
-            0x5C => self.bit_register(TargetRegister::HL(true), 3),
-            0x5D => self.bit_register(TargetRegister::HL(false), 3),
-            0x5F => self.bit_register(TargetRegister::AF(true), 3),
+            0x50 => self.bit(Register::BC(true), 2),
+            0x51 => self.bit(Register::BC(false), 2),
+            0x52 => self.bit(Register::DE(true), 2),
+            0x53 => self.bit(Register::DE(false), 2),
+            0x54 => self.bit(Register::HL(true), 2),
+            0x55 => self.bit(Register::HL(false), 2),
+            0x57 => self.bit(Register::AF(true), 2),
+            0x58 => self.bit(Register::BC(true), 3),
+            0x59 => self.bit(Register::BC(false), 3),
+            0x5A => self.bit(Register::DE(true), 3),
+            0x5B => self.bit(Register::DE(false), 3),
+            0x5C => self.bit(Register::HL(true), 3),
+            0x5D => self.bit(Register::HL(false), 3),
+            0x5F => self.bit(Register::AF(true), 3),
 
-            0x60 => self.bit_register(TargetRegister::BC(true), 4),
-            0x61 => self.bit_register(TargetRegister::BC(false), 4),
-            0x62 => self.bit_register(TargetRegister::DE(true), 4),
-            0x63 => self.bit_register(TargetRegister::DE(false), 4),
-            0x64 => self.bit_register(TargetRegister::HL(true), 4),
-            0x65 => self.bit_register(TargetRegister::HL(false), 4),
-            0x67 => self.bit_register(TargetRegister::AF(true), 4),
-            0x68 => self.bit_register(TargetRegister::BC(true), 5),
-            0x69 => self.bit_register(TargetRegister::BC(false), 5),
-            0x6A => self.bit_register(TargetRegister::DE(true), 5),
-            0x6B => self.bit_register(TargetRegister::DE(false), 5),
-            0x6C => self.bit_register(TargetRegister::HL(true), 5),
-            0x6D => self.bit_register(TargetRegister::HL(false), 5),
-            0x6F => self.bit_register(TargetRegister::AF(true), 5),
+            0x60 => self.bit(Register::BC(true), 4),
+            0x61 => self.bit(Register::BC(false), 4),
+            0x62 => self.bit(Register::DE(true), 4),
+            0x63 => self.bit(Register::DE(false), 4),
+            0x64 => self.bit(Register::HL(true), 4),
+            0x65 => self.bit(Register::HL(false), 4),
+            0x67 => self.bit(Register::AF(true), 4),
+            0x68 => self.bit(Register::BC(true), 5),
+            0x69 => self.bit(Register::BC(false), 5),
+            0x6A => self.bit(Register::DE(true), 5),
+            0x6B => self.bit(Register::DE(false), 5),
+            0x6C => self.bit(Register::HL(true), 5),
+            0x6D => self.bit(Register::HL(false), 5),
+            0x6F => self.bit(Register::AF(true), 5),
 
-            0x70 => self.bit_register(TargetRegister::BC(true), 6),
-            0x71 => self.bit_register(TargetRegister::BC(false), 6),
-            0x72 => self.bit_register(TargetRegister::DE(true), 6),
-            0x73 => self.bit_register(TargetRegister::DE(false), 6),
-            0x74 => self.bit_register(TargetRegister::HL(true), 6),
-            0x75 => self.bit_register(TargetRegister::HL(false), 6),
-            0x77 => self.bit_register(TargetRegister::AF(true), 6),
-            0x78 => self.bit_register(TargetRegister::BC(true), 7),
-            0x79 => self.bit_register(TargetRegister::BC(false), 7),
-            0x7A => self.bit_register(TargetRegister::DE(true), 7),
-            0x7B => self.bit_register(TargetRegister::DE(false), 7),
-            0x7C => self.bit_register(TargetRegister::HL(true), 7),
-            0x7D => self.bit_register(TargetRegister::HL(false), 7),
-            0x7F => self.bit_register(TargetRegister::AF(true), 7),
+            0x70 => self.bit(Register::BC(true), 6),
+            0x71 => self.bit(Register::BC(false), 6),
+            0x72 => self.bit(Register::DE(true), 6),
+            0x73 => self.bit(Register::DE(false), 6),
+            0x74 => self.bit(Register::HL(true), 6),
+            0x75 => self.bit(Register::HL(false), 6),
+            0x77 => self.bit(Register::AF(true), 6),
+            0x78 => self.bit(Register::BC(true), 7),
+            0x79 => self.bit(Register::BC(false), 7),
+            0x7A => self.bit(Register::DE(true), 7),
+            0x7B => self.bit(Register::DE(false), 7),
+            0x7C => self.bit(Register::HL(true), 7),
+            0x7D => self.bit(Register::HL(false), 7),
+            0x7F => self.bit(Register::AF(true), 7),
 
             _ => *dbg_mode = EmulatorMode::UnknownInstruction(true, opcode)
         }
@@ -502,88 +522,76 @@ impl GameboyCPU {
         self.cycles += 4;
     }
 
-    fn load_u8_to_register(&mut self, bp: &Vec<Breakpoint>, dbg: &mut EmulatorMode, reg: TargetRegister) {
-        let (bp_hit, value) = self.read_u8(self.pc + 1, bp);
+    fn load_u8_to_r8(&mut self, breakpoints: &Vec<Breakpoint>, dbg_mode: &mut EmulatorMode, reg: Register) {
+        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints);
 
         if bp_hit {
-            *dbg = EmulatorMode::BreakpointHit;
+            *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
 
-        self.set_register(reg, value);
+        self.set_r8(reg, value);
 
         self.pc += 2;
         self.cycles += 8;
     }
 
-    fn load_u8_to_register_from_hl(&mut self, bp: &Vec<Breakpoint>, dbg: &mut EmulatorMode, reg: TargetRegister) {
-        let (bp_hit, value) = self.read_u8(self.hl, bp);
+    fn load_u8_to_r8_from_hl(&mut self, breakpoints: &Vec<Breakpoint>, dbg_mode: &mut EmulatorMode, reg: Register) {
+        let (bp_hit, value) = self.read_u8(self.get_rp(&Register::HL(false)), breakpoints);
 
         if bp_hit {
-            *dbg = EmulatorMode::BreakpointHit;
+            *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
 
-        self.set_register(reg, value);
+        self.set_r8(reg, value);
 
         self.pc += 1;
         self.cycles += 8;
     }
 
-    fn load_a_from_register(&mut self, bp: &Vec<Breakpoint>, dbg: &mut EmulatorMode, reg: TargetRegister) {
-        let address = {
-            match reg {
-                TargetRegister::BC(_) => self.bc,
-                TargetRegister::DE(_) => self.de,
-                _ => unreachable!()
-            }
-        };
-        let (bp_hit, value) = self.read_u8(address, bp);
+    fn load_a_from_rp(&mut self, breakpoints: &Vec<Breakpoint>, dbg_mode: &mut EmulatorMode, reg: Register) {
+        let address = self.get_rp(&reg);
+        let (bp_hit, value) = self.read_u8(address, breakpoints);
 
         if bp_hit {
-            *dbg = EmulatorMode::BreakpointHit;
+            *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
 
-        self.set_register(TargetRegister::AF(true), value);
+        self.set_r8(Register::AF(true), value);
 
         self.pc += 1;
         self.cycles += 8;
     }
 
-    fn load_u16_to_register(&mut self, bp: &Vec<Breakpoint>, dbg: &mut EmulatorMode, reg: TargetRegister) {
-        let (bp_hit, value) = self.read_u16(self.pc + 1, bp);
+    fn load_u16_to_rp(&mut self, breakpoints: &Vec<Breakpoint>, dbg_mode: &mut EmulatorMode, reg: Register) {
+        let (bp_hit, value) = self.read_u16(self.pc + 1, breakpoints);
 
         if bp_hit {
-            *dbg = EmulatorMode::BreakpointHit;
+            *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
 
-        match reg {
-            TargetRegister::AF(_) => self.af = value,
-            TargetRegister::BC(_) => self.bc = value,
-            TargetRegister::DE(_) => self.de = value,
-            TargetRegister::HL(_) => self.hl = value,
-            TargetRegister::SP => self.sp = value
-        }
+        self.set_rp(reg, value);
 
         self.pc += 3;
         self.cycles += 12;
     }
 
-    fn load_register_to_register(&mut self, target: TargetRegister, source: TargetRegister) {
-        self.set_register(target, self.get_register(&source));
+    fn load_r8_to_r8(&mut self, target: Register, source: Register) {
+        self.set_r8(target, self.get_r8(&source));
         
         self.pc += 1;
         self.cycles += 4;
     }
 
-    fn store_register_to_hl(&mut self, bp: &Vec<Breakpoint>, dbg: &mut EmulatorMode, reg: TargetRegister) {
-        let value = self.get_register(&reg);
-        let address = self.hl;
+    fn store_r8_to_hl(&mut self, breakpoints: &Vec<Breakpoint>, dbg_mode: &mut EmulatorMode, reg: Register) {
+        let value = self.get_r8(&reg);
+        let address = self.get_rp(&Register::HL(false));
         
-        if self.write(address, value, bp) {
-            *dbg = EmulatorMode::BreakpointHit;
+        if self.write(address, value, breakpoints) {
+            *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
         
@@ -591,42 +599,42 @@ impl GameboyCPU {
         self.cycles += 8;
     }
 
-    fn store_to_hl_and_inc(&mut self, bp: &Vec<Breakpoint>, dbg: &mut EmulatorMode) {
-        let value = self.get_register(&TargetRegister::AF(true));
-        let address = self.hl;
+    fn store_to_hl_and_inc(&mut self, breakpoints: &Vec<Breakpoint>, dbg_mode: &mut EmulatorMode) {
+        let value = self.get_r8(&Register::AF(true));
+        let address = self.get_rp(&Register::HL(false));
         
-        if self.write(address, value, bp) {
-            *dbg = EmulatorMode::BreakpointHit;
+        if self.write(address, value, breakpoints) {
+            *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
         
-        self.hl = address.wrapping_add(1);
+        self.set_rp(Register::HL(false), address.wrapping_add(1));
 
         self.pc += 1;
         self.cycles += 8;
     }
 
-    fn store_to_hl_and_dec(&mut self, bp: &Vec<Breakpoint>, dbg: &mut EmulatorMode) {
-        let value = self.get_register(&TargetRegister::AF(true));
-        let address = self.hl;
+    fn store_to_hl_and_dec(&mut self, breakpoints: &Vec<Breakpoint>, dbg_mode: &mut EmulatorMode) {
+        let value = self.get_r8(&Register::AF(true));
+        let address = self.get_rp(&Register::HL(false));
         
-        if self.write(address, value, bp) {
-            *dbg = EmulatorMode::BreakpointHit;
+        if self.write(address, value, breakpoints) {
+            *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
         
-        self.hl = address.wrapping_sub(1);
+        self.set_rp(Register::HL(false), address.wrapping_sub(1));
 
         self.pc += 1;
         self.cycles += 8;
     }
 
-    fn store_a_to_io_c(&mut self, bp: &Vec<Breakpoint>, dbg: &mut EmulatorMode) {
-        let value = self.get_register(&TargetRegister::AF(true));
-        let address = 0xFF00 + self.get_register(&TargetRegister::BC(false)) as u16;
+    fn store_a_to_io_c(&mut self, breakpoints: &Vec<Breakpoint>, dbg_mode: &mut EmulatorMode) {
+        let value = self.get_r8(&Register::AF(true));
+        let address = 0xFF00 + self.get_r8(&Register::BC(false)) as u16;
 
-        if self.write(address, value, bp) {
-            *dbg = EmulatorMode::BreakpointHit;
+        if self.write(address, value, breakpoints) {
+            *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
         
@@ -634,19 +642,19 @@ impl GameboyCPU {
         self.cycles += 8;
     }
 
-    fn store_a_to_io_u8(&mut self, bp: &Vec<Breakpoint>, dbg: &mut EmulatorMode) {
-        let (bp_hit, offset) = self.read_u8(self.pc + 1, bp);
+    fn store_a_to_io_u8(&mut self, breakpoints: &Vec<Breakpoint>, dbg_mode: &mut EmulatorMode) {
+        let (bp_hit, offset) = self.read_u8(self.pc + 1, breakpoints);
 
         if bp_hit {
-            *dbg = EmulatorMode::BreakpointHit;
+            *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
 
         let address = 0xFF00 + offset as u16;
-        let value = self.get_register(&TargetRegister::AF(true));
+        let value = self.get_r8(&Register::AF(true));
 
-        if self.write(address, value, bp) {
-            *dbg = EmulatorMode::BreakpointHit;
+        if self.write(address, value, breakpoints) {
+            *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
         
@@ -654,37 +662,25 @@ impl GameboyCPU {
         self.cycles += 12;
     }
 
-    fn pop_register(&mut self, bp: &Vec<Breakpoint>, dbg: &mut EmulatorMode, register: TargetRegister) {
-        let (bp_hit, value) = self.stack_read(bp);
+    fn pop_rp(&mut self, breakpoints: &Vec<Breakpoint>, dbg_mode: &mut EmulatorMode, reg: Register) {
+        let (bp_hit, value) = self.stack_read(breakpoints);
 
         if bp_hit {
-            *dbg = EmulatorMode::BreakpointHit;
+            *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
 
-        match register {
-            TargetRegister::AF(_) => self.af = value & 0xFFF0,
-            TargetRegister::BC(_) => self.bc = value,
-            TargetRegister::DE(_) => self.de = value,
-            TargetRegister::HL(_) => self.hl = value,
-            _ => unreachable!()
-        }
+        self.set_rp(reg, value);
 
         self.pc += 1;
         self.cycles += 12;
     }
 
-    fn push_register(&mut self, bp: &Vec<Breakpoint>, dbg: &mut EmulatorMode, register: TargetRegister) {
-        let value = match register {
-            TargetRegister::AF(_) => self.af,
-            TargetRegister::BC(_) => self.bc,
-            TargetRegister::DE(_) => self.de,
-            TargetRegister::HL(_) => self.hl,
-            _ => unreachable!()
-        };
+    fn push_rp(&mut self, breakpoints: &Vec<Breakpoint>, dbg_mode: &mut EmulatorMode, reg: Register) {
+        let value = self.get_rp(&reg);
 
-        if self.stack_write(value, bp) {
-            *dbg = EmulatorMode::BreakpointHit;
+        if self.stack_write(value, breakpoints) {
+            *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
 
@@ -692,67 +688,67 @@ impl GameboyCPU {
         self.cycles += 16;
     }
 
-    fn inc_register(&mut self, reg: TargetRegister) {
-        let value = self.get_register(&reg);
+    fn inc_r8(&mut self, reg: Register) {
+        let value = self.get_r8(&reg);
         let result = value.wrapping_add(1);
 
         let zero = result == 0;
         let half_carry = (value & 0x0F) + 1 > 0x0F;
 
-        self.set_register(reg, result);
+        self.set_r8(reg, result);
         
-        self.set_flag(TargetFlag::Zero(zero));
-        self.set_flag(TargetFlag::Negative(false));
-        self.set_flag(TargetFlag::HalfCarry(half_carry));
+        self.set_flag(Flag::Zero(zero));
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry(half_carry));
 
         self.pc += 1;
         self.cycles += 4;
     }
 
-    fn dec_register(&mut self, reg: TargetRegister) {
-        let value = self.get_register(&reg);
+    fn dec_r8(&mut self, reg: Register) {
+        let value = self.get_r8(&reg);
         let result = value.wrapping_sub(1);
 
         let zero = result == 0;
         let half_carry = (value & 0x0F) < 1;
 
-        self.set_register(reg, result);
+        self.set_r8(reg, result);
 
-        self.set_flag(TargetFlag::Zero(zero));
-        self.set_flag(TargetFlag::Negative(true));
-        self.set_flag(TargetFlag::HalfCarry(half_carry));
+        self.set_flag(Flag::Zero(zero));
+        self.set_flag(Flag::Negative(true));
+        self.set_flag(Flag::HalfCarry(half_carry));
 
         self.pc += 1;
         self.cycles += 4;
     }
 
-    fn xor_register(&mut self, reg: TargetRegister) {
-        let value = self.get_register(&reg);
-        let target = self.get_register(&TargetRegister::AF(true));
+    fn xor_r8(&mut self, reg: Register) {
+        let value = self.get_r8(&reg);
+        let target = self.get_r8(&Register::AF(true));
 
         let result = value ^ target;
 
-        self.af = (self.af & 0x00FF) | result as u16;
+        self.set_r8(Register::AF(true), result);
 
-        self.set_flag(TargetFlag::Zero(result == 0));
-        self.set_flag(TargetFlag::Negative(false));
-        self.set_flag(TargetFlag::HalfCarry(false));
-        self.set_flag(TargetFlag::Carry(false));
+        self.set_flag(Flag::Zero(result == 0));
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry(false));
+        self.set_flag(Flag::Carry(false));
 
         self.pc += 1;
         self.cycles += 4;
     }
 
-    fn call(&mut self, bp: &Vec<Breakpoint>, dbg: &mut EmulatorMode) {
-        let (bp_hit, address) = self.read_u16(self.pc + 1, bp);
+    fn call(&mut self, breakpoints: &Vec<Breakpoint>, dbg_mode: &mut EmulatorMode) {
+        let (bp_hit, address) = self.read_u16(self.pc + 1, breakpoints);
 
         if bp_hit {
-            *dbg = EmulatorMode::BreakpointHit;
+            *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
 
-        if self.stack_write(self.pc + 3, bp) {
-            *dbg = EmulatorMode::BreakpointHit;
+        if self.stack_write(self.pc + 3, breakpoints) {
+            *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
 
@@ -760,12 +756,12 @@ impl GameboyCPU {
         self.cycles += 24;
     }
 
-    fn conditional_jump_relative(&mut self, bp: &Vec<Breakpoint>, dbg: &mut EmulatorMode, condition: JumpCondition) {
+    fn conditional_jump_relative(&mut self, breakpoints: &Vec<Breakpoint>, dbg_mode: &mut EmulatorMode, condition: JumpCondition) {
         let jump: bool;
 
         match condition {
             JumpCondition::Zero(set) => {
-                let zf = self.get_flag(TargetFlag::Zero(false));
+                let zf = self.get_flag(Flag::Zero(false));
 
                 if set {
                     jump = zf;
@@ -775,7 +771,7 @@ impl GameboyCPU {
                 }
             }
             JumpCondition::Carry(set) => {
-                let cf = self.get_flag(TargetFlag::Zero(false));
+                let cf = self.get_flag(Flag::Zero(false));
 
                 if set {
                     jump = cf;
@@ -787,10 +783,10 @@ impl GameboyCPU {
         }
 
         if jump {
-            let (bp_hit, offset) = self.read_u8(self.pc + 1, bp);
+            let (bp_hit, offset) = self.read_u8(self.pc + 1, breakpoints);
 
             if bp_hit {
-                *dbg = EmulatorMode::BreakpointHit;
+                *dbg_mode = EmulatorMode::BreakpointHit;
                 return;
             }
 
@@ -807,9 +803,9 @@ impl GameboyCPU {
     }
 
     fn rla(&mut self) {
-        let value = self.get_register(&TargetRegister::AF(true));
+        let value = self.get_r8(&Register::AF(true));
         let top_bit = (value >> 7) == 1;
-        let carry = self.get_flag(TargetFlag::Carry(false));
+        let carry = self.get_flag(Flag::Carry(false));
         
         let mut result = value << 1;
 
@@ -817,21 +813,21 @@ impl GameboyCPU {
             result |= 1;
         }
 
-        self.set_register(TargetRegister::AF(true), result);
+        self.set_r8(Register::AF(true), result);
 
-        self.set_flag(TargetFlag::Zero(false));
-        self.set_flag(TargetFlag::Negative(false));
-        self.set_flag(TargetFlag::HalfCarry(false));
-        self.set_flag(TargetFlag::Carry(top_bit));
+        self.set_flag(Flag::Zero(false));
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry(false));
+        self.set_flag(Flag::Carry(top_bit));
 
         self.pc += 1;
         self.cycles += 4;
     }
 
-    fn rl_register(&mut self, reg: TargetRegister) {
-        let value = self.get_register(&reg);
+    fn rl(&mut self, reg: Register) {
+        let value = self.get_r8(&reg);
         let top_bit = (value >> 7) == 1;
-        let carry = self.get_flag(TargetFlag::Carry(false));
+        let carry = self.get_flag(Flag::Carry(false));
         
         let mut result = value << 1;
 
@@ -839,24 +835,24 @@ impl GameboyCPU {
             result |= 1;
         }
 
-        self.set_register(reg, result);
+        self.set_r8(reg, result);
 
-        self.set_flag(TargetFlag::Zero(result == 0));
-        self.set_flag(TargetFlag::Negative(false));
-        self.set_flag(TargetFlag::HalfCarry(false));
-        self.set_flag(TargetFlag::Carry(top_bit));
+        self.set_flag(Flag::Zero(result == 0));
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry(false));
+        self.set_flag(Flag::Carry(top_bit));
 
         self.pc += 2;
         self.cycles += 8;
     }
 
-    fn bit_register(&mut self, reg: TargetRegister, bit: u8) {
-        let value = self.get_register(&reg);
+    fn bit(&mut self, reg: Register, bit: u8) {
+        let value = self.get_r8(&reg);
         let result = (value & (1 << bit)) == 0;
 
-        self.set_flag(TargetFlag::Zero(result));
-        self.set_flag(TargetFlag::Negative(false));
-        self.set_flag(TargetFlag::HalfCarry(true));
+        self.set_flag(Flag::Zero(result));
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry(true));
 
         self.pc += 2;
         self.cycles += 8;
