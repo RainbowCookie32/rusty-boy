@@ -311,6 +311,7 @@ impl GameboyCPU {
 
             0x20 => self.conditional_jump_relative(breakpoints, dbg_mode, JumpCondition::Zero(false)),
             0x21 => self.load_u16_to_register(breakpoints, dbg_mode, TargetRegister::HL(false)),
+            0x22 => self.store_to_hl_and_inc(breakpoints, dbg_mode),
             0x24 => self.inc_register(TargetRegister::HL(true)),
             0x25 => self.dec_register(TargetRegister::HL(true)),
             0x26 => self.load_u8_to_register(breakpoints, dbg_mode, TargetRegister::HL(true)),
@@ -586,6 +587,21 @@ impl GameboyCPU {
             return;
         }
         
+        self.pc += 1;
+        self.cycles += 8;
+    }
+
+    fn store_to_hl_and_inc(&mut self, bp: &Vec<Breakpoint>, dbg: &mut EmulatorMode) {
+        let value = self.get_register(&TargetRegister::AF(true));
+        let address = self.hl;
+        
+        if self.write(address, value, bp) {
+            *dbg = EmulatorMode::BreakpointHit;
+            return;
+        }
+        
+        self.hl = address.wrapping_add(1);
+
         self.pc += 1;
         self.cycles += 8;
     }
