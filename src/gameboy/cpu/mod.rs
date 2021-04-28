@@ -255,22 +255,23 @@ impl GameboyCPU {
             }
         }
 
-        let values = [self.memory.read(self.sp - 1), self.memory.read(self.sp - 2)];
-        self.sp -= 2;
+        let values = [self.memory.read(self.sp), self.memory.read(self.sp + 1)];
+        self.sp += 2;
 
         (found_bp, u16::from_le_bytes(values))
     }
 
     fn stack_write(&mut self, value: u16, breakpoints: &Vec<Breakpoint>) -> bool {
-        let bytes = value.to_le_bytes();
+        let high = (value >> 8) as u8;
+        let low = value as u8;
 
         self.sp -= 1;
-        if self.write(self.sp, bytes[0], breakpoints) {
+        if self.write(self.sp, high, breakpoints) {
             return true;
         }
 
         self.sp -= 1;
-        if self.write(self.sp, bytes[1], breakpoints) {
+        if self.write(self.sp, low, breakpoints) {
             return true;
         }
 
@@ -422,6 +423,7 @@ impl GameboyCPU {
 
             0xC1 => self.pop_rp(breakpoints, dbg_mode, Register::BC(false)),
             0xC5 => self.push_rp(breakpoints, dbg_mode, Register::BC(false)),
+            0xC9 => self.ret(breakpoints, dbg_mode),
             0xCB => self.execute_instruction_prefixed(breakpoints, dbg_mode),
             0xCD => self.call(breakpoints, dbg_mode),
 
@@ -767,6 +769,18 @@ impl GameboyCPU {
 
         self.pc = address;
         self.cycles += 24;
+    }
+
+    fn ret(&mut self, breakpoints: &Vec<Breakpoint>, dbg_mode: &mut EmulatorMode) {
+        let (bp_hit, address) = self.stack_read(breakpoints);
+
+        if bp_hit {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        self.pc = address;
+        self.cycles += 16;
     }
 
     fn conditional_jump_relative(&mut self, breakpoints: &Vec<Breakpoint>, dbg_mode: &mut EmulatorMode, condition: JumpCondition) {
