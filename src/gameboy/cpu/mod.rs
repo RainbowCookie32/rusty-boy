@@ -434,6 +434,7 @@ impl GameboyCPU {
             0xE1 => self.pop_rp(breakpoints, dbg_mode, Register::HL(false)),
             0xE2 => self.store_a_to_io_c(breakpoints, dbg_mode),
             0xE5 => self.push_rp(breakpoints, dbg_mode, Register::HL(false)),
+            0xEA => self.store_a_to_u16(breakpoints, dbg_mode),
 
             0xF1 => self.pop_rp(breakpoints, dbg_mode, Register::AF(false)),
             0xF5 => self.push_rp(breakpoints, dbg_mode, Register::AF(false)),
@@ -667,6 +668,20 @@ impl GameboyCPU {
         
         self.pc += 2;
         self.cycles += 12;
+    }
+
+    fn store_a_to_u16(&mut self, breakpoints: &Vec<Breakpoint>, dbg_mode: &mut EmulatorMode) {
+        let (bp_hit, address) = self.read_u16(self.pc + 1, breakpoints);
+
+        if bp_hit {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        self.write(address, self.get_r8(&Register::AF(true)), breakpoints);
+
+        self.pc += 3;
+        self.cycles += 16;
     }
 
     fn pop_rp(&mut self, breakpoints: &Vec<Breakpoint>, dbg_mode: &mut EmulatorMode, reg: Register) {
