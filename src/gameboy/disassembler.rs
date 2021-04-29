@@ -50,7 +50,12 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
             (2, dis)
         }
         0x17 => (1, String::from("RLA")),
-        0x18 => (2, format!("??? (${:02X})", opcode_value)),
+        0x18 => {
+            let args = [gb_mem.read(address + 1), gb_mem.read(address + 2)];
+            let dis = format!("JR ${:04X}", u16::from_le_bytes(args));
+
+            (2, dis)
+        }
         0x1A => (1, String::from("LD A, (DE)")),
         0x1C => (1, String::from("INC E")),
         0x1D => (1, String::from("DEC E")),

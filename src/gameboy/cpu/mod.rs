@@ -327,6 +327,7 @@ impl GameboyCPU {
             0x15 => self.dec_r8(Register::DE(true)),
             0x16 => self.load_u8_to_r8(breakpoints, dbg_mode, Register::DE(true)),
             0x17 => self.rla(),
+            0x18 => self.jump_relative(breakpoints, dbg_mode),
             0x1A => self.load_a_from_rp(breakpoints, dbg_mode, Register::DE(false)),
             0x1C => self.inc_r8(Register::DE(false)),
             0x1D => self.dec_r8(Register::DE(false)),
@@ -816,7 +817,22 @@ impl GameboyCPU {
         }
 
         self.pc = address;
-        self.cycles += 16;
+        self.cycles += 12;
+    }
+
+    fn jump_relative(&mut self, breakpoints: &Vec<Breakpoint>, dbg_mode: &mut EmulatorMode) {
+        let (bp_hit, offset) = self.read_u8(self.pc + 1, breakpoints);
+
+        if bp_hit {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        let offset = offset as i8;
+        let target = self.pc.wrapping_add(offset as u16) + 2;
+
+        self.pc = target;
+        self.cycles += 12;
     }
 
     fn conditional_jump_relative(&mut self, breakpoints: &Vec<Breakpoint>, dbg_mode: &mut EmulatorMode, condition: JumpCondition) {
