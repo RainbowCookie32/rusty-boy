@@ -10,10 +10,10 @@ impl NoMBC {
     pub fn new(header: CartHeader, data: Vec<u8>) -> NoMBC {
         let rom_banks = {
             let mut result = Vec::new();
-            let mut chunks = data.chunks(16384);
+            let chunks = data.chunks(16384);
 
-            while let Some(chunk) = chunks.next() {
-                let chunk: Vec<GameboyByte> = chunk.into_iter().map(|b| GameboyByte::from(*b)).collect();
+            for chunk in chunks {
+                let chunk: Vec<GameboyByte> = chunk.iter().map(|b| GameboyByte::from(*b)).collect();
                 result.push(chunk.to_vec());
             }
 

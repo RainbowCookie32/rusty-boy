@@ -14,9 +14,9 @@ pub struct CartHeader {
 }
 
 impl CartHeader {
-    pub fn new(data: &Vec<u8>) -> CartHeader {
+    pub fn new(data: &[u8]) -> CartHeader {
         let title = {
-            let data = data[0x0134..0x0143].to_vec().clone();
+            let data = data[0x0134..0x0143].to_vec();
             let data_clean: Vec<u8> = data.into_iter().filter(|b| *b > 0).collect();
             
             String::from_utf8_lossy(&data_clean).to_string()
