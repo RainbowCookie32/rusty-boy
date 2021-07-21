@@ -226,6 +226,12 @@ fn main() {
                         if ui.button(im_str!("Reset"), [0.0, 0.0]) {
                             lock.gb_reset();
                         }
+
+                        ui.same_line(0.0);
+
+                        if ui.button(im_str!("Skip bootrom"), [0.0, 0.0]) {
+                            lock.gb_skip_bootrom();
+                        }
     
                         ui.separator();
     

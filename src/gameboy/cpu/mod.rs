@@ -197,6 +197,15 @@ impl GameboyCPU {
         }
     }
 
+    pub fn skip_bootrom(&mut self) {
+        self.af = 0x01B0;
+        self.bc = 0x0013;
+        self.de = 0x00D8;
+        self.hl = 0x014D;
+        self.sp = 0xFFFE;
+        self.pc = 0x0150;
+    }
+
     pub fn get_all_registers(&self) -> (&u16, &u16, &u16, &u16, &u16, &u16) {
         (&self.af, &self.bc, &self.de, &self.hl, &self.sp, &self.pc)
     }

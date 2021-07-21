@@ -42,6 +42,14 @@ impl Gameboy {
         self.dbg_mode = EmulatorMode::Paused;
     }
 
+    pub fn gb_skip_bootrom(&mut self) {
+        self.gb_cpu.skip_bootrom();
+        // Disable the Bootrom by writing 1 to $FF50.
+        self.gb_mem.write(0xFF50, 1);
+
+        self.dbg_mode = EmulatorMode::Paused;
+    }
+
     pub fn gb_cpu_cycle(&mut self) {
         self.gb_cpu.cpu_cycle(&self.dbg_breakpoint_list, &mut self.dbg_mode);
     }
