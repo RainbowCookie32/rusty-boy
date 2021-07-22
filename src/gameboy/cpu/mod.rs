@@ -435,6 +435,7 @@ impl GameboyCPU {
             0xAF => self.xor_r8(Register::AF(true)),
 
             0xC1 => self.pop_rp(breakpoints, dbg_mode, Register::BC(false)),
+            0xC3 => self.jump(breakpoints, dbg_mode),
             0xC5 => self.push_rp(breakpoints, dbg_mode, Register::BC(false)),
             0xC9 => self.ret(breakpoints, dbg_mode),
             0xCB => self.execute_instruction_prefixed(breakpoints, dbg_mode),
@@ -880,6 +881,18 @@ impl GameboyCPU {
 
         self.pc = address;
         self.cycles += 12;
+    }
+
+    fn jump(&mut self, breakpoints: &Vec<Breakpoint>, dbg_mode: &mut EmulatorMode) {
+        let (bp_hit, address) = self.read_u16(self.pc + 1, breakpoints);
+
+        if bp_hit {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        self.pc = address;
+        self.cycles += 16;
     }
 
     fn jump_relative(&mut self, breakpoints: &Vec<Breakpoint>, dbg_mode: &mut EmulatorMode) {
