@@ -372,6 +372,7 @@ impl GameboyCPU {
             0x43 => self.load_r8_to_r8(Register::BC(true), Register::DE(false)),
             0x44 => self.load_r8_to_r8(Register::BC(true), Register::HL(true)),
             0x45 => self.load_r8_to_r8(Register::BC(true), Register::HL(false)),
+            0x46 => self.load_u8_to_r8_from_hl(breakpoints, dbg_mode, Register::BC(true)),
             0x47 => self.load_r8_to_r8(Register::BC(true), Register::AF(true)),
             0x48 => self.load_r8_to_r8(Register::BC(false), Register::BC(true)),
             0x49 => self.load_r8_to_r8(Register::BC(false), Register::BC(false)),
@@ -379,6 +380,7 @@ impl GameboyCPU {
             0x4B => self.load_r8_to_r8(Register::BC(false), Register::DE(false)),
             0x4C => self.load_r8_to_r8(Register::BC(false), Register::HL(true)),
             0x4D => self.load_r8_to_r8(Register::BC(false), Register::HL(false)),
+            0x4E => self.load_u8_to_r8_from_hl(breakpoints, dbg_mode, Register::BC(false)),
             0x4F => self.load_r8_to_r8(Register::BC(false), Register::AF(true)),
 
             0x50 => self.load_r8_to_r8(Register::DE(true), Register::BC(true)),
@@ -387,6 +389,7 @@ impl GameboyCPU {
             0x53 => self.load_r8_to_r8(Register::DE(true), Register::DE(false)),
             0x54 => self.load_r8_to_r8(Register::DE(true), Register::HL(true)),
             0x55 => self.load_r8_to_r8(Register::DE(true), Register::HL(false)),
+            0x56 => self.load_u8_to_r8_from_hl(breakpoints, dbg_mode, Register::DE(true)),
             0x57 => self.load_r8_to_r8(Register::DE(true), Register::AF(true)),
             0x58 => self.load_r8_to_r8(Register::DE(false), Register::BC(true)),
             0x59 => self.load_r8_to_r8(Register::DE(false), Register::BC(false)),
@@ -394,6 +397,7 @@ impl GameboyCPU {
             0x5B => self.load_r8_to_r8(Register::DE(false), Register::DE(false)),
             0x5C => self.load_r8_to_r8(Register::DE(false), Register::HL(true)),
             0x5D => self.load_r8_to_r8(Register::DE(false), Register::HL(false)),
+            0x5E => self.load_u8_to_r8_from_hl(breakpoints, dbg_mode, Register::DE(false)),
             0x5F => self.load_r8_to_r8(Register::DE(false), Register::AF(true)),
 
             0x60 => self.load_r8_to_r8(Register::HL(true), Register::BC(true)),
@@ -402,6 +406,7 @@ impl GameboyCPU {
             0x63 => self.load_r8_to_r8(Register::HL(true), Register::DE(false)),
             0x64 => self.load_r8_to_r8(Register::HL(true), Register::HL(true)),
             0x65 => self.load_r8_to_r8(Register::HL(true), Register::HL(false)),
+            0x66 => self.load_u8_to_r8_from_hl(breakpoints, dbg_mode, Register::HL(true)),
             0x67 => self.load_r8_to_r8(Register::HL(true), Register::AF(true)),
             0x68 => self.load_r8_to_r8(Register::HL(false), Register::BC(true)),
             0x69 => self.load_r8_to_r8(Register::HL(false), Register::BC(false)),
@@ -409,6 +414,7 @@ impl GameboyCPU {
             0x6B => self.load_r8_to_r8(Register::HL(false), Register::DE(false)),
             0x6C => self.load_r8_to_r8(Register::HL(false), Register::HL(true)),
             0x6D => self.load_r8_to_r8(Register::HL(false), Register::HL(false)),
+            0x6E => self.load_u8_to_r8_from_hl(breakpoints, dbg_mode, Register::HL(false)),
             0x6F => self.load_r8_to_r8(Register::HL(false), Register::AF(true)),
 
             0x70 => self.store_r8_to_hl(breakpoints, dbg_mode, Register::BC(true)),
