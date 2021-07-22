@@ -32,7 +32,7 @@ impl GameboyCart for NoMBC {
         if address <= 0x3FFF {
             self.rom_banks[0][address as usize].get()
         }
-        else if address >= 0x4000 && address <= 0x7FFF {
+        else if (0x4000..=0x7FFF).contains(&address) {
             self.rom_banks[1][address as usize - 0x4000].get()
         }
         else {
@@ -48,7 +48,7 @@ impl GameboyCart for NoMBC {
         if address <= 0x3FFF {
             self.rom_banks[0][address as usize].set(value)
         }
-        else if address >= 0x4000 && address <= 0x7FFF {
+        else if (0x4000..=0x7FFF).contains(&address) {
             self.rom_banks[1][address as usize - 0x4000].set(value)
         }
     }
