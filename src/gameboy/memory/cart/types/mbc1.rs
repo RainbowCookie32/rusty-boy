@@ -1,5 +1,6 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use crate::gameboy::memory::regions::*;
 use crate::gameboy::memory::cart::CartHeader;
 use crate::gameboy::memory::{GameboyCart, GameboyByte};
 
@@ -58,7 +59,7 @@ impl MBC1 {
 
 impl GameboyCart for MBC1 {
     fn read(&self, address: u16) -> u8 {
-        if address <= 0x3FFF {
+        if CARTRIDGE_ROM_BANK0.contains(&address) {
             if !self.simple_banking_mode.load(Ordering::Relaxed) && self.rom_banks.len() > 32 {
                 let bank = (self.selected_ram_bank.get() << 5) as usize;
 
@@ -73,7 +74,7 @@ impl GameboyCart for MBC1 {
                 self.rom_banks[0][address as usize].get()
             }
         }
-        else if (0x4000..=0x7FFF).contains(&address) {
+        else if CARTRIDGE_ROM_BANKX.contains(&address) {
             let bank = self.get_rom_bank();
             let address = (address - 0x4000) as usize;
 
@@ -84,7 +85,7 @@ impl GameboyCart for MBC1 {
                 0
             }
         }
-        else if (0xA000..=0xBFFF).contains(&address) {
+        else if CARTRIDGE_RAM.contains(&address) {
             let bank = self.selected_ram_bank.get() as usize;
             let address = (address - 0xA000) as usize;
             
@@ -101,19 +102,19 @@ impl GameboyCart for MBC1 {
     }
 
     fn write(&self, address: u16, value: u8) {
-        if address <= 0x1FFF {
+        if MBC1_ENABLE_RAM.contains(&address) {
             self.ram_enabled.store((value & 0x0A) == 0x0A, Ordering::Relaxed);
         }
-        else if (0x2000..=0x3FFF).contains(&address) {
+        else if MBC1_ROM_BANK.contains(&address) {
             self.selected_rom_bank.set(value & 0x1F);
         }
-        else if (0x4000..=0x5FFF).contains(&address) {
+        else if MBC1_RAM_BANK.contains(&address) {
             self.selected_ram_bank.set(value & 3);
         }
-        else if (0x6000..=0x7FFF).contains(&address) {
+        else if MBC1_BANKING_MODE.contains(&address) {
             self.simple_banking_mode.store(value == 0, Ordering::Relaxed);
         }
-        else if (0xA000..=0xBFFF).contains(&address) {
+        else if CARTRIDGE_RAM.contains(&address) {
             let bank = self.selected_ram_bank.get() as usize;
             let address = (address - 0xA000) as usize;
             
@@ -125,10 +126,10 @@ impl GameboyCart for MBC1 {
 
     // TODO: Get this to work properly with banking.
     fn dbg_write(&self, address: u16, value: u8) {
-        if address <= 0x3FFF {
+        if CARTRIDGE_ROM_BANK0.contains(&address) {
             self.rom_banks[0][address as usize].set(value)
         }
-        else if (0x4000..=0x7FFF).contains(&address) {
+        else if CARTRIDGE_ROM_BANKX.contains(&address) {
             self.rom_banks[1][address as usize - 0x4000].set(value)
         }
     }

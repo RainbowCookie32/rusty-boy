@@ -1,7 +1,9 @@
 pub mod cart;
+pub mod regions;
 
 use std::sync::atomic::{AtomicU8, Ordering};
 
+use regions::*;
 use cart::{CartHeader, GameboyCart};
 
 pub struct GameboyByte {
@@ -99,7 +101,7 @@ impl GameboyMemory {
     }
 
     pub fn read(&self, address: u16) -> u8 {
-        if address <= 0x7FFF {
+        if CARTRIDGE_ROM.contains(&address) {
             let bootrom_enabled = self.read(0xFF50) == 0;
 
             if bootrom_enabled {
@@ -114,28 +116,29 @@ impl GameboyMemory {
                 self.cartridge.read(address)
             }
         }
-        else if (0x8000..=0x9FFF).contains(&address) {
+        else if VRAM.contains(&address) {
             self.vram[address as usize - 0x8000].get()
         }
-        else if (0xA000..=0xBFFF).contains(&address) {
+        else if CARTRIDGE_RAM.contains(&address) {
             self.cartridge.read(address)
         }
-        else if (0xC000..=0xDFFF).contains(&address) {
+        else if WRAM.contains(&address) {
             self.wram[address as usize - 0xC000].get()
         }
-        else if (0xE000..=0xFDFF).contains(&address) {
+        else if ECHO.contains(&address) {
             self.wram[address as usize - 0xE000].get()
         }
-        else if (0xFE00..=0xFE9F).contains(&address) {
+        else if OAM.contains(&address) {
             self.oam[address as usize - 0xFE00].get()
         }
+        // Unused.
         else if (0xFEA0..=0xFEFF).contains(&address) {
             0
         }
-        else if (0xFF00..=0xFF7F).contains(&address) {
+        else if IO.contains(&address) {
             self.io[address as usize - 0xFF00].get()
         }
-        else if (0xFF80..=0xFFFE).contains(&address) {
+        else if HRAM.contains(&address) {
             self.hram[address as usize - 0xFF80].get()
         }
         else {
@@ -144,31 +147,32 @@ impl GameboyMemory {
     }
 
     pub fn write(&self, address: u16, value: u8) {
-        if address <= 0x7FFF {
+        if CARTRIDGE_ROM.contains(&address) {
             self.cartridge.write(address, value);
         }
-        else if (0x8000..=0x9FFF).contains(&address) {
+        else if VRAM.contains(&address) {
             self.vram[address as usize - 0x8000].set(value);
         }
-        else if (0xA000..=0xBFFF).contains(&address) {
+        else if CARTRIDGE_RAM.contains(&address) {
             self.cartridge.write(address, value);
         }
-        else if (0xC000..=0xDFFF).contains(&address) {
+        else if WRAM.contains(&address) {
             self.wram[address as usize - 0xC000].set(value);
         }
-        else if (0xE000..=0xFDFF).contains(&address) {
+        else if ECHO.contains(&address) {
             self.wram[address as usize - 0xE000].set(value);
         }
-        else if (0xFE00..=0xFE9F).contains(&address) {
+        else if OAM.contains(&address) {
             self.oam[address as usize - 0xFE00].set(value);
         }
+        // Unused.
         else if (0xFEA0..=0xFEFF).contains(&address) {
             
         }
-        else if (0xFF00..=0xFF7F).contains(&address) {
+        else if IO.contains(&address) {
             self.io[address as usize - 0xFF00].set(value);
         }
-        else if (0xFF80..=0xFFFE).contains(&address) {
+        else if HRAM.contains(&address) {
             self.hram[address as usize - 0xFF80].set(value);
         }
         else {
@@ -177,7 +181,7 @@ impl GameboyMemory {
     }
 
     pub fn dbg_write(&self, address: u16, value: u8) {
-        if address <= 0x7FFF {
+        if CARTRIDGE_ROM.contains(&address) {
             let bootrom_enabled = self.read(0xFF50) == 0;
 
             if bootrom_enabled {
@@ -192,28 +196,29 @@ impl GameboyMemory {
                 self.cartridge.dbg_write(address, value);
             }
         }
-        else if (0x8000..=0x9FFF).contains(&address) {
+        else if VRAM.contains(&address) {
             self.vram[address as usize - 0x8000].set(value);
         }
-        else if (0xA000..=0xBFFF).contains(&address) {
+        else if CARTRIDGE_RAM.contains(&address) {
             self.cartridge.write(address, value);
         }
-        else if (0xC000..=0xDFFF).contains(&address) {
+        else if WRAM.contains(&address) {
             self.wram[address as usize - 0xC000].set(value);
         }
-        else if (0xE000..=0xFDFF).contains(&address) {
+        else if ECHO.contains(&address) {
             self.wram[address as usize - 0xE000].set(value);
         }
-        else if (0xFE00..=0xFE9F).contains(&address) {
+        else if OAM.contains(&address) {
             self.oam[address as usize - 0xFE00].set(value);
         }
+        // Unused.
         else if (0xFEA0..=0xFEFF).contains(&address) {
             
         }
-        else if (0xFF00..=0xFF7F).contains(&address) {
+        else if IO.contains(&address) {
             self.io[address as usize - 0xFF00].set(value);
         }
-        else if (0xFF80..=0xFFFE).contains(&address) {
+        else if HRAM.contains(&address) {
             self.hram[address as usize - 0xFF80].set(value);
         }
         else {

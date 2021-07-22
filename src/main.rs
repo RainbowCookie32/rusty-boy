@@ -5,6 +5,7 @@ use std::sync::{Arc, RwLock};
 
 use gameboy::*;
 use gameboy::disassembler;
+use gameboy::memory::regions::*;
 use gameboy::memory::GameboyMemory;
 
 use clap::{Arg, App};
@@ -425,31 +426,31 @@ fn main() {
 
                             let line_p = if pc_ui == current_addr {"> "} else {""};
                             let address_p = {
-                                if current_addr <= 0x3FFF {
+                                if CARTRIDGE_ROM_BANKX.contains(&current_addr) {
                                     String::from("ROM0")
                                 }
-                                else if (0x4000..=0x7FFF).contains(&current_addr) {
+                                else if CARTRIDGE_ROM_BANKX.contains(&current_addr) {
                                     format!("ROM{:0X}", gb_mem_ui.cartridge().get_selected_rom_bank())
                                 }
-                                else if (0x8000..=0x9FFF).contains(&current_addr) {
+                                else if VRAM.contains(&current_addr) {
                                     String::from("VRAM")
                                 }
-                                else if (0xA000..=0xBFFF).contains(&current_addr) {
+                                else if CARTRIDGE_RAM.contains(&current_addr) {
                                     String::from("CRAM")
                                 }
-                                else if (0xC000..=0xFDFF).contains(&current_addr) {
+                                else if WRAM.contains(&current_addr) {
                                     String::from("WRAM")
                                 }
-                                else if (0xFE00..=0xFE9F).contains(&current_addr) {
+                                else if OAM.contains(&current_addr) {
                                     String::from("OAM")
                                 }
                                 else if (0xFEA0..=0xFEFF).contains(&current_addr) {
                                     String::from("UNK")
                                 }
-                                else if (0xFF00..=0xFF7F).contains(&current_addr) {
+                                else if IO.contains(&current_addr) {
                                     String::from("IO")
                                 }
-                                else if (0xFF80..=0xFFFE).contains(&current_addr) {
+                                else if HRAM.contains(&current_addr) {
                                     String::from("HRAM")
                                 }
                                 else {

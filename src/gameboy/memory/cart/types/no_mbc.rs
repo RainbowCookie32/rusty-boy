@@ -1,3 +1,4 @@
+use crate::gameboy::memory::regions::*;
 use crate::gameboy::memory::cart::CartHeader;
 use crate::gameboy::memory::{GameboyCart, GameboyByte};
 
@@ -29,10 +30,10 @@ impl NoMBC {
 
 impl GameboyCart for NoMBC {
     fn read(&self, address: u16) -> u8 {
-        if address <= 0x3FFF {
+        if CARTRIDGE_ROM_BANK0.contains(&address) {
             self.rom_banks[0][address as usize].get()
         }
-        else if (0x4000..=0x7FFF).contains(&address) {
+        else if CARTRIDGE_ROM_BANKX.contains(&address) {
             self.rom_banks[1][address as usize - 0x4000].get()
         }
         else {
@@ -45,10 +46,10 @@ impl GameboyCart for NoMBC {
     }
 
     fn dbg_write(&self, address: u16, value: u8) {
-        if address <= 0x3FFF {
+        if CARTRIDGE_ROM_BANK0.contains(&address) {
             self.rom_banks[0][address as usize].set(value)
         }
-        else if (0x4000..=0x7FFF).contains(&address) {
+        else if CARTRIDGE_ROM_BANKX.contains(&address) {
             self.rom_banks[1][address as usize - 0x4000].set(value)
         }
     }
