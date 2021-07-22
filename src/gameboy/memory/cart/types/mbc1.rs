@@ -62,7 +62,12 @@ impl GameboyCart for MBC1 {
             if !self.simple_banking_mode.load(Ordering::Relaxed) && self.rom_banks.len() > 32 {
                 let bank = (self.selected_ram_bank.get() << 5) as usize;
 
-                self.rom_banks[bank][address as usize].get()
+                if let Some(bank) = self.rom_banks.get(bank) {
+                    bank[address as usize].get()
+                }
+                else {
+                    0
+                }
             }
             else {
                 self.rom_banks[0][address as usize].get()
@@ -72,13 +77,23 @@ impl GameboyCart for MBC1 {
             let bank = self.get_rom_bank();
             let address = (address - 0x4000) as usize;
 
-            self.rom_banks[bank][address].get()
+            if let Some(bank) = self.rom_banks.get(bank) {
+                bank[address as usize].get()
+            }
+            else {
+                0
+            }
         }
         else if (0xA000..=0xBFFF).contains(&address) {
             let bank = self.selected_ram_bank.get() as usize;
             let address = (address - 0xA000) as usize;
             
-            self.ram_banks[bank][address].get()
+            if let Some(bank) = self.ram_banks.get(bank) {
+                bank[address as usize].get()
+            }
+            else {
+                0
+            }
         }
         else {
             0
@@ -102,7 +117,9 @@ impl GameboyCart for MBC1 {
             let bank = self.selected_ram_bank.get() as usize;
             let address = (address - 0xA000) as usize;
             
-            self.ram_banks[bank][address].set(value)
+            if let Some(bank) = self.ram_banks.get(bank) {
+                bank[address as usize].set(value);
+            }
         }
     }
 
