@@ -114,7 +114,7 @@ pub fn create_cart(data: Vec<u8>) -> Box<dyn GameboyCart + Send + Sync> {
     let header = CartHeader::new(&data);
 
     match header.cart_type {
-        CartridgeType::MBC1 => todo!(),
+        CartridgeType::MBC1 => Box::new(mbc1::MBC1::new(header, data)),
         CartridgeType::MBC2 => todo!(),
         CartridgeType::MBC3 => todo!(),
         CartridgeType::MBC5 => todo!(),
