@@ -28,6 +28,7 @@ pub struct GameboyCPU {
 
     sp: u16,
     pc: u16,
+    ime: u8,
 
     cycles: usize,
 
@@ -44,6 +45,7 @@ impl GameboyCPU {
 
             sp: 0,
             pc: 0,
+            ime: 0,
 
             cycles: 0,
 
@@ -265,7 +267,7 @@ impl GameboyCPU {
         }
 
         let values = [self.memory.read(self.sp), self.memory.read(self.sp + 1)];
-        self.sp += 2;
+        self.sp = self.sp.wrapping_add(2);
 
         (found_bp, u16::from_le_bytes(values))
     }
@@ -274,12 +276,12 @@ impl GameboyCPU {
         let high = (value >> 8) as u8;
         let low = value as u8;
 
-        self.sp -= 1;
+        self.sp = self.sp.wrapping_sub(1);
         if self.write(self.sp, high, breakpoints) {
             return true;
         }
 
-        self.sp -= 1;
+        self.sp = self.sp.wrapping_sub(1);
         if self.write(self.sp, low, breakpoints) {
             return true;
         }
@@ -440,6 +442,14 @@ impl GameboyCPU {
             0xAD => self.xor_r8(Register::HL(false)),
             0xAF => self.xor_r8(Register::AF(true)),
 
+            0xB0 => self.or_r8(Register::BC(true)),
+            0xB1 => self.or_r8(Register::BC(false)),
+            0xB2 => self.or_r8(Register::DE(true)),
+            0xB3 => self.or_r8(Register::DE(false)),
+            0xB4 => self.or_r8(Register::HL(true)),
+            0xB5 => self.or_r8(Register::HL(false)),
+            0xB7 => self.or_r8(Register::AF(true)),
+
             0xC1 => self.pop_rp(breakpoints, dbg_mode, Register::BC(false)),
             0xC3 => self.jump(breakpoints, dbg_mode),
             0xC5 => self.push_rp(breakpoints, dbg_mode, Register::BC(false)),
@@ -458,7 +468,9 @@ impl GameboyCPU {
 
             0xF0 => self.load_a_from_ff_u8(breakpoints, dbg_mode),
             0xF1 => self.pop_rp(breakpoints, dbg_mode, Register::AF(false)),
+            0xF3 => self.di(),
             0xF5 => self.push_rp(breakpoints, dbg_mode, Register::AF(false)),
+            0xFB => self.ei(),
             0xFE => self.cp_u8(breakpoints, dbg_mode),
 
             _ => *dbg_mode = EmulatorMode::UnknownInstruction(false, opcode)
@@ -840,6 +852,23 @@ impl GameboyCPU {
         self.cycles += 4;
     }
 
+    fn or_r8(&mut self, reg: Register) {
+        let value = self.get_r8(&reg);
+        let target = self.get_r8(&Register::AF(true));
+
+        let result = value | target;
+
+        self.set_r8(Register::AF(true), result);
+
+        self.set_flag(Flag::Zero(result == 0));
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry(false));
+        self.set_flag(Flag::Carry(false));
+
+        self.pc += 1;
+        self.cycles += 4;
+    }
+
     fn cp_u8(&mut self, breakpoints: &Vec<Breakpoint>, dbg_mode: &mut EmulatorMode) {
         let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints);
 
@@ -960,6 +989,21 @@ impl GameboyCPU {
             self.pc += 2;
             self.cycles += 8;
         }
+    }
+
+    fn di(&mut self) {
+        self.ime = 0;
+
+        self.pc += 1;
+        self.cycles += 4;
+    }
+
+    // FIXME: I think interrupts are enabled after the instruction after EI?
+    fn ei(&mut self) {
+        self.ime = 1;
+        
+        self.pc += 1;
+        self.cycles += 4;
     }
 
     fn rla(&mut self) {
