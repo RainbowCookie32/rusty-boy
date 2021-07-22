@@ -117,11 +117,9 @@ fn main() {
                 if lock.dbg_mode == EmulatorMode::Running {
                     lock.gb_cpu_cycle();
                 }
-                else if lock.dbg_mode == EmulatorMode::Stepping {
-                    if lock.dbg_do_step {
-                        lock.gb_cpu_cycle();
-                        lock.dbg_do_step = false;
-                    }
+                else if lock.dbg_mode == EmulatorMode::Stepping && lock.dbg_do_step {
+                    lock.gb_cpu_cycle();
+                    lock.dbg_do_step = false;
                 }
             }
         }
@@ -207,11 +205,9 @@ fn main() {
                                 lock.dbg_mode = EmulatorMode::Paused;
                             }
                         }
-                        else {
-                            if ui.button(im_str!("Resume"), [0.0, 0.0]) {
-                                lock.dbg_mode = EmulatorMode::Running;
-                                app_state.disassembler.should_adjust_cursor = false;
-                            }
+                        else if ui.button(im_str!("Resume"), [0.0, 0.0]) {
+                            lock.dbg_mode = EmulatorMode::Running;
+                            app_state.disassembler.should_adjust_cursor = false;
                         }
     
                         ui.same_line(0.0);
@@ -383,12 +379,10 @@ fn main() {
                                     app_state.memory_viewer.target_byte_new_value = ImString::new("");
                                 }
                             }
-                            else {
-                                if Selectable::new(&ImString::from(format!("{:02X}", value))).allow_double_click(true).size(size).build(&ui) {
-                                    app_state.memory_viewer.editing_byte = true;
-                                    app_state.memory_viewer.target_byte_address = (current_addr - 8) + idx as u16;
-                                    app_state.memory_viewer.target_byte_new_value = ImString::from(format!("{:02X}", value));
-                                }
+                            else if Selectable::new(&ImString::from(format!("{:02X}", value))).allow_double_click(true).size(size).build(&ui) {
+                                app_state.memory_viewer.editing_byte = true;
+                                app_state.memory_viewer.target_byte_address = (current_addr - 8) + idx as u16;
+                                app_state.memory_viewer.target_byte_new_value = ImString::from(format!("{:02X}", value));
                             }
 
                             token.pop(&ui);
@@ -434,28 +428,28 @@ fn main() {
                                 if current_addr <= 0x3FFF {
                                     String::from("ROM0")
                                 }
-                                else if current_addr >= 0x4000 && current_addr <= 0x7FFF {
+                                else if (0x4000..=0x7FFF).contains(&current_addr) {
                                     format!("ROM{:0X}", gb_mem_ui.cartridge().get_selected_rom_bank())
                                 }
-                                else if current_addr >= 0x8000 && current_addr <= 0x9FFF {
+                                else if (0x8000..=0x9FFF).contains(&current_addr) {
                                     String::from("VRAM")
                                 }
-                                else if current_addr >= 0xA000 && current_addr <= 0xBFFF {
+                                else if (0xA000..=0xBFFF).contains(&current_addr) {
                                     String::from("CRAM")
                                 }
-                                else if current_addr >= 0xC000 && current_addr <= 0xFDFF {
+                                else if (0xC000..=0xFDFF).contains(&current_addr) {
                                     String::from("WRAM")
                                 }
-                                else if current_addr >= 0xFE00 && current_addr <= 0xFE9F {
+                                else if (0xFE00..=0xFE9F).contains(&current_addr) {
                                     String::from("OAM")
                                 }
-                                else if current_addr >= 0xFEA0 && current_addr <= 0xFEFF {
+                                else if (0xFEA0..=0xFEFF).contains(&current_addr) {
                                     String::from("UNK")
                                 }
-                                else if current_addr >= 0xFF00 && current_addr <= 0xFF7F {
+                                else if (0xFF00..=0xFF7F).contains(&current_addr) {
                                     String::from("IO")
                                 }
-                                else if current_addr >= 0xFF80 && current_addr <= 0xFFFE {
+                                else if (0xFF80..=0xFFFE).contains(&current_addr) {
                                     String::from("HRAM")
                                 }
                                 else {
