@@ -202,6 +202,13 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
         0x7D => (1, String::from("LD A, L")),
         0x7F => (1, String::from("LD A, A")),
 
+        0xA0 => (1, String::from("AND A, B")),
+        0xA1 => (1, String::from("AND A, C")),
+        0xA2 => (1, String::from("AND A, D")),
+        0xA3 => (1, String::from("AND A, E")),
+        0xA4 => (1, String::from("AND A, H")),
+        0xA5 => (1, String::from("AND A, L")),
+        0xA7 => (1, String::from("AND A, A")),
         0xA8 => (1, String::from("XOR A, B")),
         0xA9 => (1, String::from("XOR A, C")),
         0xAA => (1, String::from("XOR A, D")),
@@ -260,7 +267,12 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
         0xE1 => (1, String::from("POP HL")),
         0xE2 => (1, String::from("LD (FF00+C), A")),
         0xE5 => (1, String::from("PUSH HL")),
-        0xE6 => (2, format!("??? (${:02X})", opcode_value)),
+        0xE6 => {
+            let value = gb_mem.read(address + 1);
+            let dis = format!("AND A, ${:02X}", value);
+
+            (2, dis)
+        }
         0xE8 => (2, format!("??? (${:02X})", opcode_value)),
         0xEA => {
             let args = [gb_mem.read(address + 1), gb_mem.read(address + 2)];

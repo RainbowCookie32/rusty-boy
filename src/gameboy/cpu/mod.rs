@@ -432,6 +432,13 @@ impl GameboyCPU {
             0x7D => self.load_r8_to_r8(Register::AF(true), Register::HL(false)),
             0x7F => self.load_r8_to_r8(Register::AF(true), Register::AF(true)),
 
+            0xA0 => self.and_r8(Register::BC(true)),
+            0xA1 => self.and_r8(Register::BC(false)),
+            0xA2 => self.and_r8(Register::DE(true)),
+            0xA3 => self.and_r8(Register::DE(false)),
+            0xA4 => self.and_r8(Register::HL(true)),
+            0xA5 => self.and_r8(Register::HL(false)),
+            0xA7 => self.and_r8(Register::AF(true)),
             0xA8 => self.xor_r8(Register::BC(true)),
             0xA9 => self.xor_r8(Register::BC(false)),
             0xAA => self.xor_r8(Register::DE(true)),
@@ -462,6 +469,7 @@ impl GameboyCPU {
             0xE1 => self.pop_rp(breakpoints, dbg_mode, Register::HL(false)),
             0xE2 => self.store_a_to_io_c(breakpoints, dbg_mode),
             0xE5 => self.push_rp(breakpoints, dbg_mode, Register::HL(false)),
+            0xE6 => self.and_u8(breakpoints, dbg_mode),
             0xEA => self.store_a_to_u16(breakpoints, dbg_mode),
 
             0xF0 => self.load_a_from_ff_u8(breakpoints, dbg_mode),
@@ -853,6 +861,45 @@ impl GameboyCPU {
 
         self.pc += 1;
         self.cycles += 4;
+    }
+
+    fn and_r8(&mut self, reg: Register) {
+        let value = self.get_r8(&reg);
+        let target = self.get_r8(&Register::AF(true));
+
+        let result = value & target;
+
+        self.set_r8(Register::AF(true), result);
+
+        self.set_flag(Flag::Zero(result == 0));
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry(true));
+        self.set_flag(Flag::Carry(false));
+
+        self.pc += 1;
+        self.cycles += 4;
+    }
+
+    fn and_u8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
+        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints);
+
+        if bp_hit {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        let target = self.get_r8(&Register::AF(true));
+        let result = value & target;
+
+        self.set_r8(Register::AF(true), result);
+
+        self.set_flag(Flag::Zero(result == 0));
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry(true));
+        self.set_flag(Flag::Carry(false));
+
+        self.pc += 2;
+        self.cycles += 8;
     }
 
     fn xor_r8(&mut self, reg: Register) {
