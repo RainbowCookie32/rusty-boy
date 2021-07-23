@@ -440,6 +440,14 @@ impl GameboyCPU {
             0x85 => self.add_r8(Register::HL(false)),
             0x87 => self.add_r8(Register::AF(true)),
 
+            0x90 => self.sub_r8(Register::BC(true)),
+            0x91 => self.sub_r8(Register::BC(false)),
+            0x92 => self.sub_r8(Register::DE(true)),
+            0x93 => self.sub_r8(Register::DE(false)),
+            0x94 => self.sub_r8(Register::HL(true)),
+            0x95 => self.sub_r8(Register::HL(false)),
+            0x97 => self.sub_r8(Register::AF(true)),
+
             0xA0 => self.and_r8(Register::BC(true)),
             0xA1 => self.and_r8(Register::BC(false)),
             0xA2 => self.and_r8(Register::DE(true)),
@@ -476,6 +484,7 @@ impl GameboyCPU {
             0xD1 => self.pop_rp(breakpoints, dbg_mode, Register::DE(false)),
             0xD4 => self.conditional_call(breakpoints, dbg_mode, JumpCondition::Carry(false)),
             0xD5 => self.push_rp(breakpoints, dbg_mode, Register::DE(false)),
+            0xD6 => self.sub_u8(breakpoints, dbg_mode),
             0xDC => self.conditional_call(breakpoints, dbg_mode, JumpCondition::Carry(true)),
 
             0xE0 => self.store_a_to_io_u8(breakpoints, dbg_mode),
@@ -909,6 +918,46 @@ impl GameboyCPU {
         self.set_flag(Flag::Negative(false));
         self.set_flag(Flag::HalfCarry((a & 0x0F) + (value & 0x0F) > 0x0F));
         self.set_flag(Flag::Carry(result > 0xFF));
+
+        self.pc += 2;
+        self.cycles += 8;
+    }
+
+    fn sub_r8(&mut self, reg: Register) {
+        let a = self.get_r8(&Register::AF(true));
+        let value = self.get_r8(&reg);
+        let result = a.wrapping_sub(value);
+
+        self.set_r8(Register::AF(true), result);
+
+        self.set_flag(Flag::Zero(result == 0));
+        self.set_flag(Flag::Negative(true));
+        // FIXME: Properly check half-carry.
+        self.set_flag(Flag::HalfCarry(false));
+        self.set_flag(Flag::Carry(value > a));
+
+        self.pc += 1;
+        self.cycles += 4;
+    }
+
+    fn sub_u8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
+        let a = self.get_r8(&Register::AF(true));
+        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints);
+
+        if bp_hit {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        let result = a.wrapping_sub(value);
+
+        self.set_r8(Register::AF(true), result);
+
+        self.set_flag(Flag::Zero(result == 0));
+        self.set_flag(Flag::Negative(true));
+        // FIXME: Properly check half-carry.
+        self.set_flag(Flag::HalfCarry(false));
+        self.set_flag(Flag::Carry(value > a));
 
         self.pc += 2;
         self.cycles += 8;
