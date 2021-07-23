@@ -231,6 +231,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
         0xAB => (1, String::from("XOR A, E")),
         0xAC => (1, String::from("XOR A, H")),
         0xAD => (1, String::from("XOR A, L")),
+        0xAE => (1, String::from("XOR A, (HL)")),
         0xAF => (1, String::from("XOR A, A")),
 
         0xB0 => (1, String::from("OR A, B")),
@@ -326,7 +327,12 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
 
             (3, dis)
         }
-        0xEE => (2, format!("??? (${:02X})", opcode_value)),
+        0xEE => {
+            let value = gb_mem.read(address + 1);
+            let dis = format!("XOR A, ${:02X}", value);
+
+            (2, dis)
+        }
 
         0xF0 => {
             let value = gb_mem.read(address + 1);

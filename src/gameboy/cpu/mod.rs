@@ -461,6 +461,7 @@ impl GameboyCPU {
             0xAB => self.xor_r8(Register::DE(false)),
             0xAC => self.xor_r8(Register::HL(true)),
             0xAD => self.xor_r8(Register::HL(false)),
+            0xAE => self.xor_hl(breakpoints, dbg_mode),
             0xAF => self.xor_r8(Register::AF(true)),
 
             0xB0 => self.or_r8(Register::BC(true)),
@@ -493,6 +494,7 @@ impl GameboyCPU {
             0xE5 => self.push_rp(breakpoints, dbg_mode, Register::HL(false)),
             0xE6 => self.and_u8(breakpoints, dbg_mode),
             0xEA => self.store_a_to_u16(breakpoints, dbg_mode),
+            0xEE => self.xor_u8(breakpoints, dbg_mode),
 
             0xF0 => self.load_a_from_ff_u8(breakpoints, dbg_mode),
             0xF1 => self.pop_rp(breakpoints, dbg_mode, Register::AF(false)),
@@ -1017,6 +1019,50 @@ impl GameboyCPU {
 
         self.pc += 1;
         self.cycles += 4;
+    }
+
+    fn xor_u8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
+        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints);
+
+        if bp_hit {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        let target = self.get_r8(&Register::AF(true));
+        let result = value ^ target;
+
+        self.set_r8(Register::AF(true), result);
+
+        self.set_flag(Flag::Zero(result == 0));
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry(false));
+        self.set_flag(Flag::Carry(false));
+
+        self.pc += 2;
+        self.cycles += 8;
+    }
+
+    fn xor_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+
+        if bp_hit {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        let target = self.get_r8(&Register::AF(true));
+        let result = value ^ target;
+
+        self.set_r8(Register::AF(true), result);
+
+        self.set_flag(Flag::Zero(result == 0));
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry(false));
+        self.set_flag(Flag::Carry(false));
+
+        self.pc += 1;
+        self.cycles += 8;
     }
 
     fn or_r8(&mut self, reg: Register) {
