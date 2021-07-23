@@ -432,6 +432,14 @@ impl GameboyCPU {
             0x7D => self.load_r8_to_r8(Register::AF(true), Register::HL(false)),
             0x7F => self.load_r8_to_r8(Register::AF(true), Register::AF(true)),
 
+            0x80 => self.add_r8(Register::BC(true)),
+            0x81 => self.add_r8(Register::BC(false)),
+            0x82 => self.add_r8(Register::DE(true)),
+            0x83 => self.add_r8(Register::DE(false)),
+            0x84 => self.add_r8(Register::HL(true)),
+            0x85 => self.add_r8(Register::HL(false)),
+            0x87 => self.add_r8(Register::AF(true)),
+
             0xA0 => self.and_r8(Register::BC(true)),
             0xA1 => self.and_r8(Register::BC(false)),
             0xA2 => self.and_r8(Register::DE(true)),
@@ -459,6 +467,7 @@ impl GameboyCPU {
             0xC3 => self.jump(breakpoints, dbg_mode),
             0xC4 => self.conditional_call(breakpoints, dbg_mode, JumpCondition::Zero(false)),
             0xC5 => self.push_rp(breakpoints, dbg_mode, Register::BC(false)),
+            0xC6 => self.add_u8(breakpoints, dbg_mode),
             0xC9 => self.ret(breakpoints, dbg_mode),
             0xCB => self.execute_instruction_prefixed(breakpoints, dbg_mode),
             0xCC => self.conditional_call(breakpoints, dbg_mode, JumpCondition::Zero(true)),
@@ -865,6 +874,44 @@ impl GameboyCPU {
 
         self.pc += 1;
         self.cycles += 4;
+    }
+
+    fn add_r8(&mut self, reg: Register) {
+        let a = self.get_r8(&Register::AF(true));
+        let value = self.get_r8(&reg);
+        let result = a as u16 + value as u16;
+
+        self.set_r8(Register::AF(true), result as u8);
+
+        self.set_flag(Flag::Zero(result as u8 == 0));
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry((a & 0x0F) + (value & 0x0F) > 0x0F));
+        self.set_flag(Flag::Carry(result > 0xFF));
+
+        self.pc += 1;
+        self.cycles += 4;
+    }
+
+    fn add_u8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
+        let a = self.get_r8(&Register::AF(true));
+        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints);
+
+        if bp_hit {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        let result = a as u16 + value as u16;
+
+        self.set_r8(Register::AF(true), result as u8);
+
+        self.set_flag(Flag::Zero(result as u8 == 0));
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry((a & 0x0F) + (value & 0x0F) > 0x0F));
+        self.set_flag(Flag::Carry(result > 0xFF));
+
+        self.pc += 2;
+        self.cycles += 8;
     }
 
     fn and_r8(&mut self, reg: Register) {
