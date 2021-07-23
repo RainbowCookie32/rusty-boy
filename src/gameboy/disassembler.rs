@@ -233,13 +233,23 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
 
             (3, dis)
         }
-        0xC4 => (3, format!("??? (${:02X})", opcode_value)),
+        0xC4 => {
+            let args = [gb_mem.read(address + 1), gb_mem.read(address + 2)];
+            let dis = format!("CALL NZ, ${:04X}", u16::from_le_bytes(args));
+
+            (3, dis)
+        }
         0xC5 => (1, String::from("PUSH BC")),
         0xC6 => (2, format!("??? (${:02X})", opcode_value)),
         0xC9 => (1, String::from("RET")),
         0xCA => (3, format!("??? (${:02X})", opcode_value)),
         0xCB => get_instruction_data_prefixed(address, gb_mem),
-        0xCC => (3, format!("??? (${:02X})", opcode_value)),
+        0xCC => {
+            let args = [gb_mem.read(address + 1), gb_mem.read(address + 2)];
+            let dis = format!("CALL Z, ${:04X}", u16::from_le_bytes(args));
+
+            (3, dis)
+        }
         0xCD => {
             let args = [gb_mem.read(address + 1), gb_mem.read(address + 2)];
             let dis = format!("CALL ${:04X}", u16::from_le_bytes(args));
@@ -251,10 +261,20 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
         0xD1 => (1, String::from("POP DE")),
         0xD5 => (1, String::from("PUSH DE")),
         0xD2 => (3, format!("??? (${:02X})", opcode_value)),
-        0xD4 => (3, format!("??? (${:02X})", opcode_value)),
+        0xD4 => {
+            let args = [gb_mem.read(address + 1), gb_mem.read(address + 2)];
+            let dis = format!("CALL NC, ${:04X}", u16::from_le_bytes(args));
+
+            (3, dis)
+        }
         0xD6 => (2, format!("??? (${:02X})", opcode_value)),
         0xDA => (3, format!("??? (${:02X})", opcode_value)),
-        0xDC => (3, format!("??? (${:02X})", opcode_value)),
+        0xDC => {
+            let args = [gb_mem.read(address + 1), gb_mem.read(address + 2)];
+            let dis = format!("CALL C, ${:04X}", u16::from_le_bytes(args));
+
+            (3, dis)
+        }
         0xDE => (2, format!("??? (${:02X})", opcode_value)),
 
         0xE0 => {
