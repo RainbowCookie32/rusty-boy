@@ -1,6 +1,7 @@
 pub mod cart;
 pub mod regions;
 
+use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicU8, Ordering};
 
 use regions::*;
@@ -45,7 +46,9 @@ pub struct GameboyMemory {
     io: Vec<GameboyByte>,
     hram: Vec<GameboyByte>,
 
-    ie: GameboyByte
+    ie: GameboyByte,
+
+    serial_output: Arc<RwLock<Vec<u8>>>
 }
 
 impl GameboyMemory {
@@ -64,7 +67,9 @@ impl GameboyMemory {
             io: vec![GameboyByte::from(0); 0x0080],
             hram: vec![GameboyByte::from(0); 0x007F],
 
-            ie: GameboyByte::from(0)
+            ie: GameboyByte::from(0),
+
+            serial_output: Arc::new(RwLock::new(Vec::new()))
         }
     }
 
@@ -74,6 +79,10 @@ impl GameboyMemory {
 
     pub fn header(&self) -> &CartHeader {
         &self.cartridge.get_header()
+    }
+
+    pub fn serial_output(&self) -> Arc<RwLock<Vec<u8>>> {
+        self.serial_output.clone()
     }
 
     pub fn reset(&self) {
@@ -170,6 +179,12 @@ impl GameboyMemory {
             
         }
         else if IO.contains(&address) {
+            if address == 0xFF01 {
+                if let Ok(mut lock) = self.serial_output.write() {
+                    lock.push(value);
+                }
+            }
+
             self.io[address as usize - 0xFF00].set(value);
         }
         else if HRAM.contains(&address) {
