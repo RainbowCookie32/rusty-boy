@@ -485,12 +485,14 @@ impl GameboyCPU {
 
             0xC0 => self.conditional_ret(breakpoints, dbg_mode, Condition::Zero(false)),
             0xC1 => self.pop_rp(breakpoints, dbg_mode, Register::BC(false)),
+            0xC2 => self.conditional_jump(breakpoints, dbg_mode, Condition::Zero(false)),
             0xC3 => self.jump(breakpoints, dbg_mode),
             0xC4 => self.conditional_call(breakpoints, dbg_mode, Condition::Zero(false)),
             0xC5 => self.push_rp(breakpoints, dbg_mode, Register::BC(false)),
             0xC6 => self.add_u8(breakpoints, dbg_mode),
             0xC8 => self.conditional_ret(breakpoints, dbg_mode, Condition::Zero(true)),
             0xC9 => self.ret(breakpoints, dbg_mode),
+            0xCA => self.conditional_jump(breakpoints, dbg_mode, Condition::Zero(true)),
             0xCB => self.execute_instruction_prefixed(breakpoints, dbg_mode),
             0xCC => self.conditional_call(breakpoints, dbg_mode, Condition::Zero(true)),
             0xCD => self.call(breakpoints, dbg_mode),
@@ -498,10 +500,12 @@ impl GameboyCPU {
 
             0xD0 => self.conditional_ret(breakpoints, dbg_mode, Condition::Carry(false)),
             0xD1 => self.pop_rp(breakpoints, dbg_mode, Register::DE(false)),
+            0xD2 => self.conditional_jump(breakpoints, dbg_mode, Condition::Carry(false)),
             0xD4 => self.conditional_call(breakpoints, dbg_mode, Condition::Carry(false)),
             0xD5 => self.push_rp(breakpoints, dbg_mode, Register::DE(false)),
             0xD6 => self.sub_u8(breakpoints, dbg_mode),
             0xD8 => self.conditional_ret(breakpoints, dbg_mode, Condition::Carry(true)),
+            0xDA => self.conditional_jump(breakpoints, dbg_mode, Condition::Carry(true)),
             0xDC => self.conditional_call(breakpoints, dbg_mode, Condition::Carry(true)),
 
             0xE0 => self.store_a_to_io_u8(breakpoints, dbg_mode),
@@ -1370,6 +1374,49 @@ impl GameboyCPU {
 
         self.pc = address;
         self.cycles += 16;
+    }
+
+    fn conditional_jump(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, condition: Condition) {
+        let jump: bool;
+
+        match condition {
+            Condition::Zero(set) => {
+                let zf = self.get_flag(Flag::Zero(false));
+
+                if set {
+                    jump = zf;
+                }
+                else {
+                    jump = !zf;
+                }
+            }
+            Condition::Carry(set) => {
+                let cf = self.get_flag(Flag::Zero(false));
+
+                if set {
+                    jump = cf;
+                }
+                else {
+                    jump = !cf;
+                }
+            }
+        }
+
+        if jump {
+            let (bp_hit, address) = self.read_u16(self.pc + 1, breakpoints);
+
+            if bp_hit {
+                *dbg_mode = EmulatorMode::BreakpointHit;
+                return;
+            }
+
+            self.pc = address;
+            self.cycles += 16;
+        }
+        else {
+            self.pc += 3;
+            self.cycles += 12;
+        }
     }
 
     fn jump_relative(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {

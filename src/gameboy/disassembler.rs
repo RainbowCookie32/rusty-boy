@@ -269,7 +269,12 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
 
         0xC0 => (1, String::from("RET NZ")),
         0xC1 => (1, String::from("POP BC")),
-        0xC2 => (3, format!("??? (${:02X})", opcode_value)),
+        0xC2 => {
+            let args = [gb_mem.read(address + 1), gb_mem.read(address + 2)];
+            let dis = format!("JP NZ, ${:04X}", u16::from_le_bytes(args));
+
+            (3, dis)
+        }
         0xC3 => {
             let args = [gb_mem.read(address + 1), gb_mem.read(address + 2)];
             let dis = format!("JP ${:04X}", u16::from_le_bytes(args));
@@ -291,7 +296,12 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
         }
         0xC8 => (1, String::from("RET Z")),
         0xC9 => (1, String::from("RET")),
-        0xCA => (3, format!("??? (${:02X})", opcode_value)),
+        0xCA => {
+            let args = [gb_mem.read(address + 1), gb_mem.read(address + 2)];
+            let dis = format!("JP Z, ${:04X}", u16::from_le_bytes(args));
+
+            (3, dis)
+        }
         0xCB => get_instruction_data_prefixed(address, gb_mem),
         0xCC => {
             let args = [gb_mem.read(address + 1), gb_mem.read(address + 2)];
@@ -314,7 +324,12 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
 
         0xD0 => (1, String::from("RET NC")),
         0xD1 => (1, String::from("POP DE")),
-        0xD2 => (3, format!("??? (${:02X})", opcode_value)),
+        0xD2 => {
+            let args = [gb_mem.read(address + 1), gb_mem.read(address + 2)];
+            let dis = format!("JP NC, ${:04X}", u16::from_le_bytes(args));
+
+            (3, dis)
+        }
         0xD4 => {
             let args = [gb_mem.read(address + 1), gb_mem.read(address + 2)];
             let dis = format!("CALL NC, ${:04X}", u16::from_le_bytes(args));
@@ -329,7 +344,12 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
             (2, dis)
         }
         0xD8 => (1, String::from("RET C")),
-        0xDA => (3, format!("??? (${:02X})", opcode_value)),
+        0xDA => {
+            let args = [gb_mem.read(address + 1), gb_mem.read(address + 2)];
+            let dis = format!("JP C, ${:04X}", u16::from_le_bytes(args));
+
+            (3, dis)
+        }
         0xDC => {
             let args = [gb_mem.read(address + 1), gb_mem.read(address + 2)];
             let dis = format!("CALL C, ${:04X}", u16::from_le_bytes(args));
