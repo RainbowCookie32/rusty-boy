@@ -343,6 +343,7 @@ impl GameboyCPU {
             0x1C => self.inc_r8(Register::DE(false)),
             0x1D => self.dec_r8(Register::DE(false)),
             0x1E => self.load_u8_to_r8(breakpoints, dbg_mode, Register::DE(false)),
+            0x1F => self.rra(),
 
             0x20 => self.conditional_jump_relative(breakpoints, dbg_mode, JumpCondition::Zero(false)),
             0x21 => self.load_u16_to_rp(breakpoints, dbg_mode, Register::HL(false)),
@@ -1324,6 +1325,25 @@ impl GameboyCPU {
 
         self.pc += 2;
         self.cycles += 8;
+    }
+
+    fn rra(&mut self) {
+        let value = self.get_r8(&Register::AF(true));
+        
+        let new_carry = (value & 1) != 0;
+        let current_carry = if self.get_flag(Flag::Carry(false)) {1} else {0};
+
+        let result = (value >> 1) | (current_carry << 7);
+
+        self.set_r8(Register::AF(true), result);
+
+        self.set_flag(Flag::Zero(false));
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry(false));
+        self.set_flag(Flag::Carry(new_carry));
+
+        self.pc += 1;
+        self.cycles += 4;
     }
 
     fn rr(&mut self, reg: Register) {

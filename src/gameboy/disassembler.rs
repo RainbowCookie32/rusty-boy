@@ -67,6 +67,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
 
             (2, dis)
         }
+        0x1F => (1, String::from("RRA")),
 
         0x20 => {
             let offset = gb_mem.read(address + 1) as i8;
