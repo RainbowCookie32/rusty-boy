@@ -473,6 +473,14 @@ impl GameboyCPU {
             0xB4 => self.or_r8(Register::HL(true)),
             0xB5 => self.or_r8(Register::HL(false)),
             0xB7 => self.or_r8(Register::AF),
+            0xB8 => self.cp_r8(Register::BC(true)),
+            0xB9 => self.cp_r8(Register::BC(false)),
+            0xBA => self.cp_r8(Register::DE(true)),
+            0xBB => self.cp_r8(Register::DE(false)),
+            0xBC => self.cp_r8(Register::HL(true)),
+            0xBD => self.cp_r8(Register::HL(false)),
+            0xBE => self.cp_hl(breakpoints, dbg_mode),
+            0xBF => self.cp_r8(Register::AF),
 
             0xC0 => self.conditional_ret(breakpoints, dbg_mode, Condition::Zero(false)),
             0xC1 => self.pop_rp(breakpoints, dbg_mode, Register::BC(false)),
@@ -1150,6 +1158,40 @@ impl GameboyCPU {
 
         self.pc += 1;
         self.cycles += 4;
+    }
+
+    fn cp_r8(&mut self, reg: Register) {
+        let value = self.get_r8(&reg);
+        let reg = self.get_r8(&Register::AF);
+        let result = reg.wrapping_sub(value);
+
+        self.set_flag(Flag::Zero(result == 0));
+        self.set_flag(Flag::Negative(true));
+        self.set_flag(Flag::HalfCarry((reg & 0x0F) < (value & 0x0F)));
+        self.set_flag(Flag::Carry(reg > value));
+
+        self.pc += 1;
+        self.cycles += 4;
+    }
+
+    fn cp_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+
+        if bp_hit {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        let reg = self.get_r8(&Register::AF);
+        let result = reg.wrapping_sub(value);
+
+        self.set_flag(Flag::Zero(result == 0));
+        self.set_flag(Flag::Negative(true));
+        self.set_flag(Flag::HalfCarry((reg & 0x0F) < (value & 0x0F)));
+        self.set_flag(Flag::Carry(reg > value));
+
+        self.pc += 1;
+        self.cycles += 8;
     }
 
     fn cp_u8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
