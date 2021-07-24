@@ -525,6 +525,14 @@ impl GameboyCPU {
             0x15 => self.rl(Register::HL(false)),
             0x17 => self.rl(Register::AF(true)),
 
+            0x38 => self.srl(Register::BC(true)),
+            0x39 => self.srl(Register::BC(false)),
+            0x3A => self.srl(Register::DE(true)),
+            0x3B => self.srl(Register::DE(false)),
+            0x3C => self.srl(Register::HL(true)),
+            0x3D => self.srl(Register::HL(false)),
+            0x3F => self.srl(Register::AF(true)),
+
             0x40 => self.bit(Register::BC(true), 0),
             0x41 => self.bit(Register::BC(false), 0),
             0x42 => self.bit(Register::DE(true), 0),
@@ -1306,6 +1314,21 @@ impl GameboyCPU {
         self.set_flag(Flag::Negative(false));
         self.set_flag(Flag::HalfCarry(false));
         self.set_flag(Flag::Carry(top_bit));
+
+        self.pc += 2;
+        self.cycles += 8;
+    }
+
+    fn srl(&mut self, reg: Register) {
+        let value = self.get_r8(&reg);
+        let msb = (value >> 7) != 0;
+
+        self.set_r8(reg, value & 0x7F);
+
+        self.set_flag(Flag::Zero(value & 0x7F == 0));
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry(false));
+        self.set_flag(Flag::Carry(msb));
 
         self.pc += 2;
         self.cycles += 8;
