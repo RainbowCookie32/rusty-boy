@@ -451,12 +451,14 @@ pub fn get_instruction_data_prefixed(address: u16, gb_mem: &Arc<GameboyMemory>) 
         0x44 => (2, String::from("BIT 0, H")),
         0x45 => (2, String::from("BIT 0, L")),
         0x47 => (2, String::from("BIT 0, A")),
+        0x46 => (2, String::from("BIT 0, [HL]")),
         0x48 => (2, String::from("BIT 1, B")),
         0x49 => (2, String::from("BIT 1, C")),
         0x4A => (2, String::from("BIT 1, D")),
         0x4B => (2, String::from("BIT 1, E")),
         0x4C => (2, String::from("BIT 1, H")),
         0x4D => (2, String::from("BIT 1, L")),
+        0x4E => (2, String::from("BIT 1, [HL]")),
         0x4F => (2, String::from("BIT 1, A")),
 
         0x50 => (2, String::from("BIT 2, B")),
@@ -465,6 +467,7 @@ pub fn get_instruction_data_prefixed(address: u16, gb_mem: &Arc<GameboyMemory>) 
         0x53 => (2, String::from("BIT 2, E")),
         0x54 => (2, String::from("BIT 2, H")),
         0x55 => (2, String::from("BIT 2, L")),
+        0x56 => (2, String::from("BIT 2, [HL]")),
         0x57 => (2, String::from("BIT 2, A")),
         0x58 => (2, String::from("BIT 3, B")),
         0x59 => (2, String::from("BIT 3, C")),
@@ -472,6 +475,7 @@ pub fn get_instruction_data_prefixed(address: u16, gb_mem: &Arc<GameboyMemory>) 
         0x5B => (2, String::from("BIT 3, E")),
         0x5C => (2, String::from("BIT 3, H")),
         0x5D => (2, String::from("BIT 3, L")),
+        0x56 => (2, String::from("BIT 3, [HL]")),
         0x5F => (2, String::from("BIT 3, A")),
 
         0x60 => (2, String::from("BIT 4, B")),
@@ -480,6 +484,7 @@ pub fn get_instruction_data_prefixed(address: u16, gb_mem: &Arc<GameboyMemory>) 
         0x63 => (2, String::from("BIT 4, E")),
         0x64 => (2, String::from("BIT 4, H")),
         0x65 => (2, String::from("BIT 4, L")),
+        0x66 => (2, String::from("BIT 4, [HL]")),
         0x67 => (2, String::from("BIT 4, A")),
         0x68 => (2, String::from("BIT 5, B")),
         0x69 => (2, String::from("BIT 5, C")),
@@ -487,6 +492,7 @@ pub fn get_instruction_data_prefixed(address: u16, gb_mem: &Arc<GameboyMemory>) 
         0x6B => (2, String::from("BIT 5, E")),
         0x6C => (2, String::from("BIT 5, H")),
         0x6D => (2, String::from("BIT 5, L")),
+        0x6E => (2, String::from("BIT 5, [HL]")),
         0x6F => (2, String::from("BIT 5, A")),
 
         0x70 => (2, String::from("BIT 6, B")),
@@ -495,6 +501,7 @@ pub fn get_instruction_data_prefixed(address: u16, gb_mem: &Arc<GameboyMemory>) 
         0x73 => (2, String::from("BIT 6, E")),
         0x74 => (2, String::from("BIT 6, H")),
         0x75 => (2, String::from("BIT 6, L")),
+        0x76 => (2, String::from("BIT 6, [HL]")),
         0x77 => (2, String::from("BIT 6, A")),
         0x78 => (2, String::from("BIT 7, B")),
         0x79 => (2, String::from("BIT 7, C")),
@@ -502,6 +509,7 @@ pub fn get_instruction_data_prefixed(address: u16, gb_mem: &Arc<GameboyMemory>) 
         0x7B => (2, String::from("BIT 7, E")),
         0x7C => (2, String::from("BIT 7, H")),
         0x7D => (2, String::from("BIT 7, L")),
+        0x7E => (2, String::from("BIT 7, [HL]")),
         0x7F => (2, String::from("BIT 7, A")),
 
         _ => (2, format!("??? ($CB ${:02X})", opcode_value))

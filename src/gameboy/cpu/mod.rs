@@ -566,6 +566,7 @@ impl GameboyCPU {
             0x43 => self.bit(Register::DE(false), 0),
             0x44 => self.bit(Register::HL(true), 0),
             0x45 => self.bit(Register::HL(false), 0),
+            0x46 => self.bit_hl(breakpoints, dbg_mode, 0),
             0x47 => self.bit(Register::AF, 0),
             0x48 => self.bit(Register::BC(true), 1),
             0x49 => self.bit(Register::BC(false), 1),
@@ -573,6 +574,7 @@ impl GameboyCPU {
             0x4B => self.bit(Register::DE(false), 1),
             0x4C => self.bit(Register::HL(true), 1),
             0x4D => self.bit(Register::HL(false), 1),
+            0x4E => self.bit_hl(breakpoints, dbg_mode, 1),
             0x4F => self.bit(Register::AF, 1),
 
             0x50 => self.bit(Register::BC(true), 2),
@@ -581,6 +583,7 @@ impl GameboyCPU {
             0x53 => self.bit(Register::DE(false), 2),
             0x54 => self.bit(Register::HL(true), 2),
             0x55 => self.bit(Register::HL(false), 2),
+            0x56 => self.bit_hl(breakpoints, dbg_mode, 2),
             0x57 => self.bit(Register::AF, 2),
             0x58 => self.bit(Register::BC(true), 3),
             0x59 => self.bit(Register::BC(false), 3),
@@ -588,6 +591,7 @@ impl GameboyCPU {
             0x5B => self.bit(Register::DE(false), 3),
             0x5C => self.bit(Register::HL(true), 3),
             0x5D => self.bit(Register::HL(false), 3),
+            0x5E => self.bit_hl(breakpoints, dbg_mode, 3),
             0x5F => self.bit(Register::AF, 3),
 
             0x60 => self.bit(Register::BC(true), 4),
@@ -596,6 +600,7 @@ impl GameboyCPU {
             0x63 => self.bit(Register::DE(false), 4),
             0x64 => self.bit(Register::HL(true), 4),
             0x65 => self.bit(Register::HL(false), 4),
+            0x66 => self.bit_hl(breakpoints, dbg_mode, 4),
             0x67 => self.bit(Register::AF, 4),
             0x68 => self.bit(Register::BC(true), 5),
             0x69 => self.bit(Register::BC(false), 5),
@@ -603,6 +608,7 @@ impl GameboyCPU {
             0x6B => self.bit(Register::DE(false), 5),
             0x6C => self.bit(Register::HL(true), 5),
             0x6D => self.bit(Register::HL(false), 5),
+            0x6E => self.bit_hl(breakpoints, dbg_mode, 5),
             0x6F => self.bit(Register::AF, 5),
 
             0x70 => self.bit(Register::BC(true), 6),
@@ -611,6 +617,7 @@ impl GameboyCPU {
             0x73 => self.bit(Register::DE(false), 6),
             0x74 => self.bit(Register::HL(true), 6),
             0x75 => self.bit(Register::HL(false), 6),
+            0x76 => self.bit_hl(breakpoints, dbg_mode, 6),
             0x77 => self.bit(Register::AF, 6),
             0x78 => self.bit(Register::BC(true), 7),
             0x79 => self.bit(Register::BC(false), 7),
@@ -618,6 +625,7 @@ impl GameboyCPU {
             0x7B => self.bit(Register::DE(false), 7),
             0x7C => self.bit(Register::HL(true), 7),
             0x7D => self.bit(Register::HL(false), 7),
+            0x7E => self.bit_hl(breakpoints, dbg_mode, 7),
             0x7F => self.bit(Register::AF, 7),
 
             _ => *dbg_mode = EmulatorMode::UnknownInstruction(true, opcode)
@@ -1602,5 +1610,23 @@ impl GameboyCPU {
 
         self.pc += 2;
         self.cycles += 8;
+    }
+
+    fn bit_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, bit: u8) {
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+
+        if bp_hit {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        let result = (value & (1 << bit)) == 0;
+
+        self.set_flag(Flag::Zero(result));
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry(true));
+
+        self.pc += 2;
+        self.cycles += 12;
     }
 }
