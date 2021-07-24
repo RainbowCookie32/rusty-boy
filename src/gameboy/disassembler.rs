@@ -374,6 +374,13 @@ pub fn get_instruction_data_prefixed(address: u16, gb_mem: &Arc<GameboyMemory>) 
         0x14 => (2, String::from("RL H")),
         0x15 => (2, String::from("RL L")),
         0x17 => (2, String::from("RL A")),
+        0x18 => (2, String::from("RR B")),
+        0x19 => (2, String::from("RR C")),
+        0x1A => (2, String::from("RR D")),
+        0x1B => (2, String::from("RR E")),
+        0x1C => (2, String::from("RR H")),
+        0x1D => (2, String::from("RR L")),
+        0x1F => (2, String::from("RR A")),
 
         0x38 => (2, String::from("SRL B")),
         0x39 => (2, String::from("SRL C")),

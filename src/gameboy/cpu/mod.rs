@@ -524,6 +524,13 @@ impl GameboyCPU {
             0x14 => self.rl(Register::HL(true)),
             0x15 => self.rl(Register::HL(false)),
             0x17 => self.rl(Register::AF(true)),
+            0x18 => self.rr(Register::BC(true)),
+            0x19 => self.rr(Register::BC(false)),
+            0x1A => self.rr(Register::DE(true)),
+            0x1B => self.rr(Register::DE(false)),
+            0x1C => self.rr(Register::HL(true)),
+            0x1D => self.rr(Register::HL(false)),
+            0x1F => self.rr(Register::AF(true)),
 
             0x38 => self.srl(Register::BC(true)),
             0x39 => self.srl(Register::BC(false)),
@@ -1314,6 +1321,25 @@ impl GameboyCPU {
         self.set_flag(Flag::Negative(false));
         self.set_flag(Flag::HalfCarry(false));
         self.set_flag(Flag::Carry(top_bit));
+
+        self.pc += 2;
+        self.cycles += 8;
+    }
+
+    fn rr(&mut self, reg: Register) {
+        let value = self.get_r8(&reg);
+        
+        let new_carry = (value & 1) != 0;
+        let current_carry = if self.get_flag(Flag::Carry(false)) {1} else {0};
+
+        let result = (value >> 1) | (current_carry << 7);
+
+        self.set_r8(reg, result);
+
+        self.set_flag(Flag::Zero(result == 0));
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry(false));
+        self.set_flag(Flag::Carry(new_carry));
 
         self.pc += 2;
         self.cycles += 8;
