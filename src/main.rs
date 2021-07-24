@@ -109,11 +109,10 @@ fn main() {
     
     let gb_ui = gb.clone();
     let gb_mem_ui = gb_mem;
-
-    let serial = gb.read().unwrap().ui_get_serial_output();
+    let gb_serial = gb.read().unwrap().ui_get_serial_output();
 
     std::thread::spawn(move || {
-        let gameboy = gb_ui;
+        let gameboy = gb;
 
         loop {
             if let Ok(mut lock) = gameboy.try_write() {
@@ -143,7 +142,7 @@ fn main() {
                 let mut pc_ui = 0;
 
                 Window::new(im_str!("Cartridge Info")).build(&ui, || {
-                    if let Ok(lock) = gb.read() {
+                    if let Ok(lock) = gb_ui.read() {
                         let header = lock.ui_get_header();
 
                         ui.text(format!("Cartridge Title: {}", header.title()));
@@ -163,7 +162,7 @@ fn main() {
                 });
 
                 Window::new(im_str!("CPU Debugger")).build(&ui, || {
-                    if let Ok(mut lock) = gb.write() {
+                    if let Ok(mut lock) = gb_ui.write() {
                         let (af, bc, de, hl, sp, pc) = lock.ui_get_cpu_registers();
 
                         pc_ui = *pc;
@@ -467,7 +466,7 @@ fn main() {
                             let mut bp_idx = 0;
                             let mut address_is_bp = false;
 
-                            if let Ok(lock) = gb.read() {
+                            if let Ok(lock) = gb_ui.read() {
                                 for (idx, bp) in lock.dbg_breakpoint_list.iter().enumerate() {
                                     if current_addr == *bp.address() && *bp.execute() {
                                         bp_idx = idx;
@@ -480,7 +479,7 @@ fn main() {
 
                             let entry = || if Selectable::new(&ImString::from(line_str)).allow_double_click(true).build(&ui) {
                                 if ui.is_mouse_double_clicked(MouseButton::Left) {
-                                    if let Ok(mut lock) = gb.write() {
+                                    if let Ok(mut lock) = gb_ui.write() {
                                         if address_is_bp {
                                             lock.dbg_breakpoint_list.remove(bp_idx);
                                         }
@@ -518,7 +517,7 @@ fn main() {
 
                     clipper.end();
 
-                    if let Ok(lock) = gb.read() {
+                    if let Ok(lock) = gb_ui.read() {
                         match lock.dbg_mode {
                             EmulatorMode::Paused | EmulatorMode::BreakpointHit | EmulatorMode::UnknownInstruction(..) => {
                                 if !app_state.disassembler.should_adjust_cursor {
@@ -535,7 +534,7 @@ fn main() {
                 });
 
                 Window::new(im_str!("Serial Output")).build(&ui, || {
-                    if let Ok(lock) = serial.read() {
+                    if let Ok(lock) = gb_serial.read() {
                         let mut output = String::new();
 
                         for b in lock.iter() {
