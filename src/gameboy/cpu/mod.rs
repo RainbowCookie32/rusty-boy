@@ -440,6 +440,13 @@ impl GameboyCPU {
             0x84 => self.add_r8(Register::HL(true)),
             0x85 => self.add_r8(Register::HL(false)),
             0x87 => self.add_r8(Register::AF(true)),
+            0x88 => self.adc_r8(Register::BC(true)),
+            0x89 => self.adc_r8(Register::BC(false)),
+            0x8A => self.adc_r8(Register::DE(true)),
+            0x8B => self.adc_r8(Register::DE(false)),
+            0x8C => self.adc_r8(Register::HL(true)),
+            0x8D => self.adc_r8(Register::HL(false)),
+            0x8F => self.adc_r8(Register::AF(true)),
 
             0x90 => self.sub_r8(Register::BC(true)),
             0x91 => self.sub_r8(Register::BC(false)),
@@ -482,6 +489,7 @@ impl GameboyCPU {
             0xCB => self.execute_instruction_prefixed(breakpoints, dbg_mode),
             0xCC => self.conditional_call(breakpoints, dbg_mode, JumpCondition::Zero(true)),
             0xCD => self.call(breakpoints, dbg_mode),
+            0xCE => self.adc_u8(breakpoints, dbg_mode),
 
             0xD1 => self.pop_rp(breakpoints, dbg_mode, Register::DE(false)),
             0xD4 => self.conditional_call(breakpoints, dbg_mode, JumpCondition::Carry(false)),
@@ -935,6 +943,47 @@ impl GameboyCPU {
         self.set_flag(Flag::Zero(result as u8 == 0));
         self.set_flag(Flag::Negative(false));
         self.set_flag(Flag::HalfCarry((a & 0x0F) + (value & 0x0F) > 0x0F));
+        self.set_flag(Flag::Carry(result > 0xFF));
+
+        self.pc += 2;
+        self.cycles += 8;
+    }
+
+    fn adc_r8(&mut self, reg: Register) {
+        let value = self.get_r8(&reg);
+        let a = self.get_r8(&Register::AF(true));
+        let carry = if self.get_flag(Flag::Carry(false)) {1} else {0};
+
+        let result = a as u16 + value as u16 + carry;
+
+        self.set_r8(Register::AF(true), result as u8);
+
+        self.set_flag(Flag::Zero(result as u8 == 0));
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry((a & 0x0F) + (value & 0x0F) + carry as u8 > 0x0F));
+        self.set_flag(Flag::Carry(result > 0xFF));
+
+        self.pc += 1;
+        self.cycles += 4;
+    }
+
+    fn adc_u8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
+        let a = self.get_r8(&Register::AF(true));
+        let carry = if self.get_flag(Flag::Carry(false)) {1} else {0};
+        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints);
+
+        if bp_hit {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        let result = a as u16 + value as u16 + carry;
+
+        self.set_r8(Register::AF(true), result as u8);
+
+        self.set_flag(Flag::Zero(result as u8 == 0));
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry((a & 0x0F) + (value & 0x0F) + carry as u8 > 0x0F));
         self.set_flag(Flag::Carry(result > 0xFF));
 
         self.pc += 2;
