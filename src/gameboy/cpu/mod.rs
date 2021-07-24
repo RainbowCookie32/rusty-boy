@@ -6,7 +6,7 @@ enum Condition {
 }
 
 enum Register {
-    AF(bool),
+    AF,
     BC(bool),
     DE(bool),
     HL(bool),
@@ -105,13 +105,8 @@ impl GameboyCPU {
 
     fn get_r8(&self, reg: &Register) -> u8 {
         match reg {
-            Register::AF(high) => {
-                if *high {
-                    ((self.af & 0xFF00) >> 8) as u8
-                }
-                else {
-                    (self.af & 0x00FF) as u8
-                }
+            Register::AF => {
+                ((self.af & 0xFF00) >> 8) as u8
             }
             Register::BC(high) => {
                 if *high {
@@ -143,13 +138,8 @@ impl GameboyCPU {
 
     fn set_r8(&mut self, reg: Register, value: u8) {
         match reg {
-            Register::AF(high) => {
-                if high {
-                    self.af = (self.af & 0x00FF) | (value as u16) << 8;
-                }
-                else {
-                    self.af = (self.af & 0xFF00) | ((value as u16) & 0xFFF0);
-                }
+            Register::AF => {
+                self.af = (self.af & 0x00FF) | (value as u16) << 8;
             }
             Register::BC(high) => {
                 if high {
@@ -181,7 +171,7 @@ impl GameboyCPU {
 
     fn get_rp(&self, reg: &Register) -> u16 {
         match reg {
-            Register::AF(_) => self.af,
+            Register::AF => self.af,
             Register::BC(_) => self.bc,
             Register::DE(_) => self.de,
             Register::HL(_) => self.hl,
@@ -191,7 +181,7 @@ impl GameboyCPU {
 
     fn set_rp(&mut self, reg: Register, value: u16) {
         match reg {
-            Register::AF(_) => self.af = value & 0xFFF0,
+            Register::AF => self.af = value & 0xFFF0,
             Register::BC(_) => self.bc = value,
             Register::DE(_) => self.de = value,
             Register::HL(_) => self.hl = value,
@@ -363,9 +353,9 @@ impl GameboyCPU {
             0x32 => self.store_to_hl_and_dec(breakpoints, dbg_mode),
             0x33 => self.inc_rp(Register::SP),
             0x38 => self.conditional_jump_relative(breakpoints, dbg_mode, Condition::Carry(true)),
-            0x3C => self.inc_r8(Register::AF(true)),
-            0x3D => self.dec_r8(Register::AF(true)),
-            0x3E => self.load_u8_to_r8(breakpoints, dbg_mode, Register::AF(true)),
+            0x3C => self.inc_r8(Register::AF),
+            0x3D => self.dec_r8(Register::AF),
+            0x3E => self.load_u8_to_r8(breakpoints, dbg_mode, Register::AF),
 
             0x40 => self.load_r8_to_r8(Register::BC(true), Register::BC(true)),
             0x41 => self.load_r8_to_r8(Register::BC(true), Register::BC(false)),
@@ -374,7 +364,7 @@ impl GameboyCPU {
             0x44 => self.load_r8_to_r8(Register::BC(true), Register::HL(true)),
             0x45 => self.load_r8_to_r8(Register::BC(true), Register::HL(false)),
             0x46 => self.load_u8_to_r8_from_hl(breakpoints, dbg_mode, Register::BC(true)),
-            0x47 => self.load_r8_to_r8(Register::BC(true), Register::AF(true)),
+            0x47 => self.load_r8_to_r8(Register::BC(true), Register::AF),
             0x48 => self.load_r8_to_r8(Register::BC(false), Register::BC(true)),
             0x49 => self.load_r8_to_r8(Register::BC(false), Register::BC(false)),
             0x4A => self.load_r8_to_r8(Register::BC(false), Register::DE(true)),
@@ -382,7 +372,7 @@ impl GameboyCPU {
             0x4C => self.load_r8_to_r8(Register::BC(false), Register::HL(true)),
             0x4D => self.load_r8_to_r8(Register::BC(false), Register::HL(false)),
             0x4E => self.load_u8_to_r8_from_hl(breakpoints, dbg_mode, Register::BC(false)),
-            0x4F => self.load_r8_to_r8(Register::BC(false), Register::AF(true)),
+            0x4F => self.load_r8_to_r8(Register::BC(false), Register::AF),
 
             0x50 => self.load_r8_to_r8(Register::DE(true), Register::BC(true)),
             0x51 => self.load_r8_to_r8(Register::DE(true), Register::BC(false)),
@@ -391,7 +381,7 @@ impl GameboyCPU {
             0x54 => self.load_r8_to_r8(Register::DE(true), Register::HL(true)),
             0x55 => self.load_r8_to_r8(Register::DE(true), Register::HL(false)),
             0x56 => self.load_u8_to_r8_from_hl(breakpoints, dbg_mode, Register::DE(true)),
-            0x57 => self.load_r8_to_r8(Register::DE(true), Register::AF(true)),
+            0x57 => self.load_r8_to_r8(Register::DE(true), Register::AF),
             0x58 => self.load_r8_to_r8(Register::DE(false), Register::BC(true)),
             0x59 => self.load_r8_to_r8(Register::DE(false), Register::BC(false)),
             0x5A => self.load_r8_to_r8(Register::DE(false), Register::DE(true)),
@@ -399,7 +389,7 @@ impl GameboyCPU {
             0x5C => self.load_r8_to_r8(Register::DE(false), Register::HL(true)),
             0x5D => self.load_r8_to_r8(Register::DE(false), Register::HL(false)),
             0x5E => self.load_u8_to_r8_from_hl(breakpoints, dbg_mode, Register::DE(false)),
-            0x5F => self.load_r8_to_r8(Register::DE(false), Register::AF(true)),
+            0x5F => self.load_r8_to_r8(Register::DE(false), Register::AF),
 
             0x60 => self.load_r8_to_r8(Register::HL(true), Register::BC(true)),
             0x61 => self.load_r8_to_r8(Register::HL(true), Register::BC(false)),
@@ -408,7 +398,7 @@ impl GameboyCPU {
             0x64 => self.load_r8_to_r8(Register::HL(true), Register::HL(true)),
             0x65 => self.load_r8_to_r8(Register::HL(true), Register::HL(false)),
             0x66 => self.load_u8_to_r8_from_hl(breakpoints, dbg_mode, Register::HL(true)),
-            0x67 => self.load_r8_to_r8(Register::HL(true), Register::AF(true)),
+            0x67 => self.load_r8_to_r8(Register::HL(true), Register::AF),
             0x68 => self.load_r8_to_r8(Register::HL(false), Register::BC(true)),
             0x69 => self.load_r8_to_r8(Register::HL(false), Register::BC(false)),
             0x6A => self.load_r8_to_r8(Register::HL(false), Register::DE(true)),
@@ -416,7 +406,7 @@ impl GameboyCPU {
             0x6C => self.load_r8_to_r8(Register::HL(false), Register::HL(true)),
             0x6D => self.load_r8_to_r8(Register::HL(false), Register::HL(false)),
             0x6E => self.load_u8_to_r8_from_hl(breakpoints, dbg_mode, Register::HL(false)),
-            0x6F => self.load_r8_to_r8(Register::HL(false), Register::AF(true)),
+            0x6F => self.load_r8_to_r8(Register::HL(false), Register::AF),
 
             0x70 => self.store_r8_to_hl(breakpoints, dbg_mode, Register::BC(true)),
             0x71 => self.store_r8_to_hl(breakpoints, dbg_mode, Register::BC(false)),
@@ -424,14 +414,14 @@ impl GameboyCPU {
             0x73 => self.store_r8_to_hl(breakpoints, dbg_mode, Register::DE(false)),
             0x74 => self.store_r8_to_hl(breakpoints, dbg_mode, Register::HL(true)),
             0x75 => self.store_r8_to_hl(breakpoints, dbg_mode, Register::HL(false)),
-            0x77 => self.store_r8_to_hl(breakpoints, dbg_mode, Register::AF(true)),
-            0x78 => self.load_r8_to_r8(Register::AF(true), Register::BC(true)),
-            0x79 => self.load_r8_to_r8(Register::AF(true), Register::BC(false)),
-            0x7A => self.load_r8_to_r8(Register::AF(true), Register::DE(true)),
-            0x7B => self.load_r8_to_r8(Register::AF(true), Register::DE(false)),
-            0x7C => self.load_r8_to_r8(Register::AF(true), Register::HL(true)),
-            0x7D => self.load_r8_to_r8(Register::AF(true), Register::HL(false)),
-            0x7F => self.load_r8_to_r8(Register::AF(true), Register::AF(true)),
+            0x77 => self.store_r8_to_hl(breakpoints, dbg_mode, Register::AF),
+            0x78 => self.load_r8_to_r8(Register::AF, Register::BC(true)),
+            0x79 => self.load_r8_to_r8(Register::AF, Register::BC(false)),
+            0x7A => self.load_r8_to_r8(Register::AF, Register::DE(true)),
+            0x7B => self.load_r8_to_r8(Register::AF, Register::DE(false)),
+            0x7C => self.load_r8_to_r8(Register::AF, Register::HL(true)),
+            0x7D => self.load_r8_to_r8(Register::AF, Register::HL(false)),
+            0x7F => self.load_r8_to_r8(Register::AF, Register::AF),
 
             0x80 => self.add_r8(Register::BC(true)),
             0x81 => self.add_r8(Register::BC(false)),
@@ -439,14 +429,14 @@ impl GameboyCPU {
             0x83 => self.add_r8(Register::DE(false)),
             0x84 => self.add_r8(Register::HL(true)),
             0x85 => self.add_r8(Register::HL(false)),
-            0x87 => self.add_r8(Register::AF(true)),
+            0x87 => self.add_r8(Register::AF),
             0x88 => self.adc_r8(Register::BC(true)),
             0x89 => self.adc_r8(Register::BC(false)),
             0x8A => self.adc_r8(Register::DE(true)),
             0x8B => self.adc_r8(Register::DE(false)),
             0x8C => self.adc_r8(Register::HL(true)),
             0x8D => self.adc_r8(Register::HL(false)),
-            0x8F => self.adc_r8(Register::AF(true)),
+            0x8F => self.adc_r8(Register::AF),
 
             0x90 => self.sub_r8(Register::BC(true)),
             0x91 => self.sub_r8(Register::BC(false)),
@@ -454,7 +444,7 @@ impl GameboyCPU {
             0x93 => self.sub_r8(Register::DE(false)),
             0x94 => self.sub_r8(Register::HL(true)),
             0x95 => self.sub_r8(Register::HL(false)),
-            0x97 => self.sub_r8(Register::AF(true)),
+            0x97 => self.sub_r8(Register::AF),
 
             0xA0 => self.and_r8(Register::BC(true)),
             0xA1 => self.and_r8(Register::BC(false)),
@@ -462,7 +452,7 @@ impl GameboyCPU {
             0xA3 => self.and_r8(Register::DE(false)),
             0xA4 => self.and_r8(Register::HL(true)),
             0xA5 => self.and_r8(Register::HL(false)),
-            0xA7 => self.and_r8(Register::AF(true)),
+            0xA7 => self.and_r8(Register::AF),
             0xA8 => self.xor_r8(Register::BC(true)),
             0xA9 => self.xor_r8(Register::BC(false)),
             0xAA => self.xor_r8(Register::DE(true)),
@@ -470,7 +460,7 @@ impl GameboyCPU {
             0xAC => self.xor_r8(Register::HL(true)),
             0xAD => self.xor_r8(Register::HL(false)),
             0xAE => self.xor_hl(breakpoints, dbg_mode),
-            0xAF => self.xor_r8(Register::AF(true)),
+            0xAF => self.xor_r8(Register::AF),
 
             0xB0 => self.or_r8(Register::BC(true)),
             0xB1 => self.or_r8(Register::BC(false)),
@@ -478,7 +468,7 @@ impl GameboyCPU {
             0xB3 => self.or_r8(Register::DE(false)),
             0xB4 => self.or_r8(Register::HL(true)),
             0xB5 => self.or_r8(Register::HL(false)),
-            0xB7 => self.or_r8(Register::AF(true)),
+            0xB7 => self.or_r8(Register::AF),
 
             0xC0 => self.conditional_ret(breakpoints, dbg_mode, Condition::Zero(false)),
             0xC1 => self.pop_rp(breakpoints, dbg_mode, Register::BC(false)),
@@ -510,9 +500,9 @@ impl GameboyCPU {
             0xEE => self.xor_u8(breakpoints, dbg_mode),
 
             0xF0 => self.load_a_from_ff_u8(breakpoints, dbg_mode),
-            0xF1 => self.pop_rp(breakpoints, dbg_mode, Register::AF(false)),
+            0xF1 => self.pop_rp(breakpoints, dbg_mode, Register::AF),
             0xF3 => self.di(),
-            0xF5 => self.push_rp(breakpoints, dbg_mode, Register::AF(false)),
+            0xF5 => self.push_rp(breakpoints, dbg_mode, Register::AF),
             0xFA => self.load_a_from_u16(breakpoints, dbg_mode),
             0xFB => self.ei(),
             0xFE => self.cp_u8(breakpoints, dbg_mode),
@@ -536,14 +526,14 @@ impl GameboyCPU {
             0x13 => self.rl(Register::DE(false)),
             0x14 => self.rl(Register::HL(true)),
             0x15 => self.rl(Register::HL(false)),
-            0x17 => self.rl(Register::AF(true)),
+            0x17 => self.rl(Register::AF),
             0x18 => self.rr(Register::BC(true)),
             0x19 => self.rr(Register::BC(false)),
             0x1A => self.rr(Register::DE(true)),
             0x1B => self.rr(Register::DE(false)),
             0x1C => self.rr(Register::HL(true)),
             0x1D => self.rr(Register::HL(false)),
-            0x1F => self.rr(Register::AF(true)),
+            0x1F => self.rr(Register::AF),
 
             0x38 => self.srl(Register::BC(true)),
             0x39 => self.srl(Register::BC(false)),
@@ -551,7 +541,7 @@ impl GameboyCPU {
             0x3B => self.srl(Register::DE(false)),
             0x3C => self.srl(Register::HL(true)),
             0x3D => self.srl(Register::HL(false)),
-            0x3F => self.srl(Register::AF(true)),
+            0x3F => self.srl(Register::AF),
 
             0x40 => self.bit(Register::BC(true), 0),
             0x41 => self.bit(Register::BC(false), 0),
@@ -559,14 +549,14 @@ impl GameboyCPU {
             0x43 => self.bit(Register::DE(false), 0),
             0x44 => self.bit(Register::HL(true), 0),
             0x45 => self.bit(Register::HL(false), 0),
-            0x47 => self.bit(Register::AF(true), 0),
+            0x47 => self.bit(Register::AF, 0),
             0x48 => self.bit(Register::BC(true), 1),
             0x49 => self.bit(Register::BC(false), 1),
             0x4A => self.bit(Register::DE(true), 1),
             0x4B => self.bit(Register::DE(false), 1),
             0x4C => self.bit(Register::HL(true), 1),
             0x4D => self.bit(Register::HL(false), 1),
-            0x4F => self.bit(Register::AF(true), 1),
+            0x4F => self.bit(Register::AF, 1),
 
             0x50 => self.bit(Register::BC(true), 2),
             0x51 => self.bit(Register::BC(false), 2),
@@ -574,14 +564,14 @@ impl GameboyCPU {
             0x53 => self.bit(Register::DE(false), 2),
             0x54 => self.bit(Register::HL(true), 2),
             0x55 => self.bit(Register::HL(false), 2),
-            0x57 => self.bit(Register::AF(true), 2),
+            0x57 => self.bit(Register::AF, 2),
             0x58 => self.bit(Register::BC(true), 3),
             0x59 => self.bit(Register::BC(false), 3),
             0x5A => self.bit(Register::DE(true), 3),
             0x5B => self.bit(Register::DE(false), 3),
             0x5C => self.bit(Register::HL(true), 3),
             0x5D => self.bit(Register::HL(false), 3),
-            0x5F => self.bit(Register::AF(true), 3),
+            0x5F => self.bit(Register::AF, 3),
 
             0x60 => self.bit(Register::BC(true), 4),
             0x61 => self.bit(Register::BC(false), 4),
@@ -589,14 +579,14 @@ impl GameboyCPU {
             0x63 => self.bit(Register::DE(false), 4),
             0x64 => self.bit(Register::HL(true), 4),
             0x65 => self.bit(Register::HL(false), 4),
-            0x67 => self.bit(Register::AF(true), 4),
+            0x67 => self.bit(Register::AF, 4),
             0x68 => self.bit(Register::BC(true), 5),
             0x69 => self.bit(Register::BC(false), 5),
             0x6A => self.bit(Register::DE(true), 5),
             0x6B => self.bit(Register::DE(false), 5),
             0x6C => self.bit(Register::HL(true), 5),
             0x6D => self.bit(Register::HL(false), 5),
-            0x6F => self.bit(Register::AF(true), 5),
+            0x6F => self.bit(Register::AF, 5),
 
             0x70 => self.bit(Register::BC(true), 6),
             0x71 => self.bit(Register::BC(false), 6),
@@ -604,14 +594,14 @@ impl GameboyCPU {
             0x73 => self.bit(Register::DE(false), 6),
             0x74 => self.bit(Register::HL(true), 6),
             0x75 => self.bit(Register::HL(false), 6),
-            0x77 => self.bit(Register::AF(true), 6),
+            0x77 => self.bit(Register::AF, 6),
             0x78 => self.bit(Register::BC(true), 7),
             0x79 => self.bit(Register::BC(false), 7),
             0x7A => self.bit(Register::DE(true), 7),
             0x7B => self.bit(Register::DE(false), 7),
             0x7C => self.bit(Register::HL(true), 7),
             0x7D => self.bit(Register::HL(false), 7),
-            0x7F => self.bit(Register::AF(true), 7),
+            0x7F => self.bit(Register::AF, 7),
 
             _ => *dbg_mode = EmulatorMode::UnknownInstruction(true, opcode)
         }
@@ -659,7 +649,7 @@ impl GameboyCPU {
             return;
         }
 
-        self.set_r8(Register::AF(true), value);
+        self.set_r8(Register::AF, value);
 
         self.pc += 1;
         self.cycles += 8;
@@ -673,7 +663,7 @@ impl GameboyCPU {
             return;
         }
 
-        self.set_r8(Register::AF(true), value);
+        self.set_r8(Register::AF, value);
         self.set_rp(Register::HL(true), self.hl.wrapping_add(1));
 
         self.pc += 1;
@@ -695,7 +685,7 @@ impl GameboyCPU {
             return;
         }
 
-        self.set_r8(Register::AF(true), value);
+        self.set_r8(Register::AF, value);
 
         self.pc += 2;
         self.cycles += 12;
@@ -716,7 +706,7 @@ impl GameboyCPU {
             return;
         }
 
-        self.set_r8(Register::AF(true), value);
+        self.set_r8(Register::AF, value);
 
         self.pc += 3;
         self.cycles += 16;
@@ -757,7 +747,7 @@ impl GameboyCPU {
     }
 
     fn store_to_hl_and_inc(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let value = self.get_r8(&Register::AF(true));
+        let value = self.get_r8(&Register::AF);
         let address = self.get_rp(&Register::HL(false));
         
         if self.write(address, value, breakpoints) {
@@ -772,7 +762,7 @@ impl GameboyCPU {
     }
 
     fn store_to_hl_and_dec(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let value = self.get_r8(&Register::AF(true));
+        let value = self.get_r8(&Register::AF);
         let address = self.get_rp(&Register::HL(false));
         
         if self.write(address, value, breakpoints) {
@@ -787,7 +777,7 @@ impl GameboyCPU {
     }
 
     fn store_a_to_rp(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, reg: Register) {
-        let value = self.get_r8(&Register::AF(true));
+        let value = self.get_r8(&Register::AF);
         let address = self.get_rp(&reg);
 
         if self.write(address, value, breakpoints) {
@@ -800,7 +790,7 @@ impl GameboyCPU {
     }
 
     fn store_a_to_io_c(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let value = self.get_r8(&Register::AF(true));
+        let value = self.get_r8(&Register::AF);
         let address = 0xFF00 + self.get_r8(&Register::BC(false)) as u16;
 
         if self.write(address, value, breakpoints) {
@@ -821,7 +811,7 @@ impl GameboyCPU {
         }
 
         let address = 0xFF00 + offset as u16;
-        let value = self.get_r8(&Register::AF(true));
+        let value = self.get_r8(&Register::AF);
 
         if self.write(address, value, breakpoints) {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -840,7 +830,7 @@ impl GameboyCPU {
             return;
         }
 
-        self.write(address, self.get_r8(&Register::AF(true)), breakpoints);
+        self.write(address, self.get_r8(&Register::AF), breakpoints);
 
         self.pc += 3;
         self.cycles += 16;
@@ -916,11 +906,11 @@ impl GameboyCPU {
     }
 
     fn add_r8(&mut self, reg: Register) {
-        let a = self.get_r8(&Register::AF(true));
+        let a = self.get_r8(&Register::AF);
         let value = self.get_r8(&reg);
         let result = a as u16 + value as u16;
 
-        self.set_r8(Register::AF(true), result as u8);
+        self.set_r8(Register::AF, result as u8);
 
         self.set_flag(Flag::Zero(result as u8 == 0));
         self.set_flag(Flag::Negative(false));
@@ -932,7 +922,7 @@ impl GameboyCPU {
     }
 
     fn add_u8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let a = self.get_r8(&Register::AF(true));
+        let a = self.get_r8(&Register::AF);
         let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints);
 
         if bp_hit {
@@ -942,7 +932,7 @@ impl GameboyCPU {
 
         let result = a as u16 + value as u16;
 
-        self.set_r8(Register::AF(true), result as u8);
+        self.set_r8(Register::AF, result as u8);
 
         self.set_flag(Flag::Zero(result as u8 == 0));
         self.set_flag(Flag::Negative(false));
@@ -955,12 +945,12 @@ impl GameboyCPU {
 
     fn adc_r8(&mut self, reg: Register) {
         let value = self.get_r8(&reg);
-        let a = self.get_r8(&Register::AF(true));
+        let a = self.get_r8(&Register::AF);
         let carry = if self.get_flag(Flag::Carry(false)) {1} else {0};
 
         let result = a as u16 + value as u16 + carry;
 
-        self.set_r8(Register::AF(true), result as u8);
+        self.set_r8(Register::AF, result as u8);
 
         self.set_flag(Flag::Zero(result as u8 == 0));
         self.set_flag(Flag::Negative(false));
@@ -972,7 +962,7 @@ impl GameboyCPU {
     }
 
     fn adc_u8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let a = self.get_r8(&Register::AF(true));
+        let a = self.get_r8(&Register::AF);
         let carry = if self.get_flag(Flag::Carry(false)) {1} else {0};
         let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints);
 
@@ -983,7 +973,7 @@ impl GameboyCPU {
 
         let result = a as u16 + value as u16 + carry;
 
-        self.set_r8(Register::AF(true), result as u8);
+        self.set_r8(Register::AF, result as u8);
 
         self.set_flag(Flag::Zero(result as u8 == 0));
         self.set_flag(Flag::Negative(false));
@@ -995,11 +985,11 @@ impl GameboyCPU {
     }
 
     fn sub_r8(&mut self, reg: Register) {
-        let a = self.get_r8(&Register::AF(true));
+        let a = self.get_r8(&Register::AF);
         let value = self.get_r8(&reg);
         let result = a.wrapping_sub(value);
 
-        self.set_r8(Register::AF(true), result);
+        self.set_r8(Register::AF, result);
 
         self.set_flag(Flag::Zero(result == 0));
         self.set_flag(Flag::Negative(true));
@@ -1012,7 +1002,7 @@ impl GameboyCPU {
     }
 
     fn sub_u8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let a = self.get_r8(&Register::AF(true));
+        let a = self.get_r8(&Register::AF);
         let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints);
 
         if bp_hit {
@@ -1022,7 +1012,7 @@ impl GameboyCPU {
 
         let result = a.wrapping_sub(value);
 
-        self.set_r8(Register::AF(true), result);
+        self.set_r8(Register::AF, result);
 
         self.set_flag(Flag::Zero(result == 0));
         self.set_flag(Flag::Negative(true));
@@ -1036,11 +1026,11 @@ impl GameboyCPU {
 
     fn and_r8(&mut self, reg: Register) {
         let value = self.get_r8(&reg);
-        let target = self.get_r8(&Register::AF(true));
+        let target = self.get_r8(&Register::AF);
 
         let result = value & target;
 
-        self.set_r8(Register::AF(true), result);
+        self.set_r8(Register::AF, result);
 
         self.set_flag(Flag::Zero(result == 0));
         self.set_flag(Flag::Negative(false));
@@ -1059,10 +1049,10 @@ impl GameboyCPU {
             return;
         }
 
-        let target = self.get_r8(&Register::AF(true));
+        let target = self.get_r8(&Register::AF);
         let result = value & target;
 
-        self.set_r8(Register::AF(true), result);
+        self.set_r8(Register::AF, result);
 
         self.set_flag(Flag::Zero(result == 0));
         self.set_flag(Flag::Negative(false));
@@ -1075,11 +1065,11 @@ impl GameboyCPU {
 
     fn xor_r8(&mut self, reg: Register) {
         let value = self.get_r8(&reg);
-        let target = self.get_r8(&Register::AF(true));
+        let target = self.get_r8(&Register::AF);
 
         let result = value ^ target;
 
-        self.set_r8(Register::AF(true), result);
+        self.set_r8(Register::AF, result);
 
         self.set_flag(Flag::Zero(result == 0));
         self.set_flag(Flag::Negative(false));
@@ -1098,10 +1088,10 @@ impl GameboyCPU {
             return;
         }
 
-        let target = self.get_r8(&Register::AF(true));
+        let target = self.get_r8(&Register::AF);
         let result = value ^ target;
 
-        self.set_r8(Register::AF(true), result);
+        self.set_r8(Register::AF, result);
 
         self.set_flag(Flag::Zero(result == 0));
         self.set_flag(Flag::Negative(false));
@@ -1120,10 +1110,10 @@ impl GameboyCPU {
             return;
         }
 
-        let target = self.get_r8(&Register::AF(true));
+        let target = self.get_r8(&Register::AF);
         let result = value ^ target;
 
-        self.set_r8(Register::AF(true), result);
+        self.set_r8(Register::AF, result);
 
         self.set_flag(Flag::Zero(result == 0));
         self.set_flag(Flag::Negative(false));
@@ -1136,11 +1126,11 @@ impl GameboyCPU {
 
     fn or_r8(&mut self, reg: Register) {
         let value = self.get_r8(&reg);
-        let target = self.get_r8(&Register::AF(true));
+        let target = self.get_r8(&Register::AF);
 
         let result = value | target;
 
-        self.set_r8(Register::AF(true), result);
+        self.set_r8(Register::AF, result);
 
         self.set_flag(Flag::Zero(result == 0));
         self.set_flag(Flag::Negative(false));
@@ -1159,7 +1149,7 @@ impl GameboyCPU {
             return;
         }
 
-        let reg = self.get_r8(&Register::AF(true));
+        let reg = self.get_r8(&Register::AF);
         let result = reg.wrapping_sub(value);
 
         self.set_flag(Flag::Zero(result == 0));
@@ -1385,7 +1375,7 @@ impl GameboyCPU {
     }
 
     fn rla(&mut self) {
-        let value = self.get_r8(&Register::AF(true));
+        let value = self.get_r8(&Register::AF);
         let top_bit = (value >> 7) == 1;
         let carry = self.get_flag(Flag::Carry(false));
         
@@ -1395,7 +1385,7 @@ impl GameboyCPU {
             result |= 1;
         }
 
-        self.set_r8(Register::AF(true), result);
+        self.set_r8(Register::AF, result);
 
         self.set_flag(Flag::Zero(false));
         self.set_flag(Flag::Negative(false));
@@ -1429,14 +1419,14 @@ impl GameboyCPU {
     }
 
     fn rra(&mut self) {
-        let value = self.get_r8(&Register::AF(true));
+        let value = self.get_r8(&Register::AF);
         
         let new_carry = (value & 1) != 0;
         let current_carry = if self.get_flag(Flag::Carry(false)) {1} else {0};
 
         let result = (value >> 1) | (current_carry << 7);
 
-        self.set_r8(Register::AF(true), result);
+        self.set_r8(Register::AF, result);
 
         self.set_flag(Flag::Zero(false));
         self.set_flag(Flag::Negative(false));
