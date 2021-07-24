@@ -428,7 +428,7 @@ fn main() {
 
                             let line_p = if pc_ui == current_addr {"> "} else {""};
                             let address_p = {
-                                if CARTRIDGE_ROM_BANKX.contains(&current_addr) {
+                                if CARTRIDGE_ROM_BANK0.contains(&current_addr) {
                                     String::from("ROM0")
                                 }
                                 else if CARTRIDGE_ROM_BANKX.contains(&current_addr) {
