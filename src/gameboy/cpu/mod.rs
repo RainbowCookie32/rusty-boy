@@ -993,8 +993,7 @@ impl GameboyCPU {
 
         self.set_flag(Flag::Zero(result == 0));
         self.set_flag(Flag::Negative(true));
-        // FIXME: Properly check half-carry.
-        self.set_flag(Flag::HalfCarry(false));
+        self.set_flag(Flag::HalfCarry((a & 0x0F) < (value & 0x0F)));
         self.set_flag(Flag::Carry(value > a));
 
         self.pc += 1;
@@ -1016,8 +1015,7 @@ impl GameboyCPU {
 
         self.set_flag(Flag::Zero(result == 0));
         self.set_flag(Flag::Negative(true));
-        // FIXME: Properly check half-carry.
-        self.set_flag(Flag::HalfCarry(false));
+        self.set_flag(Flag::HalfCarry((a & 0x0F) < (value & 0x0F)));
         self.set_flag(Flag::Carry(value > a));
 
         self.pc += 2;
