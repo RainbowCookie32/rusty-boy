@@ -355,6 +355,7 @@ impl GameboyCPU {
             0x31 => self.load_u16_to_rp(breakpoints, dbg_mode, Register::SP),
             0x32 => self.store_to_hl_and_dec(breakpoints, dbg_mode),
             0x33 => self.inc_rp(Register::SP),
+            0x36 => self.store_u8_to_hl(breakpoints, dbg_mode),
             0x38 => self.conditional_jump_relative(breakpoints, dbg_mode, Condition::Carry(true)),
             0x3B => self.dec_rp(Register::SP),
             0x3C => self.inc_r8(Register::AF),
@@ -842,10 +843,30 @@ impl GameboyCPU {
             return;
         }
 
-        self.write(address, self.get_r8(&Register::AF), breakpoints);
+        if self.write(address, self.get_r8(&Register::AF), breakpoints) {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
 
         self.pc += 3;
         self.cycles += 16;
+    }
+
+    fn store_u8_to_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
+        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints);
+
+        if bp_hit {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        if self.write(self.hl, value, breakpoints) {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        self.pc += 2;
+        self.cycles += 12;
     }
 
     fn pop_rp(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, reg: Register) {
