@@ -107,6 +107,10 @@ impl GameboyMemory {
         }
 
         self.ie.set(0);
+
+        if let Ok(mut lock) = self.serial_output.write() {
+            lock.clear();
+        }
     }
 
     pub fn read(&self, address: u16) -> u8 {
