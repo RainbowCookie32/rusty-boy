@@ -1434,7 +1434,7 @@ impl GameboyCPU {
                 }
             }
             Condition::Carry(set) => {
-                let cf = self.get_flag(Flag::Zero(false));
+                let cf = self.get_flag(Flag::Carry(false));
 
                 if set {
                     call = cf;
@@ -1502,7 +1502,7 @@ impl GameboyCPU {
                 }
             }
             Condition::Carry(set) => {
-                let cf = self.get_flag(Flag::Zero(false));
+                let cf = self.get_flag(Flag::Carry(false));
 
                 if set {
                     ret = cf;
@@ -1566,7 +1566,7 @@ impl GameboyCPU {
                 }
             }
             Condition::Carry(set) => {
-                let cf = self.get_flag(Flag::Zero(false));
+                let cf = self.get_flag(Flag::Carry(false));
 
                 if set {
                     jump = cf;
@@ -1624,7 +1624,7 @@ impl GameboyCPU {
                 }
             }
             Condition::Carry(set) => {
-                let cf = self.get_flag(Flag::Zero(false));
+                let cf = self.get_flag(Flag::Carry(false));
 
                 if set {
                     jump = cf;
