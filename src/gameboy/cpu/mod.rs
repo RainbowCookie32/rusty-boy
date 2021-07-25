@@ -556,6 +556,7 @@ impl GameboyCPU {
             0xD5 => self.push_rp(breakpoints, dbg_mode, Register::DE(false)),
             0xD6 => self.sub_u8(breakpoints, dbg_mode),
             0xD8 => self.conditional_ret(breakpoints, dbg_mode, Condition::Carry(true)),
+            0xD9 => self.reti(breakpoints, dbg_mode),
             0xDA => self.conditional_jump(breakpoints, dbg_mode, Condition::Carry(true)),
             0xDC => self.conditional_call(breakpoints, dbg_mode, Condition::Carry(true)),
 
@@ -1754,6 +1755,25 @@ impl GameboyCPU {
             self.pc += 1;
             self.cycles += 8;
         }
+    }
+
+    // FIXME: Same thing as with EI, check when interrupts are actually enabled.
+    fn reti(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
+        let (bp_hit, address) = self.stack_read(breakpoints);
+
+        if bp_hit {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        if let Ok(mut lock) = self.callstack.write() {
+            lock.pop();
+        }
+
+        self.ime = 1;
+
+        self.pc = address;
+        self.cycles += 16;
     }
 
     fn jump(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {

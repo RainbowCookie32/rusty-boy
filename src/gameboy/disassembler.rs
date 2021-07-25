@@ -364,6 +364,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
             (2, dis)
         }
         0xD8 => (1, String::from("RET C")),
+        0xD9 => (1, String::from("RETI")),
         0xDA => {
             let args = [gb_mem.read(address + 1), gb_mem.read(address + 2)];
             let dis = format!("JP C, ${:04X}", u16::from_le_bytes(args));
