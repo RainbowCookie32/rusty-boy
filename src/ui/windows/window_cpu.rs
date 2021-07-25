@@ -6,6 +6,7 @@ use crate::gameboy::{Breakpoint, EmulatorMode, Gameboy};
 
 pub struct CPUWindow {
     gb: Arc<RwLock<Gameboy>>,
+    callstack: Arc<RwLock<Vec<String>>>,
 
     bp_add_read: bool,
     bp_add_write: bool,
@@ -21,9 +22,10 @@ pub struct CPUWindow {
 }
 
 impl CPUWindow {
-    pub fn init(gb: Arc<RwLock<Gameboy>>) -> CPUWindow {
+    pub fn init(gb: Arc<RwLock<Gameboy>>, callstack: Arc<RwLock<Vec<String>>>) -> CPUWindow {
         CPUWindow {
             gb,
+            callstack,
 
             bp_add_read: false,
             bp_add_write: false,
@@ -222,6 +224,17 @@ impl CPUWindow {
                     }
                 }
             }
+
+            ui.separator();
+            ui.bullet_text(im_str!("CPU Callstack"));
+
+            ListBox::new(im_str!("##c")).size([220.0, 70.0]).build(&ui, || {
+                if let Ok(lock) = self.callstack.read() {
+                    for call in lock.iter() {
+                        Selectable::new(&ImString::from(call.clone())).allow_double_click(true).build(&ui);
+                    }
+                }
+            });
         });
 
         adjust_cursor

@@ -1,8 +1,34 @@
+use std::fmt;
+use std::sync::{Arc, RwLock};
+
 use super::*;
 
 enum Condition {
     Zero(bool),
     Carry(bool)
+}
+
+impl fmt::Display for Condition {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Condition::Zero(c) => {
+                if *c {
+                    write!(f, "Z")
+                }
+                else {
+                    write!(f, "NZ")
+                }
+            }
+            Condition::Carry(c) => {
+                if *c {
+                    write!(f, "C")
+                }
+                else {
+                    write!(f, "NC")
+                }
+            }
+        }
+    }
 }
 
 enum Register {
@@ -31,6 +57,7 @@ pub struct GameboyCPU {
     ime: u8,
 
     cycles: usize,
+    callstack: Arc<RwLock<Vec<String>>>,
 
     memory: Arc<GameboyMemory>
 }
@@ -48,6 +75,7 @@ impl GameboyCPU {
             ime: 0,
 
             cycles: 0,
+            callstack: Arc::new(RwLock::new(Vec::new())),
 
             memory
         }
@@ -198,6 +226,10 @@ impl GameboyCPU {
         self.pc = 0x0150;
     }
 
+    pub fn get_callstack(&self) -> Arc<RwLock<Vec<String>>> {
+        self.callstack.clone()
+    }
+
     pub fn get_all_registers(&self) -> (&u16, &u16, &u16, &u16, &u16, &u16) {
         (&self.af, &self.bc, &self.de, &self.hl, &self.sp, &self.pc)
     }
@@ -287,6 +319,10 @@ impl GameboyCPU {
         self.sp = 0;
         self.pc = 0;
         self.cycles = 0;
+        
+        if let Ok(mut lock) = self.callstack.write() {
+            lock.clear();
+        }
     }
 
     pub fn cpu_cycle(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -1260,6 +1296,10 @@ impl GameboyCPU {
             return;
         }
 
+        if let Ok(mut lock) = self.callstack.write() {
+            lock.push(format!("${:04X}: CALL {:04X}", self.pc, address));
+        }
+
         self.pc = address;
         self.cycles += 24;
     }
@@ -1303,6 +1343,10 @@ impl GameboyCPU {
                 return;
             }
 
+            if let Ok(mut lock) = self.callstack.write() {
+                lock.push(format!("${:04X}: CALL {}, {:04X}", self.pc, condition, address));
+            }
+
             self.pc = address;
             self.cycles += 24;
         }
@@ -1318,6 +1362,10 @@ impl GameboyCPU {
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
+        }
+
+        if let Ok(mut lock) = self.callstack.write() {
+            lock.pop();
         }
 
         self.pc = address;
@@ -1361,6 +1409,10 @@ impl GameboyCPU {
             if self.stack_write(self.pc + 3, breakpoints) {
                 *dbg_mode = EmulatorMode::BreakpointHit;
                 return;
+            }
+
+            if let Ok(mut lock) = self.callstack.write() {
+                lock.pop();
             }
 
             self.pc = address;

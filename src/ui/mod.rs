@@ -20,6 +20,7 @@ use crate::gameboy::memory::GameboyMemory;
 pub fn draw_windows(gb: Arc<RwLock<Gameboy>>, gb_mem: Arc<GameboyMemory>, gb_serial: Arc<RwLock<Vec<u8>>>) {
     let gb = gb;
     let gb_mem = gb_mem;
+    let callstack = gb.read().unwrap().ui_get_callstack();
 
     let event_loop = EventLoop::new();
     let glutin_context = glutin::ContextBuilder::new().with_vsync(true);
@@ -44,7 +45,7 @@ pub fn draw_windows(gb: Arc<RwLock<Gameboy>>, gb_mem: Arc<GameboyMemory>, gb_ser
         .expect("Failed to create imgui renderer")
     ;
 
-    let mut win_cpu = window_cpu::CPUWindow::init(gb.clone());
+    let mut win_cpu = window_cpu::CPUWindow::init(gb.clone(), callstack);
     let win_cart = window_cart::CartWindow::init(gb.clone(), gb_mem.clone());
     let win_serial = window_serial::SerialWindow::init(gb_serial);
     let mut win_memory = window_memory::MemoryWindow::init(gb_mem.clone());

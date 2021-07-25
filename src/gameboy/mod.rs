@@ -62,6 +62,10 @@ impl Gameboy {
         self.gb_cpu.get_all_registers()
     }
 
+    pub fn ui_get_callstack(&self) -> Arc<RwLock<Vec<String>>> {
+        self.gb_cpu.get_callstack()
+    }
+
     pub fn ui_get_serial_output(&self) -> Arc<RwLock<Vec<u8>>> {
         self.gb_mem.serial_output()
     }
