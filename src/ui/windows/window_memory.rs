@@ -84,7 +84,7 @@ impl MemoryWindow {
                 ui.same_line(0.0);
 
                 for (idx, value) in values.iter().enumerate() {
-                    let value = *value as char;
+                    let value = if *value == 0 {'.'} else {*value as char};
                     let size = ui.calc_text_size(im_str!("F"), false, 0.0);
                     if Selectable::new(&ImString::from(format!("{}", value))).allow_double_click(true).size(size).build(&ui) {
 
