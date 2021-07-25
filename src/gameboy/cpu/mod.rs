@@ -395,6 +395,8 @@ impl GameboyCPU {
             0x31 => self.load_u16_to_rp(breakpoints, dbg_mode, Register::SP),
             0x32 => self.store_to_hl_and_dec(breakpoints, dbg_mode),
             0x33 => self.inc_rp(Register::SP),
+            0x34 => self.inc_hl(breakpoints, dbg_mode),
+            0x35 => self.dec_hl(breakpoints, dbg_mode),
             0x36 => self.store_u8_to_hl(breakpoints, dbg_mode),
             0x37 => self.scf(),
             0x38 => self.conditional_jump_relative(breakpoints, dbg_mode, Condition::Carry(true)),
@@ -1103,6 +1105,32 @@ impl GameboyCPU {
         self.cycles += 4;
     }
 
+    fn inc_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+
+        if bp_hit {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        let result = value.wrapping_add(1);
+
+        let zero = result == 0;
+        let half_carry = (value & 0x0F) + 1 > 0x0F;
+
+        if self.write(self.hl, result, breakpoints) {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+        
+        self.set_flag(Flag::Zero(zero));
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry(half_carry));
+
+        self.pc += 1;
+        self.cycles += 12;
+    }
+
     fn dec_r8(&mut self, reg: Register) {
         let value = self.get_r8(&reg);
         let result = value.wrapping_sub(1);
@@ -1111,6 +1139,32 @@ impl GameboyCPU {
         let half_carry = (value & 0x0F) < 1;
 
         self.set_r8(reg, result);
+
+        self.set_flag(Flag::Zero(zero));
+        self.set_flag(Flag::Negative(true));
+        self.set_flag(Flag::HalfCarry(half_carry));
+
+        self.pc += 1;
+        self.cycles += 4;
+    }
+
+    fn dec_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+
+        if bp_hit {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        let result = value.wrapping_sub(1);
+
+        let zero = result == 0;
+        let half_carry = (value & 0x0F) < 1;
+
+        if self.write(self.hl, result, breakpoints) {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
 
         self.set_flag(Flag::Zero(zero));
         self.set_flag(Flag::Negative(true));
