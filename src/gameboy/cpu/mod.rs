@@ -223,7 +223,7 @@ impl GameboyCPU {
         self.de = 0x00D8;
         self.hl = 0x014D;
         self.sp = 0xFFFE;
-        self.pc = 0x0150;
+        self.pc = 0x0100;
     }
 
     pub fn get_callstack(&self) -> Arc<RwLock<Vec<String>>> {
