@@ -99,8 +99,8 @@ impl DisassemblerWindow {
                         }
                     }
 
-                    let selected = Selectable::new(&ImString::from(line_str)).allow_double_click(true).build(&ui);
-                    let entry = || if selected && ui.is_mouse_double_clicked(MouseButton::Left) {
+                    let selected = || Selectable::new(&ImString::from(line_str)).allow_double_click(true).build(&ui);
+                    let entry = || if (selected)() && ui.is_mouse_double_clicked(MouseButton::Left) {
                         if let Ok(mut lock) = self.gb.write() {
                             if address_is_bp {
                                 lock.dbg_breakpoint_list.remove(bp_idx);
