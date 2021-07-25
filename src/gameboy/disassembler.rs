@@ -19,7 +19,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
         0x05 => (1, String::from("DEC B")),
         0x06 => {
             let value = gb_mem.read(address + 1);
-            let dis = format!("LD B, ${:04X}", value);
+            let dis = format!("LD B, ${:02X}", value);
 
             (2, dis)
         }
@@ -30,7 +30,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
         0x0D => (1, String::from("DEC C")),
         0x0E => {
             let value = gb_mem.read(address + 1);
-            let dis = format!("LD C, ${:04X}", value);
+            let dis = format!("LD C, ${:02X}", value);
 
             (2, dis)
         }
@@ -48,7 +48,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
         0x15 => (1, String::from("DEC D")),
         0x16 => {
             let value = gb_mem.read(address + 1);
-            let dis = format!("LD D, ${:04X}", value);
+            let dis = format!("LD D, ${:02X}", value);
 
             (2, dis)
         }
@@ -65,7 +65,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
         0x1D => (1, String::from("DEC E")),
         0x1E => {
             let value = gb_mem.read(address + 1);
-            let dis = format!("LD E, ${:04X}", value);
+            let dis = format!("LD E, ${:02X}", value);
 
             (2, dis)
         }
@@ -89,7 +89,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
         0x25 => (1, String::from("DEC H")),
         0x26 => {
             let value = gb_mem.read(address + 1);
-            let dis = format!("LD H, ${:04X}", value);
+            let dis = format!("LD H, ${:02X}", value);
 
             (2, dis)
         }
@@ -105,7 +105,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
         0x2D => (1, String::from("DEC L")),
         0x2E => {
             let value = gb_mem.read(address + 1);
-            let dis = format!("LD L, ${:04X}", value);
+            let dis = format!("LD L, ${:02X}", value);
 
             (2, dis)
         }
@@ -142,7 +142,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
         0x3D => (1, String::from("DEC A")),
         0x3E => {
             let value = gb_mem.read(address + 1);
-            let dis = format!("LD A, ${:04X}", value);
+            let dis = format!("LD A, ${:02X}", value);
 
             (2, dis)
         }
