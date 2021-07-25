@@ -563,6 +563,7 @@ impl GameboyCPU {
             0xE2 => self.store_a_to_io_c(breakpoints, dbg_mode),
             0xE5 => self.push_rp(breakpoints, dbg_mode, Register::HL(false)),
             0xE6 => self.and_u8(breakpoints, dbg_mode),
+            0xE9 => self.jump_hl(),
             0xEA => self.store_a_to_u16(breakpoints, dbg_mode),
             0xEE => self.xor_u8(breakpoints, dbg_mode),
 
@@ -1860,6 +1861,11 @@ impl GameboyCPU {
             self.pc += 2;
             self.cycles += 8;
         }
+    }
+
+    fn jump_hl(&mut self) {
+        self.pc = self.hl;
+        self.cycles += 4;
     }
 
     fn di(&mut self) {
