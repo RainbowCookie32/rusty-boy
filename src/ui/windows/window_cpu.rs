@@ -130,17 +130,17 @@ impl CPUWindow {
                             if *bp.write() {"w"} else {""},
                             if *bp.execute() {"x"} else {""},
                         );
+
+                        let selected = Selectable::new(&ImString::from(bp_string)).allow_double_click(true).build(&ui);
     
-                        if Selectable::new(&ImString::from(bp_string)).allow_double_click(true).build(&ui) {
-                            if ui.is_mouse_double_clicked(MouseButton::Left) {
-                                self.bp_edit_read = *bp.read();
-                                self.bp_edit_write = *bp.write();
-                                self.bp_edit_execute = *bp.execute();
-                                self.bp_edit_address = ImString::new(format!("{:04X}", bp.address()));
-    
-                                self.bp_edit_idx = idx;
-                                self.bp_edit_popup_open = true;
-                            }
+                        if selected && ui.is_mouse_double_clicked(MouseButton::Left) {
+                            self.bp_edit_read = *bp.read();
+                            self.bp_edit_write = *bp.write();
+                            self.bp_edit_execute = *bp.execute();
+                            self.bp_edit_address = ImString::new(format!("{:04X}", bp.address()));
+                        
+                            self.bp_edit_idx = idx;
+                            self.bp_edit_popup_open = true;
                         }
                     }
                 }

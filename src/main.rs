@@ -33,8 +33,8 @@ fn main() {
     let bootrom_path = matches.value_of("bootrom").expect("Path to bootrom wasn't specified").trim();
     let romfile_path = matches.value_of("romfile").expect("Path to romfile wasn't specified").trim();
 
-    let bootrom_data = fs::read(bootrom_path).expect(&format!("Couldn't read bootrom file at path {}", bootrom_path));
-    let romfile_data = fs::read(romfile_path).expect(&format!("Couldn't read Gameboy romfile at path {}", romfile_path));
+    let bootrom_data = fs::read(bootrom_path).expect("Couldn't read bootrom file at path");
+    let romfile_data = fs::read(romfile_path).expect("Couldn't read Gameboy romfile at path");
 
     let gb_mem = Arc::from(GameboyMemory::init(bootrom_data, romfile_data));
     let gb = Arc::from(RwLock::from(Gameboy::init(gb_mem.clone())));
