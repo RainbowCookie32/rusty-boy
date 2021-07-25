@@ -230,7 +230,7 @@ impl CPUWindow {
 
             ListBox::new(im_str!("##c")).size([220.0, 70.0]).build(&ui, || {
                 if let Ok(lock) = self.callstack.read() {
-                    for call in lock.iter() {
+                    for call in lock.iter().rev() {
                         Selectable::new(&ImString::from(call.clone())).allow_double_click(true).build(&ui);
                     }
                 }
