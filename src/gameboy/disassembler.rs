@@ -59,8 +59,9 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
         }
         0x17 => (1, String::from("RLA")),
         0x18 => {
-            let args = [gb_mem.read(address + 1), gb_mem.read(address + 2)];
-            let dis = format!("JR ${:04X}", u16::from_le_bytes(args));
+            let offset = gb_mem.read(address + 1) as i8;
+            let target = address.wrapping_add(offset as u16) + 2;
+            let dis = format!("JR ${:04X}", target);
 
             (2, dis)
         }
@@ -78,7 +79,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
 
         0x20 => {
             let offset = gb_mem.read(address + 1) as i8;
-            let dis = format!("JP NZ, ${:04X}", address.wrapping_add(offset as u16) + 2);
+            let dis = format!("JR NZ, ${:04X}", address.wrapping_add(offset as u16) + 2);
 
             (2, dis)
         }
@@ -100,7 +101,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
         }
         0x28 => {
             let offset = gb_mem.read(address + 1) as i8;
-            let dis = format!("JP Z, ${:04X}", address.wrapping_add(offset as u16) + 2);
+            let dis = format!("JR Z, ${:04X}", address.wrapping_add(offset as u16) + 2);
 
             (2, dis)
         }
@@ -117,7 +118,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
 
         0x30 => {
             let offset = gb_mem.read(address + 1) as i8;
-            let dis = format!("JP NC, ${:04X}", address.wrapping_add(offset as u16) + 2);
+            let dis = format!("JR NC, ${:04X}", address.wrapping_add(offset as u16) + 2);
 
             (2, dis)
         }
@@ -138,7 +139,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
         0x37 => (1, String::from("SCF")),
         0x38 => {
             let offset = gb_mem.read(address + 1) as i8;
-            let dis = format!("JP C, ${:04X}", address.wrapping_add(offset as u16) + 2);
+            let dis = format!("JR C, ${:04X}", address.wrapping_add(offset as u16) + 2);
 
             (2, dis)
         }
