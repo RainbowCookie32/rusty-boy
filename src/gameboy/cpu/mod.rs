@@ -353,6 +353,7 @@ impl GameboyCPU {
             0x05 => self.dec_r8(Register::BC(true)),
             0x06 => self.load_u8_to_r8(breakpoints, dbg_mode, Register::BC(true)),
             0x08 => self.store_sp_to_u16(breakpoints, dbg_mode),
+            0x09 => self.add_hl_rp(Register::BC(false)),
             0x0A => self.load_a_from_rp(breakpoints, dbg_mode, Register::BC(false)),
             0x0B => self.dec_rp(Register::BC(false)),
             0x0C => self.inc_r8(Register::BC(false)),
@@ -367,6 +368,7 @@ impl GameboyCPU {
             0x16 => self.load_u8_to_r8(breakpoints, dbg_mode, Register::DE(true)),
             0x17 => self.rla(),
             0x18 => self.jump_relative(breakpoints, dbg_mode),
+            0x19 => self.add_hl_rp(Register::DE(false)),
             0x1A => self.load_a_from_rp(breakpoints, dbg_mode, Register::DE(false)),
             0x1B => self.dec_rp(Register::DE(false)),
             0x1C => self.inc_r8(Register::DE(false)),
@@ -382,6 +384,7 @@ impl GameboyCPU {
             0x25 => self.dec_r8(Register::HL(true)),
             0x26 => self.load_u8_to_r8(breakpoints, dbg_mode, Register::HL(true)),
             0x28 => self.conditional_jump_relative(breakpoints, dbg_mode, Condition::Zero(true)),
+            0x29 => self.add_hl_rp(Register::HL(false)),
             0x2A => self.load_a_from_hl_and_inc(breakpoints, dbg_mode),
             0x2B => self.dec_rp(Register::HL(false)),
             0x2C => self.inc_r8(Register::HL(false)),
@@ -395,6 +398,7 @@ impl GameboyCPU {
             0x36 => self.store_u8_to_hl(breakpoints, dbg_mode),
             0x37 => self.scf(),
             0x38 => self.conditional_jump_relative(breakpoints, dbg_mode, Condition::Carry(true)),
+            0x39 => self.add_hl_rp(Register::SP),
             0x3B => self.dec_rp(Register::SP),
             0x3C => self.inc_r8(Register::AF),
             0x3D => self.dec_r8(Register::AF),
@@ -1108,6 +1112,21 @@ impl GameboyCPU {
 
         self.pc += 1;
         self.cycles += 4;
+    }
+
+    fn add_hl_rp(&mut self, reg: Register) {
+        let hl = self.get_rp(&Register::HL(false));
+        let value = self.get_rp(&reg);
+        let (result, carry) = hl.overflowing_add(value);
+
+        self.set_rp(Register::HL(false), result);
+
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry((hl & 0x0FFF) + (value & 0x0FFF) > 0x0FFF));
+        self.set_flag(Flag::Carry(carry));
+        
+        self.pc += 1;
+        self.cycles += 8;
     }
 
     fn add_r8(&mut self, reg: Register) {

@@ -29,6 +29,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
 
             (3, dis)
         }
+        0x09 => (1, String::from("ADD HL, BC")),
         0x0A => (1, String::from("LD A, (BC)")),
         0x0B => (1, String::from("DEC BC")),
         0x0C => (1, String::from("INC C")),
@@ -65,6 +66,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
 
             (2, dis)
         }
+        0x19 => (1, String::from("ADD HL, DE")),
         0x1A => (1, String::from("LD A, (DE)")),
         0x1B => (1, String::from("DEC DE")),
         0x1C => (1, String::from("INC E")),
@@ -105,6 +107,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
 
             (2, dis)
         }
+        0x29 => (1, String::from("ADD HL, HL")),
         0x2A => (1, String::from("LD A, (HL+)")),
         0x2B => (1, String::from("DEC HL")),
         0x2C => (1, String::from("INC L")),
@@ -143,6 +146,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
 
             (2, dis)
         }
+        0x39 => (1, String::from("ADD HL, SP")),
         0x3B => (1, String::from("DEC SP")),
         0x3C => (1, String::from("INC A")),
         0x3D => (1, String::from("DEC A")),
