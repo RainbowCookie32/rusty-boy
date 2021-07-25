@@ -573,6 +573,7 @@ impl GameboyCPU {
             0xF3 => self.di(),
             0xF5 => self.push_rp(breakpoints, dbg_mode, Register::AF),
             0xF6 => self.or_u8(breakpoints, dbg_mode),
+            0xF9 => self.load_hl_to_sp(),
             0xFA => self.load_a_from_u16(breakpoints, dbg_mode),
             0xFB => self.ei(),
             0xFE => self.cp_u8(breakpoints, dbg_mode),
@@ -870,6 +871,13 @@ impl GameboyCPU {
 
         self.pc += 3;
         self.cycles += 12;
+    }
+
+    fn load_hl_to_sp(&mut self) {
+        self.sp = self.hl;
+        
+        self.pc += 1;
+        self.cycles += 8;
     }
 
     fn load_r8_to_r8(&mut self, target: Register, source: Register) {
