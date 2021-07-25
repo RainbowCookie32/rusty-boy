@@ -1773,11 +1773,12 @@ impl GameboyCPU {
 
     fn srl(&mut self, reg: Register) {
         let value = self.get_r8(&reg);
-        let msb = (value >> 7) != 0;
+        let msb = (value & 1) != 0;
+        let result = value >> 1;
 
-        self.set_r8(reg, value & 0x7F);
+        self.set_r8(reg, result);
 
-        self.set_flag(Flag::Zero(value & 0x7F == 0));
+        self.set_flag(Flag::Zero(result == 0));
         self.set_flag(Flag::Negative(false));
         self.set_flag(Flag::HalfCarry(false));
         self.set_flag(Flag::Carry(msb));
