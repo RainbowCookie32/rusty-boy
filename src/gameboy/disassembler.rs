@@ -130,6 +130,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
 
             (2, dis)
         }
+        0x37 => (1, String::from("SCF")),
         0x38 => {
             let offset = gb_mem.read(address + 1) as i8;
             let dis = format!("JP C, ${:04X}", address.wrapping_add(offset as u16) + 2);
@@ -145,6 +146,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
 
             (2, dis)
         }
+        0x3F => (1, String::from("CCF")),
 
         0x40 => (1, String::from("LD B, B")),
         0x41 => (1, String::from("LD B, C")),

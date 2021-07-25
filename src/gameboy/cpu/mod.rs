@@ -392,11 +392,13 @@ impl GameboyCPU {
             0x32 => self.store_to_hl_and_dec(breakpoints, dbg_mode),
             0x33 => self.inc_rp(Register::SP),
             0x36 => self.store_u8_to_hl(breakpoints, dbg_mode),
+            0x37 => self.scf(),
             0x38 => self.conditional_jump_relative(breakpoints, dbg_mode, Condition::Carry(true)),
             0x3B => self.dec_rp(Register::SP),
             0x3C => self.inc_r8(Register::AF),
             0x3D => self.dec_r8(Register::AF),
             0x3E => self.load_u8_to_r8(breakpoints, dbg_mode, Register::AF),
+            0x3F => self.ccf(),
 
             0x40 => self.load_r8_to_r8(Register::BC(true), Register::BC(true)),
             0x41 => self.load_r8_to_r8(Register::BC(true), Register::BC(false)),
@@ -983,6 +985,26 @@ impl GameboyCPU {
 
         self.pc += 2;
         self.cycles += 12;
+    }
+
+    fn scf(&mut self) {
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry(false));
+        self.set_flag(Flag::Carry(true));
+
+        self.pc += 1;
+        self.cycles += 4;
+    }
+
+    fn ccf(&mut self) {
+        let carry = !self.get_flag(Flag::Carry(false));
+
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry(false));
+        self.set_flag(Flag::Carry(carry));
+
+        self.pc += 1;
+        self.cycles += 4;
     }
 
     fn pop_rp(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, reg: Register) {
