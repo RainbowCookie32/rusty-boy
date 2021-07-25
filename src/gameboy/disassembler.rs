@@ -475,7 +475,7 @@ pub fn get_instruction_data_prefixed(address: u16, gb_mem: &Arc<GameboyMemory>) 
         0x5B => (2, String::from("BIT 3, E")),
         0x5C => (2, String::from("BIT 3, H")),
         0x5D => (2, String::from("BIT 3, L")),
-        0x56 => (2, String::from("BIT 3, [HL]")),
+        0x5E => (2, String::from("BIT 3, [HL]")),
         0x5F => (2, String::from("BIT 3, A")),
 
         0x60 => (2, String::from("BIT 4, B")),
