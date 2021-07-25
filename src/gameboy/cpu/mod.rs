@@ -401,6 +401,7 @@ impl GameboyCPU {
             0x37 => self.scf(),
             0x38 => self.conditional_jump_relative(breakpoints, dbg_mode, Condition::Carry(true)),
             0x39 => self.add_hl_rp(Register::SP),
+            0x3A => self.load_a_from_hl_and_dec(breakpoints, dbg_mode),
             0x3B => self.dec_rp(Register::SP),
             0x3C => self.inc_r8(Register::AF),
             0x3D => self.dec_r8(Register::AF),
@@ -821,6 +822,21 @@ impl GameboyCPU {
 
         self.set_r8(Register::AF, value);
         self.set_rp(Register::HL(true), self.hl.wrapping_add(1));
+
+        self.pc += 1;
+        self.cycles += 8;
+    }
+
+    fn load_a_from_hl_and_dec(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+
+        if bp_hit {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        self.set_r8(Register::AF, value);
+        self.set_rp(Register::HL(true), self.hl.wrapping_sub(1));
 
         self.pc += 1;
         self.cycles += 8;
