@@ -268,7 +268,7 @@ impl GameboyCPU {
         let matching_bps: Vec<&Breakpoint> = breakpoints.iter().filter(|b| *b.address() == address).collect();
 
         for bp in matching_bps {
-            if *bp.read() {
+            if *bp.write() {
                 return true;
             }
         }
