@@ -64,6 +64,9 @@ impl DisassemblerWindow {
                         else if WRAM.contains(&current_addr) {
                             String::from("WRAM")
                         }
+                        else if ECHO.contains(&current_addr) {
+                            String::from("ECHO")
+                        }
                         else if OAM.contains(&current_addr) {
                             String::from("OAM")
                         }
