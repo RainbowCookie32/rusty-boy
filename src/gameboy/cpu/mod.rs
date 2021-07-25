@@ -477,6 +477,7 @@ impl GameboyCPU {
             0x83 => self.add_r8(Register::DE(false)),
             0x84 => self.add_r8(Register::HL(true)),
             0x85 => self.add_r8(Register::HL(false)),
+            0x86 => self.add_hl(breakpoints, dbg_mode),
             0x87 => self.add_r8(Register::AF),
             0x88 => self.adc_r8(Register::BC(true)),
             0x89 => self.adc_r8(Register::BC(false)),
@@ -484,6 +485,7 @@ impl GameboyCPU {
             0x8B => self.adc_r8(Register::DE(false)),
             0x8C => self.adc_r8(Register::HL(true)),
             0x8D => self.adc_r8(Register::HL(false)),
+            0x8E => self.adc_hl(breakpoints, dbg_mode),
             0x8F => self.adc_r8(Register::AF),
 
             0x90 => self.sub_r8(Register::BC(true)),
@@ -492,6 +494,7 @@ impl GameboyCPU {
             0x93 => self.sub_r8(Register::DE(false)),
             0x94 => self.sub_r8(Register::HL(true)),
             0x95 => self.sub_r8(Register::HL(false)),
+            0x96 => self.sub_hl(breakpoints, dbg_mode),
             0x97 => self.sub_r8(Register::AF),
 
             0xA0 => self.and_r8(Register::BC(true)),
@@ -500,6 +503,7 @@ impl GameboyCPU {
             0xA3 => self.and_r8(Register::DE(false)),
             0xA4 => self.and_r8(Register::HL(true)),
             0xA5 => self.and_r8(Register::HL(false)),
+            0xA6 => self.and_hl(breakpoints, dbg_mode),
             0xA7 => self.and_r8(Register::AF),
             0xA8 => self.xor_r8(Register::BC(true)),
             0xA9 => self.xor_r8(Register::BC(false)),
@@ -516,6 +520,7 @@ impl GameboyCPU {
             0xB3 => self.or_r8(Register::DE(false)),
             0xB4 => self.or_r8(Register::HL(true)),
             0xB5 => self.or_r8(Register::HL(false)),
+            0xB6 => self.or_hl(breakpoints, dbg_mode),
             0xB7 => self.or_r8(Register::AF),
             0xB8 => self.cp_r8(Register::BC(true)),
             0xB9 => self.cp_r8(Register::BC(false)),
@@ -563,6 +568,7 @@ impl GameboyCPU {
             0xF1 => self.pop_rp(breakpoints, dbg_mode, Register::AF),
             0xF3 => self.di(),
             0xF5 => self.push_rp(breakpoints, dbg_mode, Register::AF),
+            0xF6 => self.or_u8(breakpoints, dbg_mode),
             0xFA => self.load_a_from_u16(breakpoints, dbg_mode),
             0xFB => self.ei(),
             0xFE => self.cp_u8(breakpoints, dbg_mode),
@@ -1167,6 +1173,28 @@ impl GameboyCPU {
         self.cycles += 8;
     }
 
+    fn add_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
+        let a = self.get_r8(&Register::AF);
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+
+        if bp_hit {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        let result = a as u16 + value as u16;
+
+        self.set_r8(Register::AF, result as u8);
+
+        self.set_flag(Flag::Zero(result as u8 == 0));
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry((a & 0x0F) + (value & 0x0F) > 0x0F));
+        self.set_flag(Flag::Carry(result > 0xFF));
+
+        self.pc += 1;
+        self.cycles += 8;
+    }
+
     fn adc_r8(&mut self, reg: Register) {
         let value = self.get_r8(&reg);
         let a = self.get_r8(&Register::AF);
@@ -1208,6 +1236,29 @@ impl GameboyCPU {
         self.cycles += 8;
     }
 
+    fn adc_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
+        let a = self.get_r8(&Register::AF);
+        let carry = if self.get_flag(Flag::Carry(false)) {1} else {0};
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+
+        if bp_hit {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        let result = a as u16 + value as u16 + carry;
+
+        self.set_r8(Register::AF, result as u8);
+
+        self.set_flag(Flag::Zero(result as u8 == 0));
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry((a & 0x0F) + (value & 0x0F) + carry as u8 > 0x0F));
+        self.set_flag(Flag::Carry(result > 0xFF));
+
+        self.pc += 1;
+        self.cycles += 8;
+    }
+
     fn sub_r8(&mut self, reg: Register) {
         let a = self.get_r8(&Register::AF);
         let value = self.get_r8(&reg);
@@ -1243,6 +1294,28 @@ impl GameboyCPU {
         self.set_flag(Flag::Carry(value > a));
 
         self.pc += 2;
+        self.cycles += 8;
+    }
+
+    fn sub_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
+        let a = self.get_r8(&Register::AF);
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+
+        if bp_hit {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        let result = a.wrapping_sub(value);
+
+        self.set_r8(Register::AF, result);
+
+        self.set_flag(Flag::Zero(result == 0));
+        self.set_flag(Flag::Negative(true));
+        self.set_flag(Flag::HalfCarry((a & 0x0F) < (value & 0x0F)));
+        self.set_flag(Flag::Carry(value > a));
+
+        self.pc += 1;
         self.cycles += 8;
     }
 
@@ -1282,6 +1355,28 @@ impl GameboyCPU {
         self.set_flag(Flag::Carry(false));
 
         self.pc += 2;
+        self.cycles += 8;
+    }
+
+    fn and_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+
+        if bp_hit {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        let target = self.get_r8(&Register::AF);
+        let result = value & target;
+
+        self.set_r8(Register::AF, result);
+
+        self.set_flag(Flag::Zero(result == 0));
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry(true));
+        self.set_flag(Flag::Carry(false));
+
+        self.pc += 1;
         self.cycles += 8;
     }
 
@@ -1363,6 +1458,50 @@ impl GameboyCPU {
         self.cycles += 4;
     }
 
+    fn or_u8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
+        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints);
+
+        if bp_hit {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        let target = self.get_r8(&Register::AF);
+        let result = value | target;
+
+        self.set_r8(Register::AF, result);
+
+        self.set_flag(Flag::Zero(result == 0));
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry(false));
+        self.set_flag(Flag::Carry(false));
+
+        self.pc += 2;
+        self.cycles += 8;
+    }
+
+    fn or_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+
+        if bp_hit {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        let target = self.get_r8(&Register::AF);
+        let result = value | target;
+
+        self.set_r8(Register::AF, result);
+
+        self.set_flag(Flag::Zero(result == 0));
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry(false));
+        self.set_flag(Flag::Carry(false));
+
+        self.pc += 1;
+        self.cycles += 8;
+    }
+
     fn cp_r8(&mut self, reg: Register) {
         let value = self.get_r8(&reg);
         let reg = self.get_r8(&Register::AF);
@@ -1375,26 +1514,6 @@ impl GameboyCPU {
 
         self.pc += 1;
         self.cycles += 4;
-    }
-
-    fn cp_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
-
-        if bp_hit {
-            *dbg_mode = EmulatorMode::BreakpointHit;
-            return;
-        }
-
-        let reg = self.get_r8(&Register::AF);
-        let result = reg.wrapping_sub(value);
-
-        self.set_flag(Flag::Zero(result == 0));
-        self.set_flag(Flag::Negative(true));
-        self.set_flag(Flag::HalfCarry((reg & 0x0F) < (value & 0x0F)));
-        self.set_flag(Flag::Carry(reg > value));
-
-        self.pc += 1;
-        self.cycles += 8;
     }
 
     fn cp_u8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -1414,6 +1533,26 @@ impl GameboyCPU {
         self.set_flag(Flag::Carry(reg > value));
 
         self.pc += 2;
+        self.cycles += 8;
+    }
+
+    fn cp_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+
+        if bp_hit {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        let reg = self.get_r8(&Register::AF);
+        let result = reg.wrapping_sub(value);
+
+        self.set_flag(Flag::Zero(result == 0));
+        self.set_flag(Flag::Negative(true));
+        self.set_flag(Flag::HalfCarry((reg & 0x0F) < (value & 0x0F)));
+        self.set_flag(Flag::Carry(reg > value));
+
+        self.pc += 1;
         self.cycles += 8;
     }
 
