@@ -541,6 +541,7 @@ impl GameboyCPU {
             0xC4 => self.conditional_call(breakpoints, dbg_mode, Condition::Zero(false)),
             0xC5 => self.push_rp(breakpoints, dbg_mode, Register::BC(false)),
             0xC6 => self.add_u8(breakpoints, dbg_mode),
+            0xC7 => self.rst(0x00, breakpoints, dbg_mode),
             0xC8 => self.conditional_ret(breakpoints, dbg_mode, Condition::Zero(true)),
             0xC9 => self.ret(breakpoints, dbg_mode),
             0xCA => self.conditional_jump(breakpoints, dbg_mode, Condition::Zero(true)),
@@ -548,6 +549,7 @@ impl GameboyCPU {
             0xCC => self.conditional_call(breakpoints, dbg_mode, Condition::Zero(true)),
             0xCD => self.call(breakpoints, dbg_mode),
             0xCE => self.adc_u8(breakpoints, dbg_mode),
+            0xCF => self.rst(0x08, breakpoints, dbg_mode),
 
             0xD0 => self.conditional_ret(breakpoints, dbg_mode, Condition::Carry(false)),
             0xD1 => self.pop_rp(breakpoints, dbg_mode, Register::DE(false)),
@@ -555,29 +557,35 @@ impl GameboyCPU {
             0xD4 => self.conditional_call(breakpoints, dbg_mode, Condition::Carry(false)),
             0xD5 => self.push_rp(breakpoints, dbg_mode, Register::DE(false)),
             0xD6 => self.sub_u8(breakpoints, dbg_mode),
+            0xD7 => self.rst(0x10, breakpoints, dbg_mode),
             0xD8 => self.conditional_ret(breakpoints, dbg_mode, Condition::Carry(true)),
             0xD9 => self.reti(breakpoints, dbg_mode),
             0xDA => self.conditional_jump(breakpoints, dbg_mode, Condition::Carry(true)),
             0xDC => self.conditional_call(breakpoints, dbg_mode, Condition::Carry(true)),
+            0xDF => self.rst(0x18, breakpoints, dbg_mode),
 
             0xE0 => self.store_a_to_io_u8(breakpoints, dbg_mode),
             0xE1 => self.pop_rp(breakpoints, dbg_mode, Register::HL(false)),
             0xE2 => self.store_a_to_io_c(breakpoints, dbg_mode),
             0xE5 => self.push_rp(breakpoints, dbg_mode, Register::HL(false)),
             0xE6 => self.and_u8(breakpoints, dbg_mode),
+            0xE7 => self.rst(0x20, breakpoints, dbg_mode),
             0xE9 => self.jump_hl(),
             0xEA => self.store_a_to_u16(breakpoints, dbg_mode),
             0xEE => self.xor_u8(breakpoints, dbg_mode),
+            0xEF => self.rst(0x28, breakpoints, dbg_mode),
 
             0xF0 => self.load_a_from_ff_u8(breakpoints, dbg_mode),
             0xF1 => self.pop_rp(breakpoints, dbg_mode, Register::AF),
             0xF3 => self.di(),
             0xF5 => self.push_rp(breakpoints, dbg_mode, Register::AF),
             0xF6 => self.or_u8(breakpoints, dbg_mode),
+            0xF7 => self.rst(0x30, breakpoints, dbg_mode),
             0xF9 => self.load_hl_to_sp(),
             0xFA => self.load_a_from_u16(breakpoints, dbg_mode),
             0xFB => self.ei(),
             0xFE => self.cp_u8(breakpoints, dbg_mode),
+            0xFF => self.rst(0x38, breakpoints, dbg_mode),
 
             _ => *dbg_mode = EmulatorMode::UnknownInstruction(false, opcode)
         }
@@ -1895,6 +1903,20 @@ impl GameboyCPU {
     fn jump_hl(&mut self) {
         self.pc = self.hl;
         self.cycles += 4;
+    }
+
+    fn rst(&mut self, address: u16, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
+        if self.stack_write(self.pc + 1, breakpoints) {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        if let Ok(mut lock) = self.callstack.write() {
+            lock.push(format!("${:04X}: RST {:04X}", self.pc, address));
+        }
+
+        self.pc = address;
+        self.cycles += 16;
     }
 
     fn di(&mut self) {

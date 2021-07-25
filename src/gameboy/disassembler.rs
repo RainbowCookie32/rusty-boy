@@ -314,6 +314,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
 
             (2, dis)
         }
+        0xC7 => (1, String::from("RST $00")),
         0xC8 => (1, String::from("RET Z")),
         0xC9 => (1, String::from("RET")),
         0xCA => {
@@ -341,6 +342,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
 
             (2, dis)
         }
+        0xCF => (1, String::from("RST $08")),
 
         0xD0 => (1, String::from("RET NC")),
         0xD1 => (1, String::from("POP DE")),
@@ -363,6 +365,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
 
             (2, dis)
         }
+        0xD7 => (1, String::from("RST $10")),
         0xD8 => (1, String::from("RET C")),
         0xD9 => (1, String::from("RETI")),
         0xDA => {
@@ -378,6 +381,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
             (3, dis)
         }
         0xDE => (2, format!("??? (${:02X})", opcode_value)),
+        0xDF => (1, String::from("RST $18")),
 
         0xE0 => {
             let offset = gb_mem.read(address + 1);
@@ -395,6 +399,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
 
             (2, dis)
         }
+        0xE7 => (1, String::from("RST $20")),
         0xE8 => (2, format!("??? (${:02X})", opcode_value)),
         0xE9 => (1, String::from("JP HL")),
         0xEA => {
@@ -409,6 +414,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
 
             (2, dis)
         }
+        0xEF => (1, String::from("RST $28")),
 
         0xF0 => {
             let value = gb_mem.read(address + 1);
@@ -425,6 +431,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
 
             (2, dis)
         }
+        0xF7 => (1, String::from("RST $30")),
         0xF8 => (2, format!("??? (${:02X})", opcode_value)),
         0xF9 => (1, String::from("LD SP, HL")),
         0xFA => {
@@ -440,6 +447,7 @@ pub fn get_instruction_data(address: u16, gb_mem: &Arc<GameboyMemory>) -> (u16, 
 
             (2, dis)
         }
+        0xFF => (1, String::from("RST $38")),
 
         _ => (1, format!("??? (${:02X})", opcode_value))
     }
