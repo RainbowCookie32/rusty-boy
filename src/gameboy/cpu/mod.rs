@@ -1540,11 +1540,6 @@ impl GameboyCPU {
                 return;
             }
 
-            if self.stack_write(self.pc + 3, breakpoints) {
-                *dbg_mode = EmulatorMode::BreakpointHit;
-                return;
-            }
-
             if let Ok(mut lock) = self.callstack.write() {
                 lock.pop();
             }
