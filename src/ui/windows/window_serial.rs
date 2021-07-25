@@ -23,8 +23,8 @@ impl SerialWindow {
                     output.push(c);
                 }
 
-                ListBox::new(im_str!("")).size([220.0, 70.0]).build(&ui, || {
-                    for line in output.lines().rev() {
+                ListBox::new(im_str!("")).build(&ui, || {
+                    for line in output.lines() {
                         Selectable::new(&ImString::from(line.to_string())).build(&ui);
                     }
                 });
