@@ -390,6 +390,7 @@ impl GameboyCPU {
             0x2C => self.inc_r8(Register::HL(false)),
             0x2D => self.dec_r8(Register::HL(false)),
             0x2E => self.load_u8_to_r8(breakpoints, dbg_mode, Register::HL(false)),
+            0x2F => self.cpl(),
 
             0x30 => self.conditional_jump_relative(breakpoints, dbg_mode, Condition::Carry(false)),
             0x31 => self.load_u16_to_rp(breakpoints, dbg_mode, Register::SP),
@@ -1074,6 +1075,18 @@ impl GameboyCPU {
         self.set_flag(Flag::Negative(false));
         self.set_flag(Flag::HalfCarry(false));
         self.set_flag(Flag::Carry(carry));
+
+        self.pc += 1;
+        self.cycles += 4;
+    }
+
+    fn cpl(&mut self) {
+        let result = !self.get_r8(&Register::AF);
+        
+        self.set_r8(Register::AF, result);
+        
+        self.set_flag(Flag::Negative(true));
+        self.set_flag(Flag::HalfCarry(true));
 
         self.pc += 1;
         self.cycles += 4;
