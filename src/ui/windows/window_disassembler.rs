@@ -50,10 +50,10 @@ impl DisassemblerWindow {
                     let line_p = if pc == current_addr {"> "} else {""};
                     let address_p = {
                         if CARTRIDGE_ROM_BANK0.contains(&current_addr) {
-                            String::from("ROM0")
+                            String::from("ROM00")
                         }
                         else if CARTRIDGE_ROM_BANKX.contains(&current_addr) {
-                            format!("ROM{:0X}", self.gb_mem.cartridge().get_selected_rom_bank())
+                            format!("ROM{:02}", self.gb_mem.cartridge().get_selected_rom_bank())
                         }
                         else if VRAM.contains(&current_addr) {
                             String::from("VRAM")
