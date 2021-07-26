@@ -693,6 +693,74 @@ impl GameboyCPU {
             0x7E => self.bit_hl(breakpoints, dbg_mode, 7),
             0x7F => self.bit(Register::AF, 7),
 
+            0x80 => self.res(Register::BC(true), 0),
+            0x81 => self.res(Register::BC(false), 0),
+            0x82 => self.res(Register::DE(true), 0),
+            0x83 => self.res(Register::DE(false), 0),
+            0x84 => self.res(Register::HL(true), 0),
+            0x85 => self.res(Register::HL(false), 0),
+            0x86 => self.res_hl(breakpoints, dbg_mode, 0),
+            0x87 => self.res(Register::AF, 0),
+            0x88 => self.res(Register::BC(true), 1),
+            0x89 => self.res(Register::BC(false), 1),
+            0x8A => self.res(Register::DE(true), 1),
+            0x8B => self.res(Register::DE(false), 1),
+            0x8C => self.res(Register::HL(true), 1),
+            0x8D => self.res(Register::HL(false), 1),
+            0x8E => self.res_hl(breakpoints, dbg_mode, 1),
+            0x8F => self.res(Register::AF, 1),
+
+            0x90 => self.res(Register::BC(true), 2),
+            0x91 => self.res(Register::BC(false), 2),
+            0x92 => self.res(Register::DE(true), 2),
+            0x93 => self.res(Register::DE(false), 2),
+            0x94 => self.res(Register::HL(true), 2),
+            0x95 => self.res(Register::HL(false), 2),
+            0x96 => self.res_hl(breakpoints, dbg_mode, 2),
+            0x97 => self.res(Register::AF, 2),
+            0x98 => self.res(Register::BC(true), 3),
+            0x99 => self.res(Register::BC(false), 3),
+            0x9A => self.res(Register::DE(true), 3),
+            0x9B => self.res(Register::DE(false), 3),
+            0x9C => self.res(Register::HL(true), 3),
+            0x9D => self.res(Register::HL(false), 3),
+            0x9E => self.res_hl(breakpoints, dbg_mode, 3),
+            0x9F => self.res(Register::AF, 3),
+
+            0xA0 => self.res(Register::BC(true), 4),
+            0xA1 => self.res(Register::BC(false), 4),
+            0xA2 => self.res(Register::DE(true), 4),
+            0xA3 => self.res(Register::DE(false), 4),
+            0xA4 => self.res(Register::HL(true), 4),
+            0xA5 => self.res(Register::HL(false), 4),
+            0xA6 => self.res_hl(breakpoints, dbg_mode, 4),
+            0xA7 => self.res(Register::AF, 4),
+            0xA8 => self.res(Register::BC(true), 5),
+            0xA9 => self.res(Register::BC(false), 5),
+            0xAA => self.res(Register::DE(true), 5),
+            0xAB => self.res(Register::DE(false), 5),
+            0xAC => self.res(Register::HL(true), 5),
+            0xAD => self.res(Register::HL(false), 5),
+            0xAE => self.res_hl(breakpoints, dbg_mode, 5),
+            0xAF => self.res(Register::AF, 5),
+
+            0xB0 => self.res(Register::BC(true), 6),
+            0xB1 => self.res(Register::BC(false), 6),
+            0xB2 => self.res(Register::DE(true), 6),
+            0xB3 => self.res(Register::DE(false), 6),
+            0xB4 => self.res(Register::HL(true), 6),
+            0xB5 => self.res(Register::HL(false), 6),
+            0xB6 => self.res_hl(breakpoints, dbg_mode, 6),
+            0xB7 => self.res(Register::AF, 6),
+            0xB8 => self.res(Register::BC(true), 7),
+            0xB9 => self.res(Register::BC(false), 7),
+            0xBA => self.res(Register::DE(true), 7),
+            0xBB => self.res(Register::DE(false), 7),
+            0xBC => self.res(Register::HL(true), 7),
+            0xBD => self.res(Register::HL(false), 7),
+            0xBE => self.res_hl(breakpoints, dbg_mode, 7),
+            0xBF => self.res(Register::AF, 7),
+
             0xC0 => self.set(Register::BC(true), 0),
             0xC1 => self.set(Register::BC(false), 0),
             0xC2 => self.set(Register::DE(true), 0),
@@ -2086,6 +2154,35 @@ impl GameboyCPU {
         self.set_flag(Flag::Zero(result));
         self.set_flag(Flag::Negative(false));
         self.set_flag(Flag::HalfCarry(true));
+
+        self.pc += 2;
+        self.cycles += 12;
+    }
+
+    fn res(&mut self, reg: Register, bit: u8) {
+        let value = self.get_r8(&reg);
+        let result = value & !(1 << bit);
+
+        self.set_r8(reg, result);
+
+        self.pc += 2;
+        self.cycles += 8;
+    }
+
+    fn res_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, bit: u8) {
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+
+        if bp_hit {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        let result = value & !(1 << bit);
+
+        if self.write(self.hl, result, breakpoints) {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
 
         self.pc += 2;
         self.cycles += 12;
