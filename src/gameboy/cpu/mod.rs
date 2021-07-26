@@ -352,6 +352,7 @@ impl GameboyCPU {
             0x04 => self.inc_r8(Register::BC(true)),
             0x05 => self.dec_r8(Register::BC(true)),
             0x06 => self.load_u8_to_r8(breakpoints, dbg_mode, Register::BC(true)),
+            //0x07 => self.rlca(),
             0x08 => self.store_sp_to_u16(breakpoints, dbg_mode),
             0x09 => self.add_hl_rp(Register::BC(false)),
             0x0A => self.load_a_from_rp(breakpoints, dbg_mode, Register::BC(false)),
@@ -359,7 +360,9 @@ impl GameboyCPU {
             0x0C => self.inc_r8(Register::BC(false)),
             0x0D => self.dec_r8(Register::BC(false)),
             0x0E => self.load_u8_to_r8(breakpoints, dbg_mode, Register::BC(false)),
+            //0x07 => self.rrca(),
 
+            //0x10 => stop(),
             0x11 => self.load_u16_to_rp(breakpoints, dbg_mode, Register::DE(false)),
             0x12 => self.store_a_to_rp(breakpoints, dbg_mode, Register::DE(false)),
             0x13 => self.inc_rp(Register::DE(false)),
@@ -383,6 +386,7 @@ impl GameboyCPU {
             0x24 => self.inc_r8(Register::HL(true)),
             0x25 => self.dec_r8(Register::HL(true)),
             0x26 => self.load_u8_to_r8(breakpoints, dbg_mode, Register::HL(true)),
+            //0x27 => self.daa(),
             0x28 => self.conditional_jump_relative(breakpoints, dbg_mode, Condition::Zero(true)),
             0x29 => self.add_hl_rp(Register::HL(false)),
             0x2A => self.load_a_from_hl_and_inc(breakpoints, dbg_mode),
@@ -467,6 +471,7 @@ impl GameboyCPU {
             0x74 => self.store_r8_to_hl(breakpoints, dbg_mode, Register::HL(true)),
             0x75 => self.store_r8_to_hl(breakpoints, dbg_mode, Register::HL(false)),
             0x77 => self.store_r8_to_hl(breakpoints, dbg_mode, Register::AF),
+            //0x76 => self.halt(),
             0x78 => self.load_r8_to_r8(Register::AF, Register::BC(true)),
             0x79 => self.load_r8_to_r8(Register::AF, Register::BC(false)),
             0x7A => self.load_r8_to_r8(Register::AF, Register::DE(true)),
@@ -501,6 +506,14 @@ impl GameboyCPU {
             0x95 => self.sub_r8(Register::HL(false)),
             0x96 => self.sub_hl(breakpoints, dbg_mode),
             0x97 => self.sub_r8(Register::AF),
+            //0x98 => self.sbc_r8(Register::BC(true)),
+            //0x99 => self.sbc_r8(Register::BC(false)),
+            //0x9A => self.sbc_r8(Register::DE(true)),
+            //0x9B => self.sbc_r8(Register::DE(false)),
+            //0x9C => self.sbc_r8(Register::HL(true)),
+            //0x9D => self.sbc_r8(Register::HL(false)),
+            //0x9E => self.sbc_hl(breakpoints, dbg_mode),
+            //0x9F => self.sbc_r8(Register::AF),
 
             0xA0 => self.and_r8(Register::BC(true)),
             0xA1 => self.and_r8(Register::BC(false)),
@@ -556,6 +569,7 @@ impl GameboyCPU {
             0xD0 => self.conditional_ret(breakpoints, dbg_mode, Condition::Carry(false)),
             0xD1 => self.pop_rp(breakpoints, dbg_mode, Register::DE(false)),
             0xD2 => self.conditional_jump(breakpoints, dbg_mode, Condition::Carry(false)),
+            // 0xD3 => illegal opcode
             0xD4 => self.conditional_call(breakpoints, dbg_mode, Condition::Carry(false)),
             0xD5 => self.push_rp(breakpoints, dbg_mode, Register::DE(false)),
             0xD6 => self.sub_u8(breakpoints, dbg_mode),
@@ -563,26 +577,37 @@ impl GameboyCPU {
             0xD8 => self.conditional_ret(breakpoints, dbg_mode, Condition::Carry(true)),
             0xD9 => self.reti(breakpoints, dbg_mode),
             0xDA => self.conditional_jump(breakpoints, dbg_mode, Condition::Carry(true)),
+            // 0xDB => illegal opcode
             0xDC => self.conditional_call(breakpoints, dbg_mode, Condition::Carry(true)),
+            // 0xDD => illegal opcode
+            // 0xDE => self.sbc_u8(breakpoints, dbg_mode),
             0xDF => self.rst(0x18, breakpoints, dbg_mode),
 
             0xE0 => self.store_a_to_io_u8(breakpoints, dbg_mode),
             0xE1 => self.pop_rp(breakpoints, dbg_mode, Register::HL(false)),
             0xE2 => self.store_a_to_io_c(breakpoints, dbg_mode),
+            // 0xE3 => illegal opcode
+            // 0xE4 => illegal opcode
             0xE5 => self.push_rp(breakpoints, dbg_mode, Register::HL(false)),
             0xE6 => self.and_u8(breakpoints, dbg_mode),
             0xE7 => self.rst(0x20, breakpoints, dbg_mode),
+            // 0xE8 => self.add_i8_to_sp(breakpoints, dbg_mode),
             0xE9 => self.jump_hl(),
             0xEA => self.store_a_to_u16(breakpoints, dbg_mode),
+            // 0xEB => illegal opcode
+            // 0xEC => illegal opcode
+            // 0xED => illegal opcode
             0xEE => self.xor_u8(breakpoints, dbg_mode),
             0xEF => self.rst(0x28, breakpoints, dbg_mode),
 
             0xF0 => self.load_a_from_ff_u8(breakpoints, dbg_mode),
             0xF1 => self.pop_rp(breakpoints, dbg_mode, Register::AF),
             0xF3 => self.di(),
+            // 0xF4 => self.load_a_from_io_c(breakpoints, dbg_mode),
             0xF5 => self.push_rp(breakpoints, dbg_mode, Register::AF),
             0xF6 => self.or_u8(breakpoints, dbg_mode),
             0xF7 => self.rst(0x30, breakpoints, dbg_mode),
+            // 0xF8 => self.load_sp_i8_to_hl(breakpoints, dbg_mode),
             0xF9 => self.load_hl_to_sp(),
             0xFA => self.load_a_from_u16(breakpoints, dbg_mode),
             0xFB => self.ei(),
@@ -602,12 +627,30 @@ impl GameboyCPU {
         }
 
         match opcode {
+            // 0x00 => self.rlc(Register::BC(true)),
+            // 0x01 => self.rlc(Register::BC(false)),
+            // 0x02 => self.rlc(Register::DE(true)),
+            // 0x03 => self.rlc(Register::DE(false)),
+            // 0x04 => self.rlc(Register::HL(true)),
+            // 0x05 => self.rlc(Register::HL(false)),
+            // 0x06 => self.rlc_hl(breakpoints, dbg_mode),
+            // 0x07 => self.rlc(Register::AF),
+            // 0x08 => self.rrc(Register::BC(true)),
+            // 0x09 => self.rrc(Register::BC(false)),
+            // 0x0A => self.rrc(Register::DE(true)),
+            // 0x0B => self.rrc(Register::DE(false)),
+            // 0x0C => self.rrc(Register::HL(true)),
+            // 0x0D => self.rrc(Register::HL(false)),
+            // 0x0E => self.rrc_hl(breakpoints, dbg_mode),
+            // 0x0F => self.rrc(Register::AF),
+
             0x10 => self.rl(Register::BC(true)),
             0x11 => self.rl(Register::BC(false)),
             0x12 => self.rl(Register::DE(true)),
             0x13 => self.rl(Register::DE(false)),
             0x14 => self.rl(Register::HL(true)),
             0x15 => self.rl(Register::HL(false)),
+            // 0x16 => self.rl_hl(breakpoints, dbg_mode),
             0x17 => self.rl(Register::AF),
             0x18 => self.rr(Register::BC(true)),
             0x19 => self.rr(Register::BC(false)),
@@ -615,6 +658,7 @@ impl GameboyCPU {
             0x1B => self.rr(Register::DE(false)),
             0x1C => self.rr(Register::HL(true)),
             0x1D => self.rr(Register::HL(false)),
+            // 0x1E => self.rr_hl(breakpoints, dbg_mode),
             0x1F => self.rr(Register::AF),
 
             0x30 => self.swap(Register::BC(true)),
@@ -631,6 +675,7 @@ impl GameboyCPU {
             0x3B => self.srl(Register::DE(false)),
             0x3C => self.srl(Register::HL(true)),
             0x3D => self.srl(Register::HL(false)),
+            // 0x3E => self.srl_hl(breakpoints, dbg_mode),
             0x3F => self.srl(Register::AF),
 
             0x40 => self.bit(Register::BC(true), 0),
