@@ -23,9 +23,15 @@ impl SerialWindow {
                     output.push(c);
                 }
 
-                ListBox::new(im_str!("")).build(&ui, || {
+                ListBox::new(im_str!("")).size([320.0, 110.0]).build(&ui, || {
                     for line in output.lines() {
-                        Selectable::new(&ImString::from(line.to_string())).build(&ui);
+                        let mut text = format!("{} | ", line);
+
+                        for c in line.chars() {
+                            text.push_str(&format!("${:02X} ", c as u8));
+                        }
+
+                        Selectable::new(&ImString::from(text)).build(&ui);
                     }
                 });
             }
