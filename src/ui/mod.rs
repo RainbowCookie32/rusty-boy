@@ -26,7 +26,7 @@ pub fn draw_windows(gb: Arc<RwLock<Gameboy>>, gb_mem: Arc<GameboyMemory>, gb_ser
     let glutin_context = glutin::ContextBuilder::new().with_vsync(true);
     let window_builder = glutin::window::WindowBuilder::new()
         .with_title("rusty-boy")
-        .with_inner_size(glutin::dpi::LogicalSize::new(1024, 600))
+        .with_inner_size(glutin::dpi::LogicalSize::new(1280, 600))
     ;
     let display = Display::new(window_builder, glutin_context, &event_loop)
         .expect("Failed to create glium display")
