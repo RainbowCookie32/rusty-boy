@@ -617,6 +617,14 @@ impl GameboyCPU {
             0x1D => self.rr(Register::HL(false)),
             0x1F => self.rr(Register::AF),
 
+            0x30 => self.swap(Register::BC(true)),
+            0x31 => self.swap(Register::BC(false)),
+            0x32 => self.swap(Register::DE(true)),
+            0x33 => self.swap(Register::DE(false)),
+            0x34 => self.swap(Register::HL(true)),
+            0x35 => self.swap(Register::HL(false)),
+            0x36 => self.swap_hl(breakpoints, dbg_mode),
+            0x37 => self.swap(Register::AF),
             0x38 => self.srl(Register::BC(true)),
             0x39 => self.srl(Register::BC(false)),
             0x3A => self.srl(Register::DE(true)),
@@ -2108,6 +2116,47 @@ impl GameboyCPU {
         self.set_flag(Flag::Negative(false));
         self.set_flag(Flag::HalfCarry(false));
         self.set_flag(Flag::Carry(new_carry));
+
+        self.pc += 2;
+        self.cycles += 8;
+    }
+
+    fn swap(&mut self, reg: Register) {
+        let value = self.get_r8(&reg);
+        let (hi, low) = ((value & 0xF0 >> 4), (value & 0x0F));
+        let result = (low << 4) | hi;
+
+        self.set_r8(reg, result);
+
+        self.set_flag(Flag::Zero(result == 0));
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry(false));
+        self.set_flag(Flag::Carry(false));
+
+        self.pc += 2;
+        self.cycles += 8;
+    }
+
+    fn swap_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+
+        if bp_hit {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        let (hi, low) = ((value & 0xF0 >> 4), (value & 0x0F));
+        let result = (low << 4) | hi;
+
+        if self.write(self.hl, result, breakpoints) {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        self.set_flag(Flag::Zero(result == 0));
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry(false));
+        self.set_flag(Flag::Carry(false));
 
         self.pc += 2;
         self.cycles += 8;
