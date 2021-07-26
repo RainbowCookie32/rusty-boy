@@ -11,8 +11,8 @@ pub struct MBC1 {
     ram_banks: Vec<Vec<GameboyByte>>,
 
     ram_enabled: AtomicBool,
-    simple_banking_mode: AtomicBool,
 
+    banking_mode: GameboyByte,
     selected_rom_bank: GameboyByte,
     selected_ram_bank: GameboyByte
 }
@@ -40,8 +40,8 @@ impl MBC1 {
             ram_banks,
 
             ram_enabled: AtomicBool::new(false),
-            simple_banking_mode: AtomicBool::new(true),
 
+            banking_mode: GameboyByte::from(0),
             selected_rom_bank: GameboyByte::from(1),
             selected_ram_bank: GameboyByte::from(0)
         }
@@ -49,7 +49,7 @@ impl MBC1 {
 
     fn get_rom_bank(&self) -> usize {
         if self.rom_banks.len() > 32 {
-            ((self.selected_ram_bank.get() << 5) + self.selected_rom_bank.get()) as usize
+            ((self.selected_ram_bank.get() << 5) | self.selected_rom_bank.get()) as usize
         }
         else {
             self.selected_rom_bank.get() as usize
@@ -60,18 +60,15 @@ impl MBC1 {
 impl GameboyCart for MBC1 {
     fn read(&self, address: u16) -> u8 {
         if CARTRIDGE_ROM_BANK0.contains(&address) {
-            if !self.simple_banking_mode.load(Ordering::Relaxed) && self.rom_banks.len() > 32 {
+            if self.banking_mode.get() == 1 {
                 let bank = (self.selected_ram_bank.get() << 5) as usize;
 
                 if let Some(bank) = self.rom_banks.get(bank) {
-                    bank[address as usize].get()
-                }
-                else {
-                    0
+                    return bank[address as usize].get();
                 }
             }
             else {
-                self.rom_banks[0][address as usize].get()
+                return self.rom_banks[0][address as usize].get();
             }
         }
         else if CARTRIDGE_ROM_BANKX.contains(&address) {
@@ -79,47 +76,69 @@ impl GameboyCart for MBC1 {
             let address = (address - 0x4000) as usize;
 
             if let Some(bank) = self.rom_banks.get(bank) {
-                bank[address as usize].get()
-            }
-            else {
-                0
+                return bank[address as usize].get();
             }
         }
-        else if CARTRIDGE_RAM.contains(&address) {
-            let bank = self.selected_ram_bank.get() as usize;
+        else if CARTRIDGE_RAM.contains(&address) && self.is_ram_enabled() {
             let address = (address - 0xA000) as usize;
-            
-            if let Some(bank) = self.ram_banks.get(bank) {
-                bank[address as usize].get()
+
+            if self.banking_mode.get() == 0 {
+                if let Some(bank) = self.ram_banks.get(0) {
+                    return bank[address as usize].get();
+                }
             }
             else {
-                0
+                // MBC1 carts can have no 0, 1, or 4 banks of RAM.
+                // The bank register is only used if the cart is the latter.
+                let bank = if self.ram_banks.len() == 4 {self.selected_ram_bank.get() as usize} else {0};
+            
+                if let Some(bank) = self.ram_banks.get(bank) {
+                    return bank[address as usize].get();
+                }
             }
         }
-        else {
-            0
-        }
+
+        0
     }
 
     fn write(&self, address: u16, value: u8) {
         if MBC1_ENABLE_RAM.contains(&address) {
-            self.ram_enabled.store((value & 0x0A) == 0x0A, Ordering::Relaxed);
+            self.ram_enabled.store((value & 0x0F) == 0x0A, Ordering::Relaxed);
         }
         else if MBC1_ROM_BANK.contains(&address) {
-            self.selected_rom_bank.set(value & 0x1F);
+            // Mask the bank value to fit the amount of banks on the cart.
+            let value = match self.rom_banks.len() {
+                2 => value & 1,
+                4 => value & 3,
+                8 => value & 7,
+                16 => value & 0x0F,
+                _ => value & 0x1F
+            };
+
+            self.selected_rom_bank.set(if value == 0 {1} else {value});
         }
         else if MBC1_RAM_BANK.contains(&address) {
             self.selected_ram_bank.set(value & 3);
         }
         else if MBC1_BANKING_MODE.contains(&address) {
-            self.simple_banking_mode.store(value == 0, Ordering::Relaxed);
+            self.banking_mode.set(value & 1);
         }
-        else if CARTRIDGE_RAM.contains(&address) {
-            let bank = self.selected_ram_bank.get() as usize;
+        else if CARTRIDGE_RAM.contains(&address) && self.is_ram_enabled() {
             let address = (address - 0xA000) as usize;
-            
-            if let Some(bank) = self.ram_banks.get(bank) {
-                bank[address as usize].set(value);
+
+            if self.banking_mode.get() == 0 {
+                if let Some(bank) = self.ram_banks.get(0) {
+                    bank[address as usize].set(value);
+                }
+            }
+            else {
+                // MBC1 carts can have no 0, 1, or 4 banks of RAM.
+                // The bank register is only used if the cart is the latter.
+                let bank = if self.ram_banks.len() == 4 {self.selected_ram_bank.get() as usize} else {0};
+                
+                if let Some(bank) = self.ram_banks.get(bank) {
+                    bank[address as usize].set(value);
+                }
             }
         }
     }
