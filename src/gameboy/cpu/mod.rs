@@ -506,14 +506,14 @@ impl GameboyCPU {
             0x95 => self.sub_r8(Register::HL(false)),
             0x96 => self.sub_hl(breakpoints, dbg_mode),
             0x97 => self.sub_r8(Register::AF),
-            //0x98 => self.sbc_r8(Register::BC(true)),
-            //0x99 => self.sbc_r8(Register::BC(false)),
-            //0x9A => self.sbc_r8(Register::DE(true)),
-            //0x9B => self.sbc_r8(Register::DE(false)),
-            //0x9C => self.sbc_r8(Register::HL(true)),
-            //0x9D => self.sbc_r8(Register::HL(false)),
-            //0x9E => self.sbc_hl(breakpoints, dbg_mode),
-            //0x9F => self.sbc_r8(Register::AF),
+            0x98 => self.sbc_r8(Register::BC(true)),
+            0x99 => self.sbc_r8(Register::BC(false)),
+            0x9A => self.sbc_r8(Register::DE(true)),
+            0x9B => self.sbc_r8(Register::DE(false)),
+            0x9C => self.sbc_r8(Register::HL(true)),
+            0x9D => self.sbc_r8(Register::HL(false)),
+            0x9E => self.sbc_hl(breakpoints, dbg_mode),
+            0x9F => self.sbc_r8(Register::AF),
 
             0xA0 => self.and_r8(Register::BC(true)),
             0xA1 => self.and_r8(Register::BC(false)),
@@ -580,7 +580,7 @@ impl GameboyCPU {
             // 0xDB => illegal opcode
             0xDC => self.conditional_call(breakpoints, dbg_mode, Condition::Carry(true)),
             // 0xDD => illegal opcode
-            // 0xDE => self.sbc_u8(breakpoints, dbg_mode),
+            0xDE => self.sbc_u8(breakpoints, dbg_mode),
             0xDF => self.rst(0x18, breakpoints, dbg_mode),
 
             0xE0 => self.store_a_to_io_u8(breakpoints, dbg_mode),
@@ -1550,6 +1550,72 @@ impl GameboyCPU {
 
         self.set_flag(Flag::Zero(result == 0));
         self.set_flag(Flag::Negative(true));
+        self.set_flag(Flag::HalfCarry((a & 0x0F) < (value & 0x0F)));
+        self.set_flag(Flag::Carry(value > a));
+
+        self.pc += 1;
+        self.cycles += 8;
+    }
+
+    fn sbc_r8(&mut self, reg: Register) {
+        let a = self.get_r8(&Register::AF);
+        let carry = if self.get_flag(Flag::Carry(false)) {1} else {0};
+        let value = self.get_r8(&reg);
+        let result = a.wrapping_sub(value).wrapping_sub(carry);
+
+        self.set_r8(Register::AF, result);
+
+        self.set_flag(Flag::Zero(result == 0));
+        self.set_flag(Flag::Negative(true));
+        // FIXME: Check carry.
+        self.set_flag(Flag::HalfCarry((a & 0x0F) < (value & 0x0F)));
+        self.set_flag(Flag::Carry(value > a));
+
+        self.pc += 1;
+        self.cycles += 4;
+    }
+
+    fn sbc_u8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
+        let a = self.get_r8(&Register::AF);
+        let carry = if self.get_flag(Flag::Carry(false)) {1} else {0};
+        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints);
+
+        if bp_hit {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        let result = a.wrapping_sub(value).wrapping_sub(carry);
+
+        self.set_r8(Register::AF, result);
+
+        self.set_flag(Flag::Zero(result == 0));
+        self.set_flag(Flag::Negative(true));
+        // FIXME: Check carry.
+        self.set_flag(Flag::HalfCarry((a & 0x0F) < (value & 0x0F)));
+        self.set_flag(Flag::Carry(value > a));
+
+        self.pc += 2;
+        self.cycles += 8;
+    }
+
+    fn sbc_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
+        let a = self.get_r8(&Register::AF);
+        let carry = if self.get_flag(Flag::Carry(false)) {1} else {0};
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+
+        if bp_hit {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        let result = a.wrapping_sub(value).wrapping_sub(carry);
+
+        self.set_r8(Register::AF, result);
+
+        self.set_flag(Flag::Zero(result == 0));
+        self.set_flag(Flag::Negative(true));
+        // FIXME: Check carry.
         self.set_flag(Flag::HalfCarry((a & 0x0F) < (value & 0x0F)));
         self.set_flag(Flag::Carry(value > a));
 
