@@ -32,10 +32,7 @@ impl SerialWindow {
                         }
                     }
                     else {
-                        for b in lock.iter() {
-                            let c = *b as char;
-                            output.push(c);
-                        }
+                        output = String::from_utf8_lossy(&lock).to_string();
                     }
 
                     for line in output.lines() {
