@@ -20,25 +20,26 @@ impl SerialWindow {
             if let Ok(lock) = self.gb_serial.read() {
                 let mut output = String::new();
 
-                for b in lock.iter() {
-                    let c = *b as char;
-                    output.push(c);
-                }
-
-                ListBox::new(im_str!("")).size([320.0, 110.0]).build(&ui, || {
-                    for line in output.lines() {
-                        if self.serial_show_lines_as_hex {
-                            let mut text = String::new();
-
-                            for c in line.chars() {
-                                text.push_str(&format!("${:02X} ", c as u8));
+                ListBox::new(im_str!("")).size([420.0, 110.0]).build(&ui, || {
+                    if self.serial_show_lines_as_hex {
+                        for b in lock.iter() {
+                            if *b == 0x0A {
+                                output.push('\n');
                             }
+                            else {
+                                output.push_str(&format!("${:02X} ", *b));
+                            }
+                        }
+                    }
+                    else {
+                        for b in lock.iter() {
+                            let c = *b as char;
+                            output.push(c);
+                        }
+                    }
 
-                            Selectable::new(&ImString::from(text)).build(&ui);
-                        }
-                        else {
-                            Selectable::new(&ImString::from(line.to_string())).build(&ui);
-                        }
+                    for line in output.lines() {
+                        Selectable::new(&ImString::from(line.to_string())).build(&ui);
                     }
                 });
 
