@@ -661,22 +661,22 @@ impl GameboyCPU {
             // 0x1E => self.rr_hl(breakpoints, dbg_mode),
             0x1F => self.rr(Register::AF),
 
-            // 0x20 => self.sla(Register::BC(true)),
-            // 0x21 => self.sla(Register::BC(false)),
-            // 0x22 => self.sla(Register::DE(true)),
-            // 0x23 => self.sla(Register::DE(false)),
-            // 0x24 => self.sla(Register::HL(true)),
-            // 0x25 => self.sla(Register::HL(false)),
-            // 0x26 => self.sla_hl(breakpoints, dbg_mode),
-            // 0x27 => self.sla(Register::AF),
-            // 0x28 => self.sra(Register::BC(true)),
-            // 0x29 => self.sra(Register::BC(false)),
-            // 0x2A => self.sra(Register::DE(true)),
-            // 0x2B => self.sra(Register::DE(false)),
-            // 0x2C => self.sra(Register::HL(true)),
-            // 0x2D => self.sra(Register::HL(false)),
-            // 0x2E => self.sra_hl(breakpoints, dbg_mode),
-            // 0x2F => self.sra(Register::AF),
+            0x20 => self.sla(Register::BC(true)),
+            0x21 => self.sla(Register::BC(false)),
+            0x22 => self.sla(Register::DE(true)),
+            0x23 => self.sla(Register::DE(false)),
+            0x24 => self.sla(Register::HL(true)),
+            0x25 => self.sla(Register::HL(false)),
+            0x26 => self.sla_hl(breakpoints, dbg_mode),
+            0x27 => self.sla(Register::AF),
+            0x28 => self.sra(Register::BC(true)),
+            0x29 => self.sra(Register::BC(false)),
+            0x2A => self.sra(Register::DE(true)),
+            0x2B => self.sra(Register::DE(false)),
+            0x2C => self.sra(Register::HL(true)),
+            0x2D => self.sra(Register::HL(false)),
+            0x2E => self.sra_hl(breakpoints, dbg_mode),
+            0x2F => self.sra(Register::AF),
 
             0x30 => self.swap(Register::BC(true)),
             0x31 => self.swap(Register::BC(false)),
@@ -2181,6 +2181,88 @@ impl GameboyCPU {
 
         self.pc += 2;
         self.cycles += 8;
+    }
+
+    fn sla(&mut self, reg: Register) {
+        let value = self.get_r8(&reg);
+        let new_carry = (value >> 7) == 1;
+        let result = value << 1;
+
+        self.set_r8(reg, result);
+
+        self.set_flag(Flag::Zero(result == 0));
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry(false));
+        self.set_flag(Flag::Carry(new_carry));
+
+        self.pc += 2;
+        self.cycles += 8;
+    }
+
+    fn sla_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+
+        if bp_hit {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+        
+        let new_carry = (value >> 7) == 1;
+        let result = value << 1;
+
+        if self.write(self.hl, result, breakpoints) {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        self.set_flag(Flag::Zero(result == 0));
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry(false));
+        self.set_flag(Flag::Carry(new_carry));
+
+        self.pc += 2;
+        self.cycles += 16;
+    }
+
+    fn sra(&mut self, reg: Register) {
+        let value = self.get_r8(&reg);
+        let new_carry = (value & 1) == 1;
+        let result = value >> 1;
+
+        self.set_r8(reg, result);
+
+        self.set_flag(Flag::Zero(result == 0));
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry(false));
+        self.set_flag(Flag::Carry(new_carry));
+
+        self.pc += 2;
+        self.cycles += 8;
+    }
+
+    fn sra_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+
+        if bp_hit {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+        
+        let new_carry = (value & 1) == 1;
+        let result = value >> 1;
+
+        if self.write(self.hl, result, breakpoints) {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        self.set_flag(Flag::Zero(result == 0));
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry(false));
+        self.set_flag(Flag::Carry(new_carry));
+
+        self.pc += 2;
+        self.cycles += 16;
     }
 
     fn swap(&mut self, reg: Register) {
