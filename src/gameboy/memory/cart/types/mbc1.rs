@@ -88,7 +88,7 @@ impl GameboyCart for MBC1 {
                 }
             }
             else {
-                // MBC1 carts can have no 0, 1, or 4 banks of RAM.
+                // MBC1 carts can have 0, 1, or 4 banks of RAM.
                 // The bank register is only used if the cart is the latter.
                 let bank = if self.ram_banks.len() == 4 {self.selected_ram_bank.get() as usize} else {0};
             
