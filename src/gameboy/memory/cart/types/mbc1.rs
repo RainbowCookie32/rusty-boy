@@ -103,7 +103,6 @@ impl GameboyCart for MBC1 {
 
     fn write(&self, address: u16, value: u8) {
         if MBC1_ENABLE_RAM.contains(&address) {
-            println!("{:02X}", value);
             self.ram_enabled.store((value & 0x0F) == 0x0A, Ordering::Relaxed);
         }
         else if MBC1_ROM_BANK.contains(&address) {
