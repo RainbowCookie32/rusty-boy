@@ -16,11 +16,11 @@ impl SerialWindow {
     }
 
     pub fn draw(&mut self, ui: &Ui) {
-        Window::new(im_str!("Serial Output")).build(&ui, || {
+        Window::new(im_str!("Serial Output")).build(ui, || {
             if let Ok(lock) = self.gb_serial.read() {
                 let mut output = String::new();
 
-                ListBox::new(im_str!("")).size([420.0, 110.0]).build(&ui, || {
+                ListBox::new(im_str!("")).size([420.0, 110.0]).build(ui, || {
                     if self.serial_show_lines_as_hex {
                         for b in lock.iter() {
                             if *b == 0x0A {
@@ -36,7 +36,7 @@ impl SerialWindow {
                     }
 
                     for line in output.lines() {
-                        Selectable::new(&ImString::from(line.to_string())).build(&ui);
+                        Selectable::new(&ImString::from(line.to_string())).build(ui);
                     }
                 });
 

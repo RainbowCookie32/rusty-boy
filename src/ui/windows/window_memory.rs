@@ -24,12 +24,12 @@ impl MemoryWindow {
     }
 
     pub fn draw(&mut self, ui: &Ui) {
-        Window::new(im_str!("Memory Viewer")).build(&ui, || {
+        Window::new(im_str!("Memory Viewer")).build(ui, || {
             let style_padding = ui.push_style_var(StyleVar::FramePadding([0.0, 0.0]));
             let style_spacing = ui.push_style_var(StyleVar::ItemSpacing([5.0, 1.0]));
 
             let size = ui.calc_text_size(im_str!("FF"), false, 0.0);
-            let mut clipper = ListClipper::new(0xFFFF / 8).items_height(ui.text_line_height() / 2.0).begin(&ui);
+            let mut clipper = ListClipper::new(0xFFFF / 8).items_height(ui.text_line_height() / 2.0).begin(ui);
             clipper.step();
 
             for line in clipper.display_start()..clipper.display_end() {
@@ -70,13 +70,13 @@ impl MemoryWindow {
                             self.target_byte_new_value = ImString::new("");
                         }
                     }
-                    else if Selectable::new(&ImString::from(format!("{:02X}", value))).allow_double_click(true).size(size).build(&ui) {
+                    else if Selectable::new(&ImString::from(format!("{:02X}", value))).allow_double_click(true).size(size).build(ui) {
                         self.editing_byte = true;
                         self.target_byte_address = (current_addr - 8) + idx as u16;
                         self.target_byte_new_value = ImString::from(format!("{:02X}", value));
                     }
 
-                    token.pop(&ui);
+                    token.pop(ui);
                     ui.same_line(0.0);
                 }
 
@@ -86,7 +86,7 @@ impl MemoryWindow {
                 for (idx, value) in values.iter().enumerate() {
                     let value = if *value == 0 {'.'} else {*value as char};
                     let size = ui.calc_text_size(im_str!("F"), false, 0.0);
-                    if Selectable::new(&ImString::from(format!("{}", value))).allow_double_click(true).size(size).build(&ui) {
+                    if Selectable::new(&ImString::from(format!("{}", value))).allow_double_click(true).size(size).build(ui) {
 
                     }
 
@@ -98,8 +98,8 @@ impl MemoryWindow {
 
             clipper.end();
 
-            style_padding.pop(&ui);
-            style_spacing.pop(&ui);
+            style_padding.pop(ui);
+            style_spacing.pop(ui);
         });
     }
 }

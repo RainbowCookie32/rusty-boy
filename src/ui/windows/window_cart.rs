@@ -19,7 +19,7 @@ impl CartWindow {
     }
 
     pub fn draw(&self, ui: &Ui) {
-        Window::new(im_str!("Cartridge Info")).build(&ui, || {
+        Window::new(im_str!("Cartridge Info")).build(ui, || {
             if let Ok(lock) = self.gb.read() {
                 let header = lock.ui_get_header();
 

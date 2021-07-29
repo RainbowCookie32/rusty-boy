@@ -35,8 +35,8 @@ impl DisassemblerWindow {
             }
         };
 
-        Window::new(im_str!("Disassembler")).build(&ui, || {
-            let mut clipper = ListClipper::new(0xFFFF).items_height(ui.text_line_height() / 2.0).begin(&ui);
+        Window::new(im_str!("Disassembler")).build(ui, || {
+            let mut clipper = ListClipper::new(0xFFFF).items_height(ui.text_line_height() / 2.0).begin(ui);
             clipper.step();
 
             let mut skipped_lines = 0;
@@ -102,7 +102,7 @@ impl DisassemblerWindow {
                         }
                     }
 
-                    let selected = || Selectable::new(&ImString::from(line_str)).allow_double_click(true).build(&ui);
+                    let selected = || Selectable::new(&ImString::from(line_str)).allow_double_click(true).build(ui);
                     let entry = || if (selected)() && ui.is_mouse_double_clicked(MouseButton::Left) {
                         if let Ok(mut lock) = self.gb.write() {
                             if address_is_bp {
@@ -121,14 +121,14 @@ impl DisassemblerWindow {
 
                         (entry)();
 
-                        token.pop(&ui);
+                        token.pop(ui);
                     }
                     else if pc == current_addr {
                         let token = ui.push_style_color(StyleColor::Text, [0.0, 1.0, 0.0, 1.0]);
 
                         (entry)();
 
-                        token.pop(&ui);
+                        token.pop(ui);
                     }
                     else {
                         (entry)();

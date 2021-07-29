@@ -78,7 +78,7 @@ impl GameboyMemory {
     }
 
     pub fn header(&self) -> &CartHeader {
-        &self.cartridge.get_header()
+        self.cartridge.get_header()
     }
 
     pub fn serial_output(&self) -> Arc<RwLock<Vec<u8>>> {
