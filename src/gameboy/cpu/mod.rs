@@ -1055,9 +1055,8 @@ impl GameboyCPU {
 
     fn store_r8_to_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, reg: Register) {
         let value = self.get_r8(&reg);
-        let address = self.get_rp(&Register::HL(false));
         
-        if self.write(address, value, breakpoints) {
+        if self.write(self.hl, value, breakpoints) {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
@@ -1068,14 +1067,13 @@ impl GameboyCPU {
 
     fn store_to_hl_and_inc(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
         let value = self.get_r8(&Register::AF);
-        let address = self.get_rp(&Register::HL(false));
         
-        if self.write(address, value, breakpoints) {
+        if self.write(self.hl, value, breakpoints) {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
         
-        self.set_rp(Register::HL(false), address.wrapping_add(1));
+        self.set_rp(Register::HL(false), self.hl.wrapping_add(1));
 
         self.pc += 1;
         self.cycles += 8;
@@ -1083,14 +1081,13 @@ impl GameboyCPU {
 
     fn store_to_hl_and_dec(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
         let value = self.get_r8(&Register::AF);
-        let address = self.get_rp(&Register::HL(false));
         
-        if self.write(address, value, breakpoints) {
+        if self.write(self.hl, value, breakpoints) {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
         
-        self.set_rp(Register::HL(false), address.wrapping_sub(1));
+        self.set_rp(Register::HL(false), self.hl.wrapping_sub(1));
 
         self.pc += 1;
         self.cycles += 8;
@@ -1098,9 +1095,8 @@ impl GameboyCPU {
 
     fn store_a_to_rp(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, reg: Register) {
         let value = self.get_r8(&Register::AF);
-        let address = self.get_rp(&reg);
 
-        if self.write(address, value, breakpoints) {
+        if self.write(self.get_rp(&reg), value, breakpoints) {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
@@ -1111,9 +1107,8 @@ impl GameboyCPU {
 
     fn store_a_to_io_c(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
         let value = self.get_r8(&Register::AF);
-        let address = 0xFF00 + self.get_r8(&Register::BC(false)) as u16;
 
-        if self.write(address, value, breakpoints) {
+        if self.write(0xFF00 + self.get_r8(&Register::BC(false)) as u16, value, breakpoints) {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
@@ -1130,10 +1125,9 @@ impl GameboyCPU {
             return;
         }
 
-        let address = 0xFF00 + offset as u16;
         let value = self.get_r8(&Register::AF);
 
-        if self.write(address, value, breakpoints) {
+        if self.write(0xFF00 + offset as u16, value, breakpoints) {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
@@ -1363,11 +1357,11 @@ impl GameboyCPU {
     }
 
     fn add_hl_rp(&mut self, reg: Register) {
-        let hl = self.get_rp(&Register::HL(false));
+        let hl = self.hl;
         let value = self.get_rp(&reg);
         let (result, carry) = hl.overflowing_add(value);
 
-        self.set_rp(Register::HL(false), result);
+        self.hl = result;
 
         self.set_flag(Flag::Negative(false));
         self.set_flag(Flag::HalfCarry((hl & 0x0FFF) + (value & 0x0FFF) > 0x0FFF));
