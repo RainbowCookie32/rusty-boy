@@ -356,7 +356,7 @@ impl GameboyCPU {
             0x04 => self.inc_r8(Register::BC(true)),
             0x05 => self.dec_r8(Register::BC(true)),
             0x06 => self.load_u8_to_r8(breakpoints, dbg_mode, Register::BC(true)),
-            //0x07 => self.rlca(),
+            0x07 => self.rlca(),
             0x08 => self.store_sp_to_u16(breakpoints, dbg_mode),
             0x09 => self.add_hl_rp(Register::BC(false)),
             0x0A => self.load_a_from_rp(breakpoints, dbg_mode, Register::BC(false)),
@@ -364,7 +364,7 @@ impl GameboyCPU {
             0x0C => self.inc_r8(Register::BC(false)),
             0x0D => self.dec_r8(Register::BC(false)),
             0x0E => self.load_u8_to_r8(breakpoints, dbg_mode, Register::BC(false)),
-            //0x07 => self.rrca(),
+            0x0F => self.rrca(),
 
             //0x10 => stop(),
             0x11 => self.load_u16_to_rp(breakpoints, dbg_mode, Register::DE(false)),
@@ -1359,7 +1359,7 @@ impl GameboyCPU {
         self.set_flag(Flag::HalfCarry(half_carry));
 
         self.pc += 1;
-        self.cycles += 4;
+        self.cycles += 12;
     }
 
     fn add_hl_rp(&mut self, reg: Register) {
@@ -2210,6 +2210,38 @@ impl GameboyCPU {
         self.cycles += 4;
     }
 
+    fn rlca(&mut self) {
+        let value = self.get_r8(&Register::AF);
+        let new_carry = value >> 7 != 0;
+        let result = value.rotate_left(1);
+
+        self.set_r8(Register::AF, result);
+
+        self.set_flag(Flag::Zero(result == 0));
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry(false));
+        self.set_flag(Flag::Carry(new_carry));
+
+        self.pc += 1;
+        self.cycles += 4;
+    }
+
+    fn rrca(&mut self) {
+        let value = self.get_r8(&Register::AF);
+        let new_carry = value & 1 != 0;
+        let result = value.rotate_right(1);
+
+        self.set_r8(Register::AF, result);
+
+        self.set_flag(Flag::Zero(result == 0));
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry(false));
+        self.set_flag(Flag::Carry(new_carry));
+
+        self.pc += 1;
+        self.cycles += 4;
+    }
+
     fn rlc(&mut self, reg: Register) {
         let value = self.get_r8(&reg);
         let new_carry = value >> 7 != 0;
@@ -2611,7 +2643,7 @@ impl GameboyCPU {
         }
 
         self.pc += 2;
-        self.cycles += 12;
+        self.cycles += 16;
     }
 
     fn set(&mut self, reg: Register, bit: u8) {
@@ -2640,6 +2672,6 @@ impl GameboyCPU {
         }
 
         self.pc += 2;
-        self.cycles += 12;
+        self.cycles += 16;
     }
 }
