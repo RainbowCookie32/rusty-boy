@@ -26,7 +26,7 @@ impl Gameboy {
     pub fn init(gb_mem: Arc<GameboyMemory>) -> Gameboy {
         Gameboy {
             gb_cpu: GameboyCPU::init(gb_mem.clone()),
-            gb_gpu: GameboyGPU::init(),
+            gb_gpu: GameboyGPU::init(gb_mem.clone()),
             gb_mem,
 
             dbg_mode: EmulatorMode::Paused,
@@ -54,6 +54,10 @@ impl Gameboy {
         self.gb_cpu.cpu_cycle(&self.dbg_breakpoint_list, &mut self.dbg_mode);
     }
 
+    pub fn gb_gpu_cycle(&mut self) {
+        self.gb_gpu.gpu_cycle(self.gb_cpu.get_cycles());
+    }
+
     pub fn ui_get_header(&self) -> &CartHeader {
         self.gb_mem.header()
     }
@@ -68,6 +72,14 @@ impl Gameboy {
 
     pub fn ui_get_serial_output(&self) -> Arc<RwLock<Vec<u8>>> {
         self.gb_mem.serial_output()
+    }
+
+    pub fn ui_get_screen_data(&self) -> Arc<RwLock<Vec<u8>>> {
+        self.gb_gpu.get_screen_data()
+    }
+
+    pub fn ui_get_backgrounds_data(&self) -> Arc<RwLock<Vec<Vec<u8>>>> {
+        self.gb_gpu.get_backgrounds_data()
     }
 }
 

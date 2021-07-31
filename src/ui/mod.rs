@@ -21,6 +21,8 @@ pub fn draw_windows(gb: Arc<RwLock<Gameboy>>, gb_mem: Arc<GameboyMemory>, gb_ser
     let gb = gb;
     let gb_mem = gb_mem;
     let callstack = gb.read().unwrap().ui_get_callstack();
+    let screen_data = gb.read().unwrap().ui_get_screen_data();
+    let backgrounds_data = gb.read().unwrap().ui_get_backgrounds_data();
 
     let event_loop = EventLoop::new();
     let glutin_context = glutin::ContextBuilder::new().with_vsync(true);
@@ -48,6 +50,7 @@ pub fn draw_windows(gb: Arc<RwLock<Gameboy>>, gb_mem: Arc<GameboyMemory>, gb_ser
     let mut win_cpu = window_cpu::CPUWindow::init(gb.clone(), callstack);
     let win_cart = window_cart::CartWindow::init(gb.clone(), gb_mem.clone());
     let mut win_serial = window_serial::SerialWindow::init(gb_serial);
+    let mut win_screen = window_screen::ScreenWindow::init(screen_data, backgrounds_data);
     let mut win_memory = window_memory::MemoryWindow::init(gb_mem.clone());
     let mut win_disassembler = window_disassembler::DisassemblerWindow::init(gb, gb_mem);
 
@@ -56,7 +59,7 @@ pub fn draw_windows(gb: Arc<RwLock<Gameboy>>, gb_mem: Arc<GameboyMemory>, gb_ser
             Event::MainEventsCleared => {
                 let gl_window = display.gl_window();
 
-                winit_platform.prepare_frame(imgui_ctx.io_mut(), &gl_window.window()).unwrap();
+                winit_platform.prepare_frame(imgui_ctx.io_mut(), gl_window.window()).unwrap();
                 gl_window.window().request_redraw();
             }
             Event::RedrawRequested(_) => {
@@ -67,6 +70,7 @@ pub fn draw_windows(gb: Arc<RwLock<Gameboy>>, gb_mem: Arc<GameboyMemory>, gb_ser
                 win_serial.draw(&ui);
                 win_memory.draw(&ui);
                 win_disassembler.draw(&ui, adjust);
+                win_screen.draw(&ui, &display, renderer.textures());
 
                 let gl_window = display.gl_window();
                 let mut target = display.draw();

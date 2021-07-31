@@ -325,6 +325,10 @@ impl GameboyCPU {
         }
     }
 
+    pub fn get_cycles(&mut self) -> &mut usize {
+        &mut self.cycles
+    }
+
     pub fn cpu_cycle(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
         for bp in breakpoints {
             if self.pc == *bp.address() && *bp.execute() && *dbg_mode != EmulatorMode::Stepping {

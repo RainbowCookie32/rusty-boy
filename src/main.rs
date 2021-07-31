@@ -50,9 +50,11 @@ fn main() {
             if let Ok(mut lock) = gameboy.try_write() {
                 if lock.dbg_mode == EmulatorMode::Running {
                     lock.gb_cpu_cycle();
+                    lock.gb_gpu_cycle();
                 }
                 else if lock.dbg_mode == EmulatorMode::Stepping && lock.dbg_do_step {
                     lock.gb_cpu_cycle();
+                    lock.gb_gpu_cycle();
                     lock.dbg_do_step = false;
                 }
             }
