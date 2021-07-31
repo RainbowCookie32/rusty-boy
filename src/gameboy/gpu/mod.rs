@@ -44,6 +44,8 @@ impl Palette {
 pub struct GameboyGPU {
     ly: u8,
     lyc: u8,
+    scy: u8,
+    scx: u8,
     lcdc: u8,
     stat: u8,
 
@@ -63,6 +65,8 @@ impl GameboyGPU {
         GameboyGPU {
             ly: 0,
             lyc: 0,
+            scy: 0,
+            scx: 0,
             lcdc: 0,
             stat: 0,
 
@@ -71,7 +75,7 @@ impl GameboyGPU {
 
             cycles: 0,
 
-            screen: Arc::new(RwLock::new(vec![0; SCREEN_WIDTH * SCREEN_HEIGHT])),
+            screen: Arc::new(RwLock::new(vec![255; SCREEN_WIDTH * SCREEN_HEIGHT])),
             backgrounds: Arc::new(RwLock::new(vec![vec![255; 256 * 256]; 2])),
 
             gb_mem
@@ -81,6 +85,8 @@ impl GameboyGPU {
     pub fn gpu_cycle(&mut self, cycles: &mut usize) {
         self.ly = self.gb_mem.read(0xFF44);
         self.lyc = self.gb_mem.read(0xFF45);
+        self.scy = self.gb_mem.read(0xFF42);
+        self.scx = self.gb_mem.read(0xFF43);
         self.lcdc = self.gb_mem.read(0xFF40);
         self.stat = self.gb_mem.read(0xFF41);
 
@@ -98,10 +104,14 @@ impl GameboyGPU {
 
         // Mode 2 - OAM scan.
         if self.cycles >= 80 && current_mode == 2 {
+            *cycles = 0;
+            self.cycles = 0;
             self.set_mode(Mode::LcdTransfer);
         }
         // Mode 3 - Access OAM and VRAM to generate the picture.
         else if self.cycles >= 172 && current_mode == 3 {
+            *cycles = 0;
+            self.cycles = 0;
             self.draw_screen_line();
             self.set_mode(Mode::Hblank);
         }
@@ -120,6 +130,9 @@ impl GameboyGPU {
                 // TODO: Request interrupt.
             }
 
+            *cycles = 0;
+            self.cycles = 0;
+
             self.gb_mem.write(0xFF44, self.ly);
         }
         // Mode 1 - V-Blank.
@@ -128,15 +141,15 @@ impl GameboyGPU {
 
             if self.ly > 153 {
                 self.ly = 0;
-                *cycles = 0;
-                
-                self.cycles = 0;
                 self.set_mode(Mode::OamScan);
             }
 
             if self.ly == self.lyc {
                 // TODO: Request interrupt.
             }
+
+            *cycles = 0;
+            self.cycles = 0;
 
             self.draw_backgrounds();
             self.gb_mem.write(0xFF44, self.ly);
@@ -168,7 +181,25 @@ impl GameboyGPU {
 
     // Draw a screen line using the data in self.backgrounds.
     fn draw_screen_line(&mut self) {
+        if let Ok(backgrounds) = self.backgrounds.read() {
+            let start = 256 * self.ly.wrapping_add(self.scy) as usize;
 
+            let background = if self.lcdc & 0x08 == 0 { &backgrounds[0] } else { &backgrounds[1] };
+            let background_line = &background[start..start+256];
+
+            let mut screen_idx = 160 * self.ly as usize;
+
+            for screen_pos in 0..160 {
+                let screen_pos: u8 = screen_pos;
+                let background_line_idx: u8 = screen_pos.wrapping_add(self.scx);
+
+                if let Ok(mut screen) = self.screen.write() {
+                    screen[screen_idx] = background_line[background_line_idx as usize];
+                }
+
+                screen_idx += 1;
+            }
+        }
     }
 
     fn draw_backgrounds(&mut self) {

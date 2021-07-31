@@ -9,7 +9,7 @@ use glium::texture::{ClientFormat, RawImage2d};
 use glium::uniforms::{MagnifySamplerFilter, MinifySamplerFilter, SamplerBehavior};
 
 const SCREEN_WIDTH: usize = 160;
-const SCREEN_HEIGHT: usize = 140;
+const SCREEN_HEIGHT: usize = 144;
 
 pub struct ScreenWindow {
     screen_data: Arc<RwLock<Vec<u8>>>,
@@ -34,6 +34,39 @@ impl ScreenWindow {
 
     pub fn draw(&mut self, ui: &Ui, display: &Display, textures: &mut Textures<Texture>) {
         Window::new(im_str!("Screen")).build(ui, || {
+            if let Ok(lock) = self.screen_data.try_read() {
+                let mut data: Vec<u8> = Vec::with_capacity(SCREEN_WIDTH * SCREEN_HEIGHT);
+
+                for b in lock.iter() {                        
+                    data.push(*b);
+                    data.push(*b);
+                    data.push(*b);
+                }
+
+                let image = RawImage2d {
+                    data: Cow::Owned(data),
+                    width: SCREEN_WIDTH as u32,
+                    height: SCREEN_HEIGHT as u32,
+                    format: ClientFormat::U8U8U8
+                };
+    
+                let gl_texture = Texture2d::new(display, image).unwrap();
+                let texture = Texture {
+                    texture: std::rc::Rc::new(gl_texture),
+                    sampler: SamplerBehavior {
+                        magnify_filter: MagnifySamplerFilter::Nearest,
+                        minify_filter: MinifySamplerFilter::Nearest,
+                        ..Default::default()
+                    }
+                };
+    
+                if let Some(id) = self.screen_texture_id.take() {
+                    textures.remove(id);
+                }
+
+                self.screen_texture_id = Some(textures.insert(texture));
+            }
+
             if let Ok(lock) = self.backgrounds_data.try_read() {
                 for (i, background) in lock.iter().enumerate() {
                     let mut data: Vec<u8> = Vec::with_capacity(256 * 256);
@@ -83,7 +116,7 @@ impl ScreenWindow {
                 Image::new(*id, [SCREEN_WIDTH as f32, SCREEN_HEIGHT as f32]).build(ui);
             }
 
-            ui.columns(2, im_str!("bg_cols"), true);
+            ui.columns(2, im_str!("bg_cols"), false);
             
             ui.text("Background ($9800-$9BFF)");
 
