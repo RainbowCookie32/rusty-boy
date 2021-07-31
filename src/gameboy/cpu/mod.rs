@@ -607,7 +607,7 @@ impl GameboyCPU {
             0xF0 => self.load_a_from_ff_u8(breakpoints, dbg_mode),
             0xF1 => self.pop_rp(breakpoints, dbg_mode, Register::AF),
             0xF3 => self.di(),
-            // 0xF4 => self.load_a_from_io_c(breakpoints, dbg_mode),
+            // 0xF4 => illegal opcode
             0xF5 => self.push_rp(breakpoints, dbg_mode, Register::AF),
             0xF6 => self.or_u8(breakpoints, dbg_mode),
             0xF7 => self.rst(0x30, breakpoints, dbg_mode),
