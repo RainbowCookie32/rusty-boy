@@ -609,7 +609,7 @@ impl GameboyCPU {
             0xE5 => self.push_rp(breakpoints, dbg_mode, Register::HL(false)),
             0xE6 => self.and_u8(breakpoints, dbg_mode),
             0xE7 => self.rst(0x20, breakpoints, dbg_mode),
-            // 0xE8 => self.add_i8_to_sp(breakpoints, dbg_mode),
+            0xE8 => self.add_i8_to_sp(breakpoints, dbg_mode),
             0xE9 => self.jump_hl(),
             0xEA => self.store_a_to_u16(breakpoints, dbg_mode),
             // 0xEB => illegal opcode
@@ -618,14 +618,15 @@ impl GameboyCPU {
             0xEE => self.xor_u8(breakpoints, dbg_mode),
             0xEF => self.rst(0x28, breakpoints, dbg_mode),
 
-            0xF0 => self.load_a_from_ff_u8(breakpoints, dbg_mode),
+            0xF0 => self.load_a_from_io_u8(breakpoints, dbg_mode),
             0xF1 => self.pop_rp(breakpoints, dbg_mode, Register::AF),
+            0xF2 => self.load_a_from_io_c(breakpoints, dbg_mode),
             0xF3 => self.di(),
             // 0xF4 => illegal opcode
             0xF5 => self.push_rp(breakpoints, dbg_mode, Register::AF),
             0xF6 => self.or_u8(breakpoints, dbg_mode),
             0xF7 => self.rst(0x30, breakpoints, dbg_mode),
-            // 0xF8 => self.load_sp_i8_to_hl(breakpoints, dbg_mode),
+            0xF8 => self.load_sp_i8_to_hl(breakpoints, dbg_mode),
             0xF9 => self.load_hl_to_sp(),
             0xFA => self.load_a_from_u16(breakpoints, dbg_mode),
             0xFB => self.ei(),
@@ -997,7 +998,21 @@ impl GameboyCPU {
         self.cycles += 8;
     }
 
-    fn load_a_from_ff_u8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
+    fn load_a_from_io_c(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
+        let (bp_hit, value) = self.read_u8(0xFF00 + self.get_r8(&Register::BC(false)) as u16, breakpoints);
+
+        if bp_hit {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        self.set_r8(Register::AF, value);
+
+        self.pc += 1;
+        self.cycles += 8;
+    }
+
+    fn load_a_from_io_u8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
         let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints);
 
         if bp_hit {
@@ -1065,6 +1080,29 @@ impl GameboyCPU {
         
         self.pc += 1;
         self.cycles += 4;
+    }
+
+    fn load_sp_i8_to_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
+        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints);
+
+        if bp_hit {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        let sp = self.sp;
+        let value = value as i8;
+        let result = sp.wrapping_add(value as u16);
+
+        self.hl = result;
+
+        self.set_flag(Flag::Zero(false));
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry((sp & 0x0F) + (value as u16 & 0x0F) > 0x0F));
+        self.set_flag(Flag::Carry(result > 0xFF));
+
+        self.pc += 2;
+        self.cycles += 12;
     }
 
     fn store_r8_to_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, reg: Register) {
@@ -1206,6 +1244,21 @@ impl GameboyCPU {
 
         self.pc += 2;
         self.cycles += 12;
+    }
+
+    fn add_i8_to_sp(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
+        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints);
+
+        if bp_hit {
+            *dbg_mode = EmulatorMode::BreakpointHit;
+            return;
+        }
+
+        let value = value as i8;
+        self.sp = self.sp.wrapping_add(value as u16);
+
+        self.pc += 2;
+        self.cycles += 16;
     }
 
     fn scf(&mut self) {
