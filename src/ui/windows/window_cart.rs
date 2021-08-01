@@ -3,18 +3,15 @@ use std::sync::{Arc, RwLock};
 use imgui::*;
 
 use crate::gameboy::Gameboy;
-use crate::gameboy::memory::GameboyMemory;
 
 pub struct CartWindow {
-    gb: Arc<RwLock<Gameboy>>,
-    gb_mem: Arc<GameboyMemory>
+    gb: Arc<RwLock<Gameboy>>
 }
 
 impl CartWindow {
-    pub fn init(gb: Arc<RwLock<Gameboy>>, gb_mem: Arc<GameboyMemory>) -> CartWindow {
+    pub fn init(gb: Arc<RwLock<Gameboy>>) -> CartWindow {
         CartWindow {
-            gb,
-            gb_mem
+            gb
         }
     }
 
@@ -29,13 +26,7 @@ impl CartWindow {
                 ui.separator();
 
                 ui.text(format!("ROM Size: {} ({} banks)", header.rom_size(), header.rom_banks_count()));
-                ui.text(format!("Selected ROM Bank: {}", self.gb_mem.cartridge().get_selected_rom_bank()));
-
-                ui.separator();
-
                 ui.text(format!("RAM Size: {} ({} banks)", header.ram_size(), header.ram_banks_count()));
-                ui.text(format!("RAM Access Enabled: {}", self.gb_mem.cartridge().is_ram_enabled()));
-                ui.text(format!("Selected RAM Bank: {}", self.gb_mem.cartridge().get_selected_rom_bank()));
             }
         });
     }

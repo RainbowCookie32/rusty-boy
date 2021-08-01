@@ -48,7 +48,7 @@ pub fn draw_windows(gb: Arc<RwLock<Gameboy>>, gb_mem: Arc<GameboyMemory>, gb_ser
     ;
 
     let mut win_cpu = window_cpu::CPUWindow::init(gb.clone(), callstack);
-    let win_cart = window_cart::CartWindow::init(gb.clone(), gb_mem.clone());
+    let win_cart = window_cart::CartWindow::init(gb.clone());
     let mut win_serial = window_serial::SerialWindow::init(gb_serial);
     let mut win_screen = window_screen::ScreenWindow::init(screen_data, backgrounds_data);
     let mut win_memory = window_memory::MemoryWindow::init(gb_mem.clone());
