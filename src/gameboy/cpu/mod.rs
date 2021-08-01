@@ -380,7 +380,7 @@ impl GameboyCPU {
             0x0E => self.load_u8_to_r8(breakpoints, dbg_mode, Register::BC(false)),
             0x0F => self.rrca(),
 
-            //0x10 => stop(),
+            // 0x10 => stop(),
             0x11 => self.load_u16_to_rp(breakpoints, dbg_mode, Register::DE(false)),
             0x12 => self.store_a_to_rp(breakpoints, dbg_mode, Register::DE(false)),
             0x13 => self.inc_rp(Register::DE(false)),
@@ -488,8 +488,8 @@ impl GameboyCPU {
             0x73 => self.store_r8_to_hl(breakpoints, dbg_mode, Register::DE(false)),
             0x74 => self.store_r8_to_hl(breakpoints, dbg_mode, Register::HL(true)),
             0x75 => self.store_r8_to_hl(breakpoints, dbg_mode, Register::HL(false)),
-            0x77 => self.store_r8_to_hl(breakpoints, dbg_mode, Register::AF),
             //0x76 => self.halt(),
+            0x77 => self.store_r8_to_hl(breakpoints, dbg_mode, Register::AF),
             0x78 => self.load_r8_to_r8(Register::AF, Register::BC(true)),
             0x79 => self.load_r8_to_r8(Register::AF, Register::BC(false)),
             0x7A => self.load_r8_to_r8(Register::AF, Register::DE(true)),
@@ -630,6 +630,8 @@ impl GameboyCPU {
             0xF9 => self.load_hl_to_sp(),
             0xFA => self.load_a_from_u16(breakpoints, dbg_mode),
             0xFB => self.ei(),
+            // 0xFC => illegal opcode
+            // 0xFD => illegal opcode
             0xFE => self.cp_u8(breakpoints, dbg_mode),
             0xFF => self.rst(0x38, breakpoints, dbg_mode),
 
