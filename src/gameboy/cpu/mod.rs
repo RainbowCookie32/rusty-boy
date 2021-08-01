@@ -248,12 +248,14 @@ impl GameboyCPU {
         (&self.af, &self.bc, &self.de, &self.hl, &self.sp, &self.pc)
     }
 
-    fn read_u8(&self, address: u16, breakpoints: &[Breakpoint]) -> (bool, u8) {
+    fn read_u8(&self, address: u16, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) -> (bool, u8) {
         let mut found_bp = false;
         let matching_bps: Vec<&Breakpoint> = breakpoints.iter().filter(|b| *b.address() == address).collect();
 
         for bp in matching_bps {
-            if *bp.read() {
+            // Don't trigger the breakpoint if we are stepping.
+            // Assume you are paying attention to what's going on, and makes access breakpoints useable.
+            if *bp.read() && *dbg_mode != EmulatorMode::Stepping {
                 found_bp = true;
                 break;
             }
@@ -262,12 +264,13 @@ impl GameboyCPU {
         (found_bp, self.memory.read(address))
     }
 
-    fn read_u16(&self, address: u16, breakpoints: &[Breakpoint]) -> (bool, u16) {
+    fn read_u16(&self, address: u16, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) -> (bool, u16) {
         let mut found_bp = false;
         let matching_bps: Vec<&Breakpoint> = breakpoints.iter().filter(|b| *b.address() == address || *b.address() == address + 1).collect();
 
         for bp in matching_bps {
-            if *bp.read() {
+            // Same as in read_u8().
+            if *bp.read() && *dbg_mode != EmulatorMode::Stepping {
                 found_bp = true;
                 break;
             }
@@ -278,11 +281,12 @@ impl GameboyCPU {
         (found_bp, u16::from_le_bytes(values))
     }
 
-    fn write(&self, address: u16, value: u8, breakpoints: &[Breakpoint]) -> bool {
+    fn write(&self, address: u16, value: u8, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) -> bool {
         let matching_bps: Vec<&Breakpoint> = breakpoints.iter().filter(|b| *b.address() == address).collect();
 
         for bp in matching_bps {
-            if *bp.write() {
+            // Same as in read_u8().
+            if *bp.write() && *dbg_mode != EmulatorMode::Stepping {
                 return true;
             }
         }
@@ -291,12 +295,13 @@ impl GameboyCPU {
         false
     }
 
-    fn stack_read(&mut self, breakpoints: &[Breakpoint]) -> (bool, u16) {
+    fn stack_read(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) -> (bool, u16) {
         let mut found_bp = false;
         let matching_bps: Vec<&Breakpoint> = breakpoints.iter().filter(|b| *b.address() == self.sp - 1 || *b.address() == self.sp - 2).collect();
 
         for bp in matching_bps {
-            if *bp.read() {
+            // Same as in read_u8().
+            if *bp.read() && *dbg_mode != EmulatorMode::Stepping {
                 found_bp = true;
                 break;
             }
@@ -308,17 +313,17 @@ impl GameboyCPU {
         (found_bp, u16::from_le_bytes(values))
     }
 
-    fn stack_write(&mut self, value: u16, breakpoints: &[Breakpoint]) -> bool {
+    fn stack_write(&mut self, value: u16, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) -> bool {
         let high = (value >> 8) as u8;
         let low = value as u8;
 
         self.sp = self.sp.wrapping_sub(1);
-        if self.write(self.sp, high, breakpoints) {
+        if self.write(self.sp, high, breakpoints, dbg_mode) {
             return true;
         }
 
         self.sp = self.sp.wrapping_sub(1);
-        if self.write(self.sp, low, breakpoints) {
+        if self.write(self.sp, low, breakpoints, dbg_mode) {
             return true;
         }
 
@@ -355,7 +360,7 @@ impl GameboyCPU {
     }
 
     fn execute_instruction(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, opcode) = self.read_u8(self.pc, breakpoints);
+        let (bp_hit, opcode) = self.read_u8(self.pc, breakpoints, dbg_mode);
 
         if bp_hit && *dbg_mode != EmulatorMode::Stepping {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -640,7 +645,7 @@ impl GameboyCPU {
     }
 
     fn execute_instruction_prefixed(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, opcode) = self.read_u8(self.pc + 1, breakpoints);
+        let (bp_hit, opcode) = self.read_u8(self.pc + 1, breakpoints, dbg_mode);
 
         if bp_hit && *dbg_mode != EmulatorMode::Stepping {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -928,7 +933,7 @@ impl GameboyCPU {
     }
 
     fn load_u8_to_r8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, reg: Register) {
-        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -942,7 +947,7 @@ impl GameboyCPU {
     }
 
     fn load_hl_to_r8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, reg: Register) {
-        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -957,7 +962,7 @@ impl GameboyCPU {
 
     fn load_a_from_rp(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, reg: Register) {
         let address = self.get_rp(&reg);
-        let (bp_hit, value) = self.read_u8(address, breakpoints);
+        let (bp_hit, value) = self.read_u8(address, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -971,7 +976,7 @@ impl GameboyCPU {
     }
 
     fn load_a_from_hl_and_inc(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -986,7 +991,7 @@ impl GameboyCPU {
     }
 
     fn load_a_from_hl_and_dec(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -1001,7 +1006,7 @@ impl GameboyCPU {
     }
 
     fn load_a_from_io_c(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, value) = self.read_u8(0xFF00 + self.get_r8(&Register::BC(false)) as u16, breakpoints);
+        let (bp_hit, value) = self.read_u8(0xFF00 + self.get_r8(&Register::BC(false)) as u16, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -1015,14 +1020,14 @@ impl GameboyCPU {
     }
 
     fn load_a_from_io_u8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
 
-        let (bp_hit, value) = self.read_u8(0xFF00 + value as u16, breakpoints);
+        let (bp_hit, value) = self.read_u8(0xFF00 + value as u16, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -1036,14 +1041,14 @@ impl GameboyCPU {
     }
 
     fn load_a_from_u16(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, address) = self.read_u16(self.pc + 1, breakpoints);
+        let (bp_hit, address) = self.read_u16(self.pc + 1, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
 
-        let (bp_hit, value) = self.read_u8(address, breakpoints);
+        let (bp_hit, value) = self.read_u8(address, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -1057,7 +1062,7 @@ impl GameboyCPU {
     }
 
     fn load_u16_to_rp(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, reg: Register) {
-        let (bp_hit, value) = self.read_u16(self.pc + 1, breakpoints);
+        let (bp_hit, value) = self.read_u16(self.pc + 1, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -1085,7 +1090,7 @@ impl GameboyCPU {
     }
 
     fn load_sp_i8_to_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -1110,7 +1115,7 @@ impl GameboyCPU {
     fn store_r8_to_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, reg: Register) {
         let value = self.get_r8(&reg);
         
-        if self.write(self.hl, value, breakpoints) {
+        if self.write(self.hl, value, breakpoints, dbg_mode) {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
@@ -1122,7 +1127,7 @@ impl GameboyCPU {
     fn store_to_hl_and_inc(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
         let value = self.get_r8(&Register::AF);
         
-        if self.write(self.hl, value, breakpoints) {
+        if self.write(self.hl, value, breakpoints, dbg_mode) {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
@@ -1136,7 +1141,7 @@ impl GameboyCPU {
     fn store_to_hl_and_dec(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
         let value = self.get_r8(&Register::AF);
         
-        if self.write(self.hl, value, breakpoints) {
+        if self.write(self.hl, value, breakpoints, dbg_mode) {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
@@ -1150,7 +1155,7 @@ impl GameboyCPU {
     fn store_a_to_rp(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, reg: Register) {
         let value = self.get_r8(&Register::AF);
 
-        if self.write(self.get_rp(&reg), value, breakpoints) {
+        if self.write(self.get_rp(&reg), value, breakpoints, dbg_mode) {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
@@ -1162,7 +1167,7 @@ impl GameboyCPU {
     fn store_a_to_io_c(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
         let value = self.get_r8(&Register::AF);
 
-        if self.write(0xFF00 + self.get_r8(&Register::BC(false)) as u16, value, breakpoints) {
+        if self.write(0xFF00 + self.get_r8(&Register::BC(false)) as u16, value, breakpoints, dbg_mode) {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
@@ -1172,7 +1177,7 @@ impl GameboyCPU {
     }
 
     fn store_a_to_io_u8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, offset) = self.read_u8(self.pc + 1, breakpoints);
+        let (bp_hit, offset) = self.read_u8(self.pc + 1, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -1181,7 +1186,7 @@ impl GameboyCPU {
 
         let value = self.get_r8(&Register::AF);
 
-        if self.write(0xFF00 + offset as u16, value, breakpoints) {
+        if self.write(0xFF00 + offset as u16, value, breakpoints, dbg_mode) {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
@@ -1191,14 +1196,14 @@ impl GameboyCPU {
     }
 
     fn store_a_to_u16(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, address) = self.read_u16(self.pc + 1, breakpoints);
+        let (bp_hit, address) = self.read_u16(self.pc + 1, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
 
-        if self.write(address, self.get_r8(&Register::AF), breakpoints) {
+        if self.write(address, self.get_r8(&Register::AF), breakpoints, dbg_mode) {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
@@ -1208,7 +1213,7 @@ impl GameboyCPU {
     }
 
     fn store_sp_to_u16(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, address) = self.read_u16(self.pc + 1, breakpoints);
+        let (bp_hit, address) = self.read_u16(self.pc + 1, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -1217,12 +1222,12 @@ impl GameboyCPU {
 
         let sp = self.sp.to_le_bytes();
 
-        if self.write(address, sp[0], breakpoints) {
+        if self.write(address, sp[0], breakpoints, dbg_mode) {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
 
-        if self.write(address + 1, sp[1], breakpoints) {
+        if self.write(address + 1, sp[1], breakpoints, dbg_mode) {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
@@ -1232,14 +1237,14 @@ impl GameboyCPU {
     }
 
     fn store_u8_to_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
 
-        if self.write(self.hl, value, breakpoints) {
+        if self.write(self.hl, value, breakpoints, dbg_mode) {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
@@ -1249,7 +1254,7 @@ impl GameboyCPU {
     }
 
     fn add_i8_to_sp(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -1296,7 +1301,7 @@ impl GameboyCPU {
     }
 
     fn pop_rp(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, reg: Register) {
-        let (bp_hit, value) = self.stack_read(breakpoints);
+        let (bp_hit, value) = self.stack_read(breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -1312,7 +1317,7 @@ impl GameboyCPU {
     fn push_rp(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, reg: Register) {
         let value = self.get_rp(&reg);
 
-        if self.stack_write(value, breakpoints) {
+        if self.stack_write(value, breakpoints, dbg_mode) {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
@@ -1360,7 +1365,7 @@ impl GameboyCPU {
     }
 
     fn inc_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -1369,7 +1374,7 @@ impl GameboyCPU {
 
         let result = self.inc(value);
 
-        if self.write(self.hl, result, breakpoints) {
+        if self.write(self.hl, result, breakpoints, dbg_mode) {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
@@ -1399,7 +1404,7 @@ impl GameboyCPU {
     }
 
     fn dec_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -1408,7 +1413,7 @@ impl GameboyCPU {
 
         let result = self.dec(value);
 
-        if self.write(self.hl, result, breakpoints) {
+        if self.write(self.hl, result, breakpoints, dbg_mode) {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
@@ -1453,7 +1458,7 @@ impl GameboyCPU {
     }
 
     fn add_u8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -1467,7 +1472,7 @@ impl GameboyCPU {
     }
 
     fn add_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -1502,7 +1507,7 @@ impl GameboyCPU {
     }
 
     fn adc_u8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -1516,7 +1521,7 @@ impl GameboyCPU {
     }
 
     fn adc_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -1550,7 +1555,7 @@ impl GameboyCPU {
     }
 
     fn sub_u8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -1564,7 +1569,7 @@ impl GameboyCPU {
     }
 
     fn sub_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -1600,7 +1605,7 @@ impl GameboyCPU {
     }
 
     fn sbc_u8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -1614,7 +1619,7 @@ impl GameboyCPU {
     }
 
     fn sbc_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -1648,7 +1653,7 @@ impl GameboyCPU {
     }
 
     fn and_u8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -1662,7 +1667,7 @@ impl GameboyCPU {
     }
 
     fn and_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -1696,7 +1701,7 @@ impl GameboyCPU {
     }
 
     fn xor_u8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -1710,7 +1715,7 @@ impl GameboyCPU {
     }
 
     fn xor_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -1744,7 +1749,7 @@ impl GameboyCPU {
     }
 
     fn or_u8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -1758,7 +1763,7 @@ impl GameboyCPU {
     }
 
     fn or_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -1790,7 +1795,7 @@ impl GameboyCPU {
     }
 
     fn cp_u8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.pc + 1, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -1804,7 +1809,7 @@ impl GameboyCPU {
     }
 
     fn cp_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -1818,14 +1823,14 @@ impl GameboyCPU {
     }
 
     fn call(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, address) = self.read_u16(self.pc + 1, breakpoints);
+        let (bp_hit, address) = self.read_u16(self.pc + 1, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
 
-        if self.stack_write(self.pc + 3, breakpoints) {
+        if self.stack_write(self.pc + 3, breakpoints, dbg_mode) {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
@@ -1840,14 +1845,14 @@ impl GameboyCPU {
 
     fn conditional_call(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, condition: Condition) {
         if self.check_condition(condition) {
-            let (bp_hit, address) = self.read_u16(self.pc + 1, breakpoints);
+            let (bp_hit, address) = self.read_u16(self.pc + 1, breakpoints, dbg_mode);
 
             if bp_hit {
                 *dbg_mode = EmulatorMode::BreakpointHit;
                 return;
             }
 
-            if self.stack_write(self.pc + 3, breakpoints) {
+            if self.stack_write(self.pc + 3, breakpoints, dbg_mode) {
                 *dbg_mode = EmulatorMode::BreakpointHit;
                 return;
             }
@@ -1866,7 +1871,7 @@ impl GameboyCPU {
     }
 
     fn ret(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, address) = self.stack_read(breakpoints);
+        let (bp_hit, address) = self.stack_read(breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -1883,7 +1888,7 @@ impl GameboyCPU {
 
     fn conditional_ret(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, condition: Condition) {
         if self.check_condition(condition) {
-            let (bp_hit, address) = self.stack_read(breakpoints);
+            let (bp_hit, address) = self.stack_read(breakpoints, dbg_mode);
 
             if bp_hit {
                 *dbg_mode = EmulatorMode::BreakpointHit;
@@ -1905,7 +1910,7 @@ impl GameboyCPU {
 
     // FIXME: Same thing as with EI, check when interrupts are actually enabled.
     fn reti(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, address) = self.stack_read(breakpoints);
+        let (bp_hit, address) = self.stack_read(breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -1923,7 +1928,7 @@ impl GameboyCPU {
     }
 
     fn jump(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, address) = self.read_u16(self.pc + 1, breakpoints);
+        let (bp_hit, address) = self.read_u16(self.pc + 1, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -1936,7 +1941,7 @@ impl GameboyCPU {
 
     fn conditional_jump(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, condition: Condition) {
         if self.check_condition(condition) {
-            let (bp_hit, address) = self.read_u16(self.pc + 1, breakpoints);
+            let (bp_hit, address) = self.read_u16(self.pc + 1, breakpoints, dbg_mode);
 
             if bp_hit {
                 *dbg_mode = EmulatorMode::BreakpointHit;
@@ -1953,7 +1958,7 @@ impl GameboyCPU {
     }
 
     fn jump_relative(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, offset) = self.read_u8(self.pc + 1, breakpoints);
+        let (bp_hit, offset) = self.read_u8(self.pc + 1, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -1969,7 +1974,7 @@ impl GameboyCPU {
 
     fn conditional_jump_relative(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, condition: Condition) {
         if self.check_condition(condition) {
-            let (bp_hit, offset) = self.read_u8(self.pc + 1, breakpoints);
+            let (bp_hit, offset) = self.read_u8(self.pc + 1, breakpoints, dbg_mode);
 
             if bp_hit {
                 *dbg_mode = EmulatorMode::BreakpointHit;
@@ -1994,7 +1999,7 @@ impl GameboyCPU {
     }
 
     fn rst(&mut self, address: u16, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        if self.stack_write(self.pc + 1, breakpoints) {
+        if self.stack_write(self.pc + 1, breakpoints, dbg_mode) {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
@@ -2111,7 +2116,7 @@ impl GameboyCPU {
     }
 
     fn rlc_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -2120,7 +2125,7 @@ impl GameboyCPU {
 
         let result = self.rlc(value);
 
-        if self.write(self.hl, result, breakpoints) {
+        if self.write(self.hl, result, breakpoints, dbg_mode) {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
@@ -2150,7 +2155,7 @@ impl GameboyCPU {
     }
 
     fn rrc_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -2159,7 +2164,7 @@ impl GameboyCPU {
 
         let result = self.rlc(value);
 
-        if self.write(self.hl, result, breakpoints) {
+        if self.write(self.hl, result, breakpoints, dbg_mode) {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
@@ -2190,7 +2195,7 @@ impl GameboyCPU {
     }
 
     fn rl_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -2199,7 +2204,7 @@ impl GameboyCPU {
 
         let result = self.rl(value);
 
-        if self.write(self.hl, result, breakpoints) {
+        if self.write(self.hl, result, breakpoints, dbg_mode) {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
@@ -2230,7 +2235,7 @@ impl GameboyCPU {
     }
 
     fn rr_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -2239,7 +2244,7 @@ impl GameboyCPU {
         
         let result = self.rr(value);
 
-        if self.write(self.hl, result, breakpoints) {
+        if self.write(self.hl, result, breakpoints, dbg_mode) {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
@@ -2269,7 +2274,7 @@ impl GameboyCPU {
     }
 
     fn sla_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -2278,7 +2283,7 @@ impl GameboyCPU {
         
         let result = self.sla(value);
 
-        if self.write(self.hl, result, breakpoints) {
+        if self.write(self.hl, result, breakpoints, dbg_mode) {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
@@ -2308,7 +2313,7 @@ impl GameboyCPU {
     }
 
     fn sra_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -2317,7 +2322,7 @@ impl GameboyCPU {
         
         let result = self.sra(value);
 
-        if self.write(self.hl, result, breakpoints) {
+        if self.write(self.hl, result, breakpoints, dbg_mode) {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
@@ -2347,7 +2352,7 @@ impl GameboyCPU {
     }
 
     fn swap_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -2356,7 +2361,7 @@ impl GameboyCPU {
 
         let result = self.swap(value);
 
-        if self.write(self.hl, result, breakpoints) {
+        if self.write(self.hl, result, breakpoints, dbg_mode) {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
@@ -2386,7 +2391,7 @@ impl GameboyCPU {
     }
 
     fn srl_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -2395,7 +2400,7 @@ impl GameboyCPU {
 
         let result = self.srl(value);
 
-        if self.write(self.hl, result, breakpoints) {
+        if self.write(self.hl, result, breakpoints, dbg_mode) {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
@@ -2418,7 +2423,7 @@ impl GameboyCPU {
     }
 
     fn bit_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, bit: u8) {
-        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -2442,7 +2447,7 @@ impl GameboyCPU {
     }
 
     fn res_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, bit: u8) {
-        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -2451,7 +2456,7 @@ impl GameboyCPU {
 
         let result = value & !(1 << bit);
 
-        if self.write(self.hl, result, breakpoints) {
+        if self.write(self.hl, result, breakpoints, dbg_mode) {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
@@ -2471,7 +2476,7 @@ impl GameboyCPU {
     }
 
     fn set_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, bit: u8) {
-        let (bp_hit, value) = self.read_u8(self.hl, breakpoints);
+        let (bp_hit, value) = self.read_u8(self.hl, breakpoints, dbg_mode);
 
         if bp_hit {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -2480,7 +2485,7 @@ impl GameboyCPU {
 
         let result = value | (1 << bit);
 
-        if self.write(self.hl, result, breakpoints) {
+        if self.write(self.hl, result, breakpoints, dbg_mode) {
             *dbg_mode = EmulatorMode::BreakpointHit;
             return;
         }
