@@ -11,6 +11,53 @@ use glium::uniforms::{MagnifySamplerFilter, MinifySamplerFilter, SamplerBehavior
 const SCREEN_WIDTH: usize = 160;
 const SCREEN_HEIGHT: usize = 144;
 
+pub struct GameboyTexture {
+    id: Option<TextureId>,
+
+    width: u32,
+    height: u32
+}
+
+impl GameboyTexture {
+    pub fn new(width: u32, height: u32) -> GameboyTexture {
+        GameboyTexture {
+            id: None,
+
+            width,
+            height
+        }
+    }
+
+    pub fn update_texture(&mut self, data: Vec<u8>, display: &Display, textures: &mut Textures<Texture>) {
+        let image = RawImage2d {
+            data: Cow::Owned(data),
+            width: self.width,
+            height: self.height,
+            format: ClientFormat::U8U8U8
+        };
+
+        if let Ok(gl_texture) = Texture2d::new(display, image) {
+            let texture = Texture {
+                texture: std::rc::Rc::new(gl_texture),
+                sampler: SamplerBehavior {
+                    magnify_filter: MagnifySamplerFilter::Nearest,
+                    minify_filter: MinifySamplerFilter::Nearest,
+                    ..Default::default()
+                }
+            };
+        
+            if let Some(id) = self.id.take() {
+                textures.remove(id);
+            }
+        
+            self.id = Some(textures.insert(texture));
+        }
+        else {
+            println!("Error updating texture.");
+        }
+    }
+}
+
 pub struct ScreenWindow {
     show_screen: bool,
     show_background_0: bool,
@@ -20,12 +67,11 @@ pub struct ScreenWindow {
     background_0_scale: i32,
     background_1_scale: i32,
 
-    screen_data: Arc<RwLock<Vec<u8>>>,
-    backgrounds_data: Arc<RwLock<Vec<Vec<u8>>>>,
+    screen: GameboyTexture,
+    backgrounds: Vec<GameboyTexture>,
 
-    bg0_texture_id: Option<TextureId>,
-    bg1_texture_id: Option<TextureId>,
-    screen_texture_id: Option<TextureId>
+    screen_data: Arc<RwLock<Vec<u8>>>,
+    backgrounds_data: Arc<RwLock<Vec<Vec<u8>>>>
 }
 
 impl ScreenWindow {
@@ -39,26 +85,25 @@ impl ScreenWindow {
             background_0_scale: 1,
             background_1_scale: 1,
 
-            screen_data,
-            backgrounds_data,
+            screen: GameboyTexture::new(SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32),
+            backgrounds: vec![GameboyTexture::new(256, 256), GameboyTexture::new(256, 256)],
 
-            bg0_texture_id: None,
-            bg1_texture_id: None,
-            screen_texture_id: None
+            screen_data,
+            backgrounds_data
         }
     }
 
     pub fn draw(&mut self, ui: &Ui, display: &Display, textures: &mut Textures<Texture>) {
         Window::new(im_str!("Video Settings")).build(ui, || {
-            ui.checkbox(im_str!("Show screen"), &mut self.show_screen);
+            ui.checkbox(im_str!("Show Screen"), &mut self.show_screen);
             
-            ui.checkbox(im_str!("Show Background ($9800-$9BFF)"), &mut self.show_background_0);
+            ui.checkbox(im_str!("Show BG0 ($9800)"), &mut self.show_background_0);
             ui.same_line(0.0);
-            ui.checkbox(im_str!("Show Background ($9C00-$9FFF)"), &mut self.show_background_1);
+            ui.checkbox(im_str!("Show BG1 ($9C00)"), &mut self.show_background_1);
 
             ui.input_int(im_str!("Screen Scale"), &mut self.screen_scale).build();
-            ui.input_int(im_str!("Background 0 Scale"), &mut self.background_0_scale).build();
-            ui.input_int(im_str!("Background 1 Scale"), &mut self.background_1_scale).build();
+            ui.input_int(im_str!("BG0 Scale"), &mut self.background_0_scale).build();
+            ui.input_int(im_str!("BG1 Scale"), &mut self.background_1_scale).build();
         });
 
         if self.show_screen {
@@ -72,31 +117,10 @@ impl ScreenWindow {
                         data.push(*b);
                     }
     
-                    let image = RawImage2d {
-                        data: Cow::Owned(data),
-                        width: SCREEN_WIDTH as u32,
-                        height: SCREEN_HEIGHT as u32,
-                        format: ClientFormat::U8U8U8
-                    };
-        
-                    let gl_texture = Texture2d::new(display, image).unwrap();
-                    let texture = Texture {
-                        texture: std::rc::Rc::new(gl_texture),
-                        sampler: SamplerBehavior {
-                            magnify_filter: MagnifySamplerFilter::Nearest,
-                            minify_filter: MinifySamplerFilter::Nearest,
-                            ..Default::default()
-                        }
-                    };
-        
-                    if let Some(id) = self.screen_texture_id.take() {
-                        textures.remove(id);
-                    }
-    
-                    self.screen_texture_id = Some(textures.insert(texture));
+                    self.screen.update_texture(data, display, textures);
                 }
 
-                if let Some(id) = self.screen_texture_id.as_ref() {
+                if let Some(id) = self.screen.id.as_ref() {
                     let w = SCREEN_HEIGHT * self.screen_scale as usize;
                     let h = SCREEN_HEIGHT * self.screen_scale as usize;
 
@@ -116,32 +140,11 @@ impl ScreenWindow {
                     data.push(*b);
                 }
 
-                let image = RawImage2d {
-                    data: Cow::Owned(data),
-                    width: 256,
-                    height: 256,
-                    format: ClientFormat::U8U8U8
-                };
-        
-                let gl_texture = Texture2d::new(display, image).unwrap();
-                let texture = Texture {
-                    texture: std::rc::Rc::new(gl_texture),
-                    sampler: SamplerBehavior {
-                        magnify_filter: MagnifySamplerFilter::Nearest,
-                        minify_filter: MinifySamplerFilter::Nearest,
-                        ..Default::default()
-                    }
-                };
-
-                if let Some(id) = self.bg0_texture_id.take() {
-                    textures.remove(id);
-                }
-
-                self.bg0_texture_id = Some(textures.insert(texture));
+                self.backgrounds[0].update_texture(data, display, textures);
             }
 
             Window::new(im_str!("Background ($9800-$9BFF)")).build(ui, || {
-                if let Some(id) = self.bg0_texture_id.as_ref() {
+                if let Some(id) = self.backgrounds[0].id.as_ref() {
                     let size = 256 * self.background_0_scale;
                     Image::new(*id, [size as f32, size as f32]).build(ui);
                 }
@@ -159,32 +162,11 @@ impl ScreenWindow {
                     data.push(*b);
                 }
 
-                let image = RawImage2d {
-                    data: Cow::Owned(data),
-                    width: 256,
-                    height: 256,
-                    format: ClientFormat::U8U8U8
-                };
-        
-                let gl_texture = Texture2d::new(display, image).unwrap();
-                let texture = Texture {
-                    texture: std::rc::Rc::new(gl_texture),
-                    sampler: SamplerBehavior {
-                        magnify_filter: MagnifySamplerFilter::Nearest,
-                        minify_filter: MinifySamplerFilter::Nearest,
-                        ..Default::default()
-                    }
-                };
-
-                if let Some(id) = self.bg1_texture_id.take() {
-                    textures.remove(id);
-                }
-
-                self.bg1_texture_id = Some(textures.insert(texture));
+                self.backgrounds[1].update_texture(data, display, textures);
             }
 
             Window::new(im_str!("Background ($9C00-$9FFF)")).build(ui, || {
-                if let Some(id) = self.bg1_texture_id.as_ref() {
+                if let Some(id) = self.backgrounds[1].id.as_ref() {
                     let size = 256 * self.background_1_scale;
                     Image::new(*id, [size as f32, size as f32]).build(ui);
                 }
