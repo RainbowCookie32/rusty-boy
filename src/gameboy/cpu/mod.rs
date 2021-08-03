@@ -404,7 +404,7 @@ impl GameboyCPU {
 
             0x20 => self.conditional_jump_relative(breakpoints, dbg_mode, Condition::Zero(false)),
             0x21 => self.load_u16_to_rp(breakpoints, dbg_mode, Register::HL(false)),
-            0x22 => self.store_to_hl_and_inc(breakpoints, dbg_mode),
+            0x22 => self.store_a_to_hl_and_inc(breakpoints, dbg_mode),
             0x23 => self.inc_rp(Register::HL(false)),
             0x24 => self.inc_r8(Register::HL(true)),
             0x25 => self.dec_r8(Register::HL(true)),
@@ -421,7 +421,7 @@ impl GameboyCPU {
 
             0x30 => self.conditional_jump_relative(breakpoints, dbg_mode, Condition::Carry(false)),
             0x31 => self.load_u16_to_rp(breakpoints, dbg_mode, Register::SP),
-            0x32 => self.store_to_hl_and_dec(breakpoints, dbg_mode),
+            0x32 => self.store_a_to_hl_and_dec(breakpoints, dbg_mode),
             0x33 => self.inc_rp(Register::SP),
             0x34 => self.inc_hl(breakpoints, dbg_mode),
             0x35 => self.dec_hl(breakpoints, dbg_mode),
@@ -1098,15 +1098,15 @@ impl GameboyCPU {
         }
 
         let sp = self.sp;
-        let value = value as i8;
-        let result = sp.wrapping_add(value as u16);
+        let value = (value as i8) as u16;
+        let result = sp.wrapping_add(value);
 
         self.hl = result;
 
         self.set_flag(Flag::Zero(false));
         self.set_flag(Flag::Negative(false));
-        self.set_flag(Flag::HalfCarry((sp & 0x0F) + (value as u16 & 0x0F) > 0x0F));
-        self.set_flag(Flag::Carry(result > 0xFF));
+        self.set_flag(Flag::HalfCarry((sp & 0x0F) + (value & 0x0F) > 0x0F));
+        self.set_flag(Flag::Carry((sp & 0x00FF) + (value & 0x00FF) > 0xFF));
 
         self.pc += 2;
         self.cycles += 12;
@@ -1124,7 +1124,7 @@ impl GameboyCPU {
         self.cycles += 8;
     }
 
-    fn store_to_hl_and_inc(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
+    fn store_a_to_hl_and_inc(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
         let value = self.get_r8(&Register::AF);
         
         if self.write(self.hl, value, breakpoints, dbg_mode) {
@@ -1138,7 +1138,7 @@ impl GameboyCPU {
         self.cycles += 8;
     }
 
-    fn store_to_hl_and_dec(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
+    fn store_a_to_hl_and_dec(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
         let value = self.get_r8(&Register::AF);
         
         if self.write(self.hl, value, breakpoints, dbg_mode) {
@@ -1261,8 +1261,16 @@ impl GameboyCPU {
             return;
         }
 
-        let value = value as i8;
-        self.sp = self.sp.wrapping_add(value as u16);
+        let sp = self.sp;
+        let value = (value as i8) as u16;
+        let result = sp.wrapping_add(value);
+
+        self.sp = result;
+
+        self.set_flag(Flag::Zero(false));
+        self.set_flag(Flag::Negative(false));
+        self.set_flag(Flag::HalfCarry((sp & 0x0F) + (value & 0x0F) > 0x0F));
+        self.set_flag(Flag::Carry((sp & 0x00FF) + (value & 0x00FF) > 0xFF));
 
         self.pc += 2;
         self.cycles += 16;
@@ -1346,12 +1354,10 @@ impl GameboyCPU {
 
     fn inc(&mut self, value: u8) -> u8 {
         let result = value.wrapping_add(1);
-        let zero = result == 0;
-        let half_carry = (value & 0x0F) + 1 > 0x0F;
 
-        self.set_flag(Flag::Zero(zero));
+        self.set_flag(Flag::Zero(result == 0));
         self.set_flag(Flag::Negative(false));
-        self.set_flag(Flag::HalfCarry(half_carry));
+        self.set_flag(Flag::HalfCarry((value & 0x0F) + 1 > 0x0F));
 
         result
     }
@@ -1385,12 +1391,10 @@ impl GameboyCPU {
 
     fn dec(&mut self, value: u8) -> u8 {
         let result = value.wrapping_sub(1);
-        let zero = result == 0;
-        let half_carry = (value & 0x0F) < 1;
 
-        self.set_flag(Flag::Zero(zero));
+        self.set_flag(Flag::Zero(result == 0));
         self.set_flag(Flag::Negative(true));
-        self.set_flag(Flag::HalfCarry(half_carry));
+        self.set_flag(Flag::HalfCarry((value & 0x0F) == 0));
 
         result
     }
@@ -1488,13 +1492,13 @@ impl GameboyCPU {
     fn adc(&mut self, value: u8) {
         let a = self.get_r8(&Register::AF);
         let carry = if self.get_flag(Flag::Carry(false)) {1} else {0};
-        let result = a as u16 + value as u16 + carry;
+        let result = a as u16 + value as u16 + carry as u16;
 
         self.set_r8(Register::AF, result as u8);
 
         self.set_flag(Flag::Zero(result as u8 == 0));
         self.set_flag(Flag::Negative(false));
-        self.set_flag(Flag::HalfCarry((a & 0x0F) + (value & 0x0F) + carry as u8 > 0x0F));
+        self.set_flag(Flag::HalfCarry((a & 0x0F) + (value & 0x0F) + carry > 0x0F));
         self.set_flag(Flag::Carry(result > 0xFF));
     }
 
@@ -1585,15 +1589,14 @@ impl GameboyCPU {
     fn sbc(&mut self, value: u8) {
         let a = self.get_r8(&Register::AF);
         let carry = if self.get_flag(Flag::Carry(false)) {1} else {0};
-        let result = a.wrapping_sub(value).wrapping_sub(carry);
+        let result = a as i16 - value as i16 - carry as i16;
 
-        self.set_r8(Register::AF, result);
+        self.set_r8(Register::AF, result as u8);
 
-        self.set_flag(Flag::Zero(result == 0));
+        self.set_flag(Flag::Zero(result as u8 == 0));
         self.set_flag(Flag::Negative(true));
-        // FIXME: Check carry.
-        self.set_flag(Flag::HalfCarry((a & 0x0F) < (value & 0x0F)));
-        self.set_flag(Flag::Carry(value > a));
+        self.set_flag(Flag::HalfCarry(((a & 0x0F) as i16 - (value & 0x0F) as i16 - carry as i16) < 0));
+        self.set_flag(Flag::Carry(result < 0));
     }
 
     fn sbc_r8(&mut self, reg: Register) {
@@ -1778,12 +1781,11 @@ impl GameboyCPU {
 
     fn cp(&mut self, value: u8) {
         let a = self.get_r8(&Register::AF);
-        let result = a.wrapping_sub(value);
 
-        self.set_flag(Flag::Zero(result == 0));
+        self.set_flag(Flag::Zero(a == value));
         self.set_flag(Flag::Negative(true));
         self.set_flag(Flag::HalfCarry((a & 0x0F) < (value & 0x0F)));
-        self.set_flag(Flag::Carry(a > value));
+        self.set_flag(Flag::Carry(a < value));
     }
 
     fn cp_r8(&mut self, reg: Register) {
@@ -2028,75 +2030,47 @@ impl GameboyCPU {
     }
 
     fn rla(&mut self) {
-        let value = self.get_r8(&Register::AF);
-        let new_carry = (value >> 7) == 1;
-        let carry = if self.get_flag(Flag::Carry(false)) {1} else {0};
-        
-        let result = (value << 1) | carry;
-
+        let result = self.rl(self.get_r8(&Register::AF));
         self.set_r8(Register::AF, result);
-
+        // RL sets the Zero flag according to the result. RLA is always 0.
         self.set_flag(Flag::Zero(false));
-        self.set_flag(Flag::Negative(false));
-        self.set_flag(Flag::HalfCarry(false));
-        self.set_flag(Flag::Carry(new_carry));
 
         self.pc += 1;
         self.cycles += 4;
     }
 
     fn rra(&mut self) {
-        let value = self.get_r8(&Register::AF);
-        let new_carry = (value & 1) != 0;
-        let current_carry = if self.get_flag(Flag::Carry(false)) {1} else {0};
-        
-        let result = (value >> 1) | (current_carry << 7);
-
+        let result = self.rr(self.get_r8(&Register::AF));
         self.set_r8(Register::AF, result);
-
+        // RR sets the Zero flag according to the result. RRA is always 0.
         self.set_flag(Flag::Zero(false));
-        self.set_flag(Flag::Negative(false));
-        self.set_flag(Flag::HalfCarry(false));
-        self.set_flag(Flag::Carry(new_carry));
 
         self.pc += 1;
         self.cycles += 4;
     }
 
     fn rlca(&mut self) {
-        let value = self.get_r8(&Register::AF);
-        let new_carry = value >> 7 != 0;
-        let result = value.rotate_left(1);
-
+        let result = self.rlc(self.get_r8(&Register::AF));
         self.set_r8(Register::AF, result);
-
-        self.set_flag(Flag::Zero(result == 0));
-        self.set_flag(Flag::Negative(false));
-        self.set_flag(Flag::HalfCarry(false));
-        self.set_flag(Flag::Carry(new_carry));
+        // RLC sets the Zero flag according to the result. RLCA is always 0.
+        self.set_flag(Flag::Zero(false));
 
         self.pc += 1;
         self.cycles += 4;
     }
 
     fn rrca(&mut self) {
-        let value = self.get_r8(&Register::AF);
-        let new_carry = value & 1 != 0;
-        let result = value.rotate_right(1);
-
+        let result = self.rrc(self.get_r8(&Register::AF));
         self.set_r8(Register::AF, result);
-
-        self.set_flag(Flag::Zero(result == 0));
-        self.set_flag(Flag::Negative(false));
-        self.set_flag(Flag::HalfCarry(false));
-        self.set_flag(Flag::Carry(new_carry));
+        // RRC sets the Zero flag according to the result. RRCA is always 0.
+        self.set_flag(Flag::Zero(false));
 
         self.pc += 1;
         self.cycles += 4;
     }
 
     fn rlc(&mut self, value: u8) -> u8 {
-        let new_carry = value >> 7 != 0;
+        let new_carry = value & 0x80 != 0;
         let result = value.rotate_left(1);
 
         self.set_flag(Flag::Zero(result == 0));
@@ -2162,7 +2136,7 @@ impl GameboyCPU {
             return;
         }
 
-        let result = self.rlc(value);
+        let result = self.rrc(value);
 
         if self.write(self.hl, result, breakpoints, dbg_mode) {
             *dbg_mode = EmulatorMode::BreakpointHit;
@@ -2174,7 +2148,7 @@ impl GameboyCPU {
     }
 
     fn rl(&mut self, value: u8) -> u8 {
-        let new_carry = (value >> 7) != 0;
+        let new_carry = (value & 0x80) != 0;
         let current_carry = if self.get_flag(Flag::Carry(false)) {1} else {0};
         let result = (value << 1) | current_carry;
 
@@ -2254,7 +2228,7 @@ impl GameboyCPU {
     }
 
     fn sla(&mut self, value: u8) -> u8 {
-        let new_carry = (value >> 7) == 1;
+        let new_carry = (value & 0x80) != 0;
         let result = value << 1;
 
         self.set_flag(Flag::Zero(result == 0));
@@ -2293,8 +2267,9 @@ impl GameboyCPU {
     }
 
     fn sra(&mut self, value: u8) -> u8 {
+        let msb = value & 0x80;
         let new_carry = (value & 1) == 1;
-        let result = value >> 1;
+        let result = (value >> 1) | msb;
 
         self.set_flag(Flag::Zero(result == 0));
         self.set_flag(Flag::Negative(false));
@@ -2332,7 +2307,7 @@ impl GameboyCPU {
     }
 
     fn swap(&mut self, value: u8) -> u8 {
-        let (hi, low) = ((value & 0xF0 >> 4), (value & 0x0F));
+        let (hi, low) = (((value & 0xF0) >> 4), (value & 0x0F));
         let result = (low << 4) | hi;
 
         self.set_flag(Flag::Zero(result == 0));
@@ -2371,13 +2346,13 @@ impl GameboyCPU {
     }
 
     fn srl(&mut self, value: u8) -> u8 {
-        let msb = (value & 1) != 0;
+        let new_carry = (value & 1) != 0;
         let result = value >> 1;
 
         self.set_flag(Flag::Zero(result == 0));
         self.set_flag(Flag::Negative(false));
         self.set_flag(Flag::HalfCarry(false));
-        self.set_flag(Flag::Carry(msb));
+        self.set_flag(Flag::Carry(new_carry));
 
         result
     }
@@ -2410,7 +2385,7 @@ impl GameboyCPU {
     }
 
     fn bit(&mut self, value: u8, bit: u8) {
-        self.set_flag(Flag::Zero((value & (1 << bit)) == 0));
+        self.set_flag(Flag::Zero((value >> bit) & 1 == 0));
         self.set_flag(Flag::Negative(false));
         self.set_flag(Flag::HalfCarry(true));
     }
