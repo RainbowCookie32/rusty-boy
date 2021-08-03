@@ -48,12 +48,7 @@ impl MBC1 {
     }
 
     fn get_rom_bank(&self) -> usize {
-        if self.rom_banks.len() > 32 {
-            ((self.selected_ram_bank.get() << 5) | self.selected_rom_bank.get()) as usize
-        }
-        else {
-            self.selected_rom_bank.get() as usize
-        }
+        ((self.selected_ram_bank.get() << 5) | self.selected_rom_bank.get()) as usize
     }
 }
 
@@ -67,9 +62,8 @@ impl GameboyCart for MBC1 {
                     return bank[address as usize].get();
                 }
             }
-            else {
-                return self.rom_banks[0][address as usize].get();
-            }
+
+            return self.rom_banks[0][address as usize].get();
         }
         else if CARTRIDGE_ROM_BANKX.contains(&address) {
             let bank = self.get_rom_bank();
@@ -78,6 +72,8 @@ impl GameboyCart for MBC1 {
             if let Some(bank) = self.rom_banks.get(bank) {
                 return bank[address as usize].get();
             }
+
+            return self.rom_banks[1][address as usize].get();
         }
         else if CARTRIDGE_RAM.contains(&address) && self.is_ram_enabled() {
             let address = (address - 0xA000) as usize;
