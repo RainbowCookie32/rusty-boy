@@ -409,7 +409,7 @@ impl GameboyCPU {
             0x24 => self.inc_r8(Register::HL(true)),
             0x25 => self.dec_r8(Register::HL(true)),
             0x26 => self.load_u8_to_r8(breakpoints, dbg_mode, Register::HL(true)),
-            //0x27 => self.daa(),
+            0x27 => self.daa(),
             0x28 => self.conditional_jump_relative(breakpoints, dbg_mode, Condition::Zero(true)),
             0x29 => self.add_hl_rp(Register::HL(false)),
             0x2A => self.load_a_from_hl_and_inc(breakpoints, dbg_mode),
@@ -1274,6 +1274,34 @@ impl GameboyCPU {
 
         self.pc += 2;
         self.cycles += 16;
+    }
+
+    fn daa(&mut self) {
+        let a = self.get_r8(&Register::AF);
+        let flag_c = self.get_flag(Flag::Carry(false));
+        let flag_n = self.get_flag(Flag::Negative(false));
+        let flag_h = self.get_flag(Flag::HalfCarry(false));
+        
+        let mut daa_correction = 0;
+
+        if flag_h || (!flag_n && (a & 0x0F) > 9) {
+            daa_correction = 0x06;
+        }
+
+        if flag_c || (!flag_n && a > 0x99) {
+            daa_correction |= 0x60;
+            self.set_flag(Flag::Carry(true));
+        }
+
+        let result = if flag_n {a.wrapping_sub(daa_correction)} else {a.wrapping_add(daa_correction)};
+
+        self.set_r8(Register::AF, result);
+
+        self.set_flag(Flag::Zero(result == 0));
+        self.set_flag(Flag::HalfCarry(false));
+
+        self.pc += 1;
+        self.cycles += 4;
     }
 
     fn scf(&mut self) {
