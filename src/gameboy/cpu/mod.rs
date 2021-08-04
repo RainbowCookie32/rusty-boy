@@ -1,5 +1,9 @@
+mod interrupts;
+
 use std::fmt;
 use std::sync::{Arc, RwLock};
+
+use interrupts::InterruptHandler;
 
 use super::*;
 
@@ -55,16 +59,21 @@ pub struct GameboyCPU {
 
     sp: u16,
     pc: u16,
-    ime: u8,
+
+    halted: bool,
+    stopped: bool,
 
     cycles: usize,
     callstack: Arc<RwLock<Vec<String>>>,
 
-    memory: Arc<GameboyMemory>
+    memory: Arc<GameboyMemory>,
+    interrupt_handler: InterruptHandler
 }
 
 impl GameboyCPU {
     pub fn init(memory: Arc<GameboyMemory>) -> GameboyCPU {
+        let interrupt_handler = InterruptHandler::init(memory.clone());
+
         GameboyCPU {
             af: 0,
             bc: 0,
@@ -73,12 +82,15 @@ impl GameboyCPU {
 
             sp: 0,
             pc: 0,
-            ime: 0,
+
+            halted: false,
+            stopped: false,
 
             cycles: 0,
             callstack: Arc::new(RwLock::new(Vec::new())),
 
-            memory
+            memory,
+            interrupt_handler
         }
     }
 
@@ -360,6 +372,22 @@ impl GameboyCPU {
     }
 
     fn execute_instruction(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
+        if let Some(int) = self.interrupt_handler.check_interrupts() {
+            // FIXME: If a breakpoint *is* hit, the interrupt will be discarded.
+            if self.stack_write(self.pc, breakpoints, dbg_mode) {
+                *dbg_mode = EmulatorMode::BreakpointHit;
+                return;
+            }
+
+            self.pc = int;
+            self.halted = false;
+            self.stopped = false;
+        }
+
+        if self.halted || self.stopped {
+            return;
+        }
+
         let (bp_hit, opcode) = self.read_u8(self.pc, breakpoints, dbg_mode);
 
         if bp_hit && *dbg_mode != EmulatorMode::Stepping {
@@ -1938,7 +1966,6 @@ impl GameboyCPU {
         }
     }
 
-    // FIXME: Same thing as with EI, check when interrupts are actually enabled.
     fn reti(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
         let (bp_hit, address) = self.stack_read(breakpoints, dbg_mode);
 
@@ -1951,7 +1978,7 @@ impl GameboyCPU {
             lock.pop();
         }
 
-        self.ime = 1;
+        self.interrupt_handler.enable_interrupts(false);
 
         self.pc = address;
         self.cycles += 16;
@@ -2043,15 +2070,14 @@ impl GameboyCPU {
     }
 
     fn di(&mut self) {
-        self.ime = 0;
+        self.interrupt_handler.disable_interrupts();
 
         self.pc += 1;
         self.cycles += 4;
     }
 
-    // FIXME: I think interrupts are enabled after the instruction after EI?
     fn ei(&mut self) {
-        self.ime = 1;
+        self.interrupt_handler.enable_interrupts(true);
         
         self.pc += 1;
         self.cycles += 4;
