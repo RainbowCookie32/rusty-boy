@@ -6,11 +6,22 @@ const SCREEN_WIDTH: usize = 160;
 const SCREEN_HEIGHT: usize = 144;
 const COLORS: [u8; 4] = [255, 192, 96, 0];
 
+const LYC_BIT: u8 = 0x04;
+const HBLANK_INT_BIT: u8 = 0x08;
+const VBLANK_INT_BIT: u8 = 0x10;
+const OAM_INT_BIT: u8 = 0x20;
+const LYC_INT_BIT: u8 = 0x40;
+
 enum Mode {
     Vblank,
     Hblank,
     OamScan,
     LcdTransfer
+}
+
+enum Interrupt {
+    Coincidence,
+    ModeSwitch(Mode)
 }
 
 #[derive(Clone)]
@@ -127,7 +138,13 @@ impl GameboyGPU {
             }
 
             if self.ly == self.lyc {
-                // TODO: Request interrupt.
+                self.stat |= LYC_BIT;
+                self.gb_mem.write(0xFF41, self.stat);
+                self.request_interrupt(Interrupt::Coincidence);
+            }
+            else {
+                self.stat &= !LYC_BIT;
+                self.gb_mem.write(0xFF41, self.stat);
             }
 
             *cycles = 0;
@@ -145,7 +162,13 @@ impl GameboyGPU {
             }
 
             if self.ly == self.lyc {
-                // TODO: Request interrupt.
+                self.stat |= LYC_BIT;
+                self.gb_mem.write(0xFF41, self.stat);
+                self.request_interrupt(Interrupt::Coincidence);
+            }
+            else {
+                self.stat &= !LYC_BIT;
+                self.gb_mem.write(0xFF41, self.stat);
             }
 
             *cycles = 0;
@@ -175,8 +198,39 @@ impl GameboyGPU {
         }
 
         self.gb_mem.write(0xFF41, self.stat);
+        self.request_interrupt(Interrupt::ModeSwitch(mode));
+    }
 
-        // TODO: Request an interrupt.
+    fn request_interrupt(&mut self, int: Interrupt) {
+        let mut vblank = false;
+        let mut if_value = self.gb_mem.read(0xFF0F);
+
+        let enabled = {
+            match int {
+                Interrupt::Coincidence => (self.stat & LYC_INT_BIT) != 0,
+                Interrupt::ModeSwitch(mode) => {
+                    match mode {
+                        Mode::Vblank => {
+                            vblank = true;
+                            (self.stat & VBLANK_INT_BIT) != 0
+                        }
+                        Mode::Hblank => (self.stat & HBLANK_INT_BIT) != 0,
+                        Mode::OamScan => (self.stat & OAM_INT_BIT) != 0,
+                        Mode::LcdTransfer => false
+                    }
+                }
+            }
+        };
+
+        if vblank {
+            if_value |= 1;
+        }
+
+        if enabled {
+            if_value |= 2;
+        }
+
+        self.gb_mem.write(0xFF0F, if_value);
     }
 
     // Draw a screen line using the data in self.backgrounds.
