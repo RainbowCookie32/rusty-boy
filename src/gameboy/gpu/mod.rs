@@ -257,7 +257,7 @@ impl GameboyGPU {
     }
 
     fn draw_backgrounds(&mut self) {
-        let (tiles_start, tiles_end) = if self.lcdc & 0x10 == 0 {(0x8800, 0x9800)} else {(0x8000, 0x9000)};
+        let (signed, tiles_start, tiles_end) = if self.lcdc & 0x10 == 0 {(true, 0x8800, 0x9800)} else {(false, 0x8000, 0x9000)};
 
         if let Ok(mut lock) = self.backgrounds.write() {
             for (bg_idx, background) in lock.iter_mut().enumerate() {
@@ -290,7 +290,14 @@ impl GameboyGPU {
                     let y_offset = bg_line_idx * 8;
 
                     for tile_idx in bg_line_data {
-                        let tile = &tiles[*tile_idx as usize];
+                        let tile_idx = if signed {
+                            (*tile_idx as i8 as i16 + 128) as u16
+                        }
+                        else {
+                            *tile_idx as u16
+                        };
+
+                        let tile = &tiles[tile_idx as usize];
                         let tile_data = tile.chunks_exact(2);
 
                         for (tile_y, line) in tile_data.enumerate() {
