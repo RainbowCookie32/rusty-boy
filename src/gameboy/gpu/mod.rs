@@ -61,6 +61,9 @@ pub struct GameboyGPU {
     lcdc: u8,
     stat: u8,
 
+    wy: u8,
+    wx: u8,
+
     bg_palette: Palette,
     obj_palettes: Vec<Palette>,
 
@@ -83,6 +86,9 @@ impl GameboyGPU {
             lcdc: 0,
             stat: 0,
 
+            wy: 0,
+            wx: 0,
+
             bg_palette: Palette::new(),
             obj_palettes: vec![Palette::new(); 2],
 
@@ -103,6 +109,9 @@ impl GameboyGPU {
         self.scx = self.gb_mem.read(0xFF43);
         self.lcdc = self.gb_mem.read(0xFF40);
         self.stat = self.gb_mem.read(0xFF41);
+
+        self.wy = self.gb_mem.read(0xFF4A);
+        self.wx = self.gb_mem.read(0xFF4B);
 
         self.bg_palette.update(self.gb_mem.read(0xFF47));
         self.obj_palettes[0].update(self.gb_mem.read(0xFF48));
@@ -126,8 +135,10 @@ impl GameboyGPU {
         // Mode 3 - Access OAM and VRAM to generate the picture.
         else if self.cycles >= 172 && current_mode == 3 {
             *cycles = 0;
-            self.cycles = 0;
+            
             self.draw_screen_line();
+
+            self.cycles = 0;
             self.set_mode(Mode::Hblank);
         }
         // Mode 0 - H-Blank.
@@ -254,15 +265,45 @@ impl GameboyGPU {
 
             let mut screen_idx = 160 * self.ly as usize;
 
-            for screen_pos in 0..160 {
-                let screen_pos: u8 = screen_pos;
-                let background_line_idx: u8 = screen_pos.wrapping_add(self.scx);
+            for screen_point in 0..160 {
+                let screen_point: u8 = screen_point;
+                let background_line_idx: u8 = screen_point.wrapping_add(self.scx);
 
                 if let Ok(mut screen) = self.screen.write() {
                     screen[screen_idx] = background_line[background_line_idx as usize];
                 }
 
                 screen_idx += 1;
+            }
+
+            let window_enabled = self.lcdc & 0x20 != 0;
+
+            if window_enabled && self.ly >= self.wy {
+                let window_on_screen = self.wx <= 166 && self.wy <= 143;
+
+                if window_on_screen {
+                    // The window doesn't have a "current line" counter,
+                    // so this gives us the current line on the *window* background map.
+                    let window_line_offset = self.ly - self.wy;
+                    let current_window_line = self.wy + window_line_offset;
+                    let background_offset = 256 * window_line_offset as usize;
+    
+                    let background = if self.lcdc & 0x40 == 0 { &backgrounds[0] } else { &backgrounds[1] };
+                    let background_line = &background[background_offset..background_offset+256];
+    
+                    screen_idx = 160 * current_window_line as usize;
+    
+                    for screen_point in 0..160 {
+                        let screen_point: u8 = screen_point;
+                        let background_line_idx: u8 = screen_point.wrapping_add(self.wx - 7);
+    
+                        if let Ok(mut screen) = self.screen.write() {
+                            screen[screen_idx] = background_line[background_line_idx as usize];
+                        }
+    
+                        screen_idx += 1;
+                    }
+                }
             }
         }
     }
