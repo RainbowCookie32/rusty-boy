@@ -7,6 +7,8 @@ use std::sync::atomic::{AtomicU8, Ordering};
 use regions::*;
 use cart::{CartHeader, GameboyCart};
 
+use crate::gameboy::JoypadHandler;
+
 pub struct GameboyByte {
     value: AtomicU8
 }
@@ -48,11 +50,12 @@ pub struct GameboyMemory {
 
     ie: GameboyByte,
 
+    gb_joy: Arc<RwLock<JoypadHandler>>,
     serial_output: Arc<RwLock<Vec<u8>>>
 }
 
 impl GameboyMemory {
-    pub fn init(bootrom_data: Vec<u8>, romfile_data: Vec<u8>) -> GameboyMemory {
+    pub fn init(bootrom_data: Vec<u8>, romfile_data: Vec<u8>, gb_joy: Arc<RwLock<JoypadHandler>>) -> GameboyMemory {
         let cartridge = cart::create_cart(romfile_data);
         let bootrom = bootrom_data.into_iter().map(GameboyByte::from).collect();
 
@@ -69,6 +72,7 @@ impl GameboyMemory {
 
             ie: GameboyByte::from(0),
 
+            gb_joy,
             serial_output: Arc::new(RwLock::new(Vec::new()))
         }
     }
@@ -149,6 +153,12 @@ impl GameboyMemory {
             0
         }
         else if IO.contains(&address) {
+            if address == 0xFF00 {
+                if let Ok(lock) = self.gb_joy.read() {
+                    return lock.get_buttons();
+                }
+            }
+
             self.io[address as usize - 0xFF00].get()
         }
         else if HRAM.contains(&address) {
@@ -183,7 +193,13 @@ impl GameboyMemory {
             
         }
         else if IO.contains(&address) {
-            if address == 0xFF01 {
+            if address == 0xFF00 {
+                if let Ok(mut lock) = self.gb_joy.write() {
+                    lock.set_value(value);
+                    return;
+                }
+            }
+            else if address == 0xFF01 {
                 if let Ok(mut lock) = self.serial_output.write() {
                     lock.push(value);
                 }

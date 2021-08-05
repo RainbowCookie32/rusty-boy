@@ -20,6 +20,7 @@ use crate::gameboy::memory::GameboyMemory;
 pub fn draw_windows(gb: Arc<RwLock<Gameboy>>, gb_mem: Arc<GameboyMemory>, gb_serial: Arc<RwLock<Vec<u8>>>) {
     let gb = gb;
     let gb_mem = gb_mem;
+    let gb_joy = gb.read().unwrap().ui_get_joypad_handler();
     let callstack = gb.read().unwrap().ui_get_callstack();
     let screen_data = gb.read().unwrap().ui_get_screen_data();
     let backgrounds_data = gb.read().unwrap().ui_get_backgrounds_data();
@@ -50,7 +51,7 @@ pub fn draw_windows(gb: Arc<RwLock<Gameboy>>, gb_mem: Arc<GameboyMemory>, gb_ser
     let mut win_cpu = window_cpu::CPUWindow::init(gb.clone(), callstack);
     let win_cart = window_cart::CartWindow::init(gb.clone());
     let mut win_serial = window_serial::SerialWindow::init(gb_serial);
-    let mut win_screen = window_screen::ScreenWindow::init(screen_data, backgrounds_data);
+    let mut win_screen = window_screen::ScreenWindow::init(gb_joy, screen_data, backgrounds_data);
     let mut win_memory = window_memory::MemoryWindow::init(gb_mem.clone());
     let mut win_disassembler = window_disassembler::DisassemblerWindow::init(gb, gb_mem);
 

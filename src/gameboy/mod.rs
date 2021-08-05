@@ -16,6 +16,7 @@ pub struct Gameboy {
     gb_cpu: GameboyCPU,
     gb_gpu: GameboyGPU,
     gb_mem: Arc<GameboyMemory>,
+    gb_joy: Arc<RwLock<JoypadHandler>>,
 
     pub dbg_mode: EmulatorMode,
     pub dbg_do_step: bool,
@@ -23,11 +24,12 @@ pub struct Gameboy {
 }
 
 impl Gameboy {
-    pub fn init(gb_mem: Arc<GameboyMemory>) -> Gameboy {
+    pub fn init(gb_mem: Arc<GameboyMemory>, gb_joy: Arc<RwLock<JoypadHandler>>) -> Gameboy {
         Gameboy {
             gb_cpu: GameboyCPU::init(gb_mem.clone()),
             gb_gpu: GameboyGPU::init(gb_mem.clone()),
             gb_mem,
+            gb_joy,
 
             dbg_mode: EmulatorMode::Paused,
             dbg_do_step: false,
@@ -74,12 +76,110 @@ impl Gameboy {
         self.gb_mem.serial_output()
     }
 
+    pub fn ui_get_joypad_handler(&self) -> Arc<RwLock<JoypadHandler>> {
+        self.gb_joy.clone()
+    }
+
     pub fn ui_get_screen_data(&self) -> Arc<RwLock<Vec<u8>>> {
         self.gb_gpu.get_screen_data()
     }
 
     pub fn ui_get_backgrounds_data(&self) -> Arc<RwLock<Vec<Vec<u8>>>> {
         self.gb_gpu.get_backgrounds_data()
+    }
+}
+
+#[derive(Default)]
+pub struct JoypadHandler {
+    value: u8,
+
+    down_pressed: bool,
+    up_pressed: bool,
+    left_pressed: bool,
+    right_pressed: bool,
+
+    start_pressed: bool,
+    select_pressed: bool,
+    b_pressed: bool,
+    a_pressed: bool
+}
+
+impl JoypadHandler {
+    pub fn set_value(&mut self, value: u8) {
+        self.value = value;
+    }
+
+    pub fn get_buttons(&self) -> u8 {
+        let mut result = 0b11001111;
+
+        if self.value == 0x20 {
+            if self.down_pressed {
+                result &= 0b11000111;
+            }
+
+            if self.up_pressed {
+                result &= 0b11001011;
+            }
+
+            if self.left_pressed {
+                result &= 0b11001101;
+            }
+
+            if self.right_pressed {
+                result &= 0b11001110;
+            }
+        }
+        else if self.value == 0x10 {
+            if self.start_pressed {
+                result &= 0b11000111;
+            }
+
+            if self.select_pressed {
+                result &= 0b11001011;
+            }
+
+            if self.b_pressed {
+                result &= 0b11001101;
+            }
+
+            if self.a_pressed {
+                result &= 0b11001110;
+            }
+        }
+
+        result
+    }
+
+    pub fn set_down_state(&mut self, state: bool) {
+        self.down_pressed = state;
+    }
+
+    pub fn set_up_state(&mut self, state: bool) {
+        self.up_pressed = state;
+    }
+
+    pub fn set_left_state(&mut self, state: bool) {
+        self.left_pressed = state;
+    }
+
+    pub fn set_right_state(&mut self, state: bool) {
+        self.right_pressed = state;
+    }
+
+    pub fn set_start_state(&mut self, state: bool) {
+        self.start_pressed = state;
+    }
+
+    pub fn set_select_state(&mut self, state: bool) {
+        self.select_pressed = state;
+    }
+
+    pub fn set_b_state(&mut self, state: bool) {
+        self.b_pressed = state;
+    }
+
+    pub fn set_a_state(&mut self, state: bool) {
+        self.a_pressed = state;
     }
 }
 

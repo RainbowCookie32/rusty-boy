@@ -4,8 +4,8 @@ mod gameboy;
 use std::fs;
 use std::sync::{Arc, RwLock};
 
-use gameboy::{Gameboy, EmulatorMode};
 use gameboy::memory::GameboyMemory;
+use gameboy::{Gameboy, EmulatorMode, JoypadHandler};
 
 use clap::{Arg, App};
 
@@ -36,8 +36,9 @@ fn main() {
     let bootrom_data = fs::read(bootrom_path).expect("Couldn't read bootrom file at path");
     let romfile_data = fs::read(romfile_path).expect("Couldn't read Gameboy romfile at path");
 
-    let gb_mem = Arc::from(GameboyMemory::init(bootrom_data, romfile_data));
-    let gb = Arc::from(RwLock::from(Gameboy::init(gb_mem.clone())));
+    let gb_joy = Arc::new(RwLock::new(JoypadHandler::default()));
+    let gb_mem = Arc::from(GameboyMemory::init(bootrom_data, romfile_data, gb_joy.clone()));
+    let gb = Arc::from(RwLock::from(Gameboy::init(gb_mem.clone(), gb_joy)));
     
     let gb_ui = gb.clone();
     let gb_mem_ui = gb_mem;

@@ -8,6 +8,8 @@ use glium::{Display, Texture2d};
 use glium::texture::{ClientFormat, RawImage2d};
 use glium::uniforms::{MagnifySamplerFilter, MinifySamplerFilter, SamplerBehavior};
 
+use crate::gameboy::JoypadHandler;
+
 const SCREEN_WIDTH: usize = 160;
 const SCREEN_HEIGHT: usize = 144;
 
@@ -70,12 +72,13 @@ pub struct ScreenWindow {
     screen: GameboyTexture,
     backgrounds: Vec<GameboyTexture>,
 
+    gb_joy: Arc<RwLock<JoypadHandler>>,
     screen_data: Arc<RwLock<Vec<u8>>>,
     backgrounds_data: Arc<RwLock<Vec<Vec<u8>>>>
 }
 
 impl ScreenWindow {
-    pub fn init(screen_data: Arc<RwLock<Vec<u8>>>, backgrounds_data: Arc<RwLock<Vec<Vec<u8>>>>) -> ScreenWindow {
+    pub fn init(gb_joy: Arc<RwLock<JoypadHandler>>, screen_data: Arc<RwLock<Vec<u8>>>, backgrounds_data: Arc<RwLock<Vec<Vec<u8>>>>) -> ScreenWindow {
         ScreenWindow {
             show_screen: true,
             show_background_0: false,
@@ -88,6 +91,7 @@ impl ScreenWindow {
             screen: GameboyTexture::new(SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32),
             backgrounds: vec![GameboyTexture::new(256, 256), GameboyTexture::new(256, 256)],
 
+            gb_joy,
             screen_data,
             backgrounds_data
         }
@@ -125,6 +129,20 @@ impl ScreenWindow {
                     let h = SCREEN_HEIGHT * self.screen_scale as usize;
 
                     Image::new(*id, [w as f32, h as f32]).build(ui);
+                }
+
+                if ui.is_window_focused() {
+                    if let Ok(mut lock) = self.gb_joy.write() {
+                        lock.set_down_state(ui.is_key_down(Key::DownArrow));
+                        lock.set_up_state(ui.is_key_down(Key::UpArrow));
+                        lock.set_left_state(ui.is_key_down(Key::LeftArrow));
+                        lock.set_right_state(ui.is_key_down(Key::RightArrow));
+
+                        lock.set_start_state(ui.is_key_down(Key::Enter));
+                        lock.set_select_state(ui.is_key_down(Key::Backspace));
+                        lock.set_b_state(ui.is_key_down(Key::X));
+                        lock.set_a_state(ui.is_key_down(Key::Z));
+                    }
                 }
             });
         }
