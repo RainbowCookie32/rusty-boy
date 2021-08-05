@@ -84,7 +84,7 @@ impl ScreenWindow {
             show_background_0: false,
             show_background_1: false,
 
-            screen_scale: 1,
+            screen_scale: 2,
             background_0_scale: 1,
             background_1_scale: 1,
 

@@ -1,3 +1,4 @@
+use std::time;
 use std::sync::{Arc, RwLock};
 
 use crate::gameboy::memory::GameboyMemory;
@@ -68,7 +69,8 @@ pub struct GameboyGPU {
     screen: Arc<RwLock<Vec<u8>>>,
     backgrounds: Arc<RwLock<Vec<Vec<u8>>>>,
 
-    gb_mem: Arc<GameboyMemory>
+    gb_mem: Arc<GameboyMemory>,
+    frame_time: time::Instant,
 }
 
 impl GameboyGPU {
@@ -89,7 +91,8 @@ impl GameboyGPU {
             screen: Arc::new(RwLock::new(vec![255; SCREEN_WIDTH * SCREEN_HEIGHT])),
             backgrounds: Arc::new(RwLock::new(vec![vec![255; 256 * 256]; 2])),
 
-            gb_mem
+            gb_mem,
+            frame_time: time::Instant::now()
         }
     }
 
@@ -106,6 +109,7 @@ impl GameboyGPU {
         self.obj_palettes[1].update(self.gb_mem.read(0xFF49));
 
         if self.lcdc & 0x80 == 0 {
+            self.frame_time = time::Instant::now();
             return;
         }
 
@@ -157,8 +161,15 @@ impl GameboyGPU {
             self.ly += 1;
 
             if self.ly > 153 {
+                if self.frame_time.elapsed() < time::Duration::from_millis(16) {
+                    let time_to_sleep = time::Duration::from_millis(16).saturating_sub(self.frame_time.elapsed());
+
+                    std::thread::sleep(time_to_sleep);
+                }
+
                 self.ly = 0;
                 self.set_mode(Mode::OamScan);
+                self.frame_time = time::Instant::now();
             }
 
             if self.ly == self.lyc {
