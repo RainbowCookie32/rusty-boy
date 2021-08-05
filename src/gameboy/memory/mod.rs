@@ -1,3 +1,4 @@
+pub mod dma;
 pub mod cart;
 pub mod regions;
 

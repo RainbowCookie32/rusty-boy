@@ -6,6 +6,7 @@ use std::sync::{Arc, RwLock};
 use interrupts::InterruptHandler;
 
 use super::*;
+use crate::gameboy::memory::dma::DmaTransfer;
 
 #[derive(Clone, Copy)]
 enum Condition {
@@ -66,6 +67,8 @@ pub struct GameboyCPU {
     cycles: usize,
     callstack: Arc<RwLock<Vec<String>>>,
 
+    dma_transfer: Option<DmaTransfer>,
+
     memory: Arc<GameboyMemory>,
     interrupt_handler: InterruptHandler
 }
@@ -88,6 +91,8 @@ impl GameboyCPU {
 
             cycles: 0,
             callstack: Arc::new(RwLock::new(Vec::new())),
+
+            dma_transfer: None,
 
             memory,
             interrupt_handler
@@ -293,7 +298,7 @@ impl GameboyCPU {
         (found_bp, u16::from_le_bytes(values))
     }
 
-    fn write(&self, address: u16, value: u8, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) -> bool {
+    fn write(&mut self, address: u16, value: u8, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) -> bool {
         let matching_bps: Vec<&Breakpoint> = breakpoints.iter().filter(|b| *b.address() == address).collect();
 
         for bp in matching_bps {
@@ -301,6 +306,11 @@ impl GameboyCPU {
             if *bp.write() && *dbg_mode != EmulatorMode::Stepping {
                 return true;
             }
+        }
+
+        if address == 0xFF46 {
+            let transfer = DmaTransfer::new(value, self.cycles, self.memory.clone());
+            self.dma_transfer = Some(transfer);
         }
 
         self.memory.write(address, value);
@@ -397,6 +407,12 @@ impl GameboyCPU {
             // that'd mean it gets stuck on a halted or stop state forever.
             self.cycles += 4;
             return;
+        }
+
+        if let Some(transfer) = self.dma_transfer.as_mut() {
+            if transfer.step(self.cycles) {
+                self.dma_transfer = None;
+            }
         }
 
         let (bp_hit, opcode) = self.read_u8(self.pc, breakpoints, dbg_mode);
