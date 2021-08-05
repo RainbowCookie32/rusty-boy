@@ -29,7 +29,11 @@ impl InterruptHandler {
         }
     }
 
-    pub fn check_interrupts(&mut self) -> Option<u16> {
+    // Returns whether an int was requested or not, and an address
+    // to jump to if the interrupt was enabled.
+    pub fn check_interrupts(&mut self) -> (bool, Option<u16>) {
+        let mut requested = false;
+
         if self.ei_executed {
             if self.instructions_since_ei > 0 {
                 self.ime = true;
@@ -45,53 +49,69 @@ impl InterruptHandler {
             let if_value = self.gb_mem.read(0xFF0F);
             let ie_value = self.gb_mem.read(0xFFFF);
 
-            if (if_value & VBLANK_BIT != 0) && (ie_value & VBLANK_BIT != 0) {
-                let new_if = if_value & !VBLANK_BIT;
+            if if_value & VBLANK_BIT != 0 {
+                requested = true;
 
-                self.ime = false;
-                self.gb_mem.write(0xFF0F, new_if);
+                if ie_value & VBLANK_BIT != 0 {
+                    let new_if = if_value & !VBLANK_BIT;
 
-                Some(0x40)
+                    self.ime = false;
+                    self.gb_mem.write(0xFF0F, new_if);
+
+                    return (requested, Some(0x40));
+                }
             }
-            else if (if_value & STAT_BIT != 0) && (ie_value & STAT_BIT != 0) {
-                let new_if = if_value & !STAT_BIT;
+            else if if_value & STAT_BIT != 0 {
+                requested = true;
 
-                self.ime = false;
-                self.gb_mem.write(0xFF0F, new_if);
+                if ie_value & STAT_BIT != 0 {
+                    let new_if = if_value & !STAT_BIT;
 
-                Some(0x48)
+                    self.ime = false;
+                    self.gb_mem.write(0xFF0F, new_if);
+    
+                    return (requested, Some(0x48))
+                }
             }
-            else if (if_value & TIMER_BIT != 0) && (ie_value & TIMER_BIT != 0) {
-                let new_if = if_value & !TIMER_BIT;
+            else if if_value & TIMER_BIT != 0 {
+                requested = true;
 
-                self.ime = false;
-                self.gb_mem.write(0xFF0F, new_if);
+                if ie_value & TIMER_BIT != 0 {
+                    let new_if = if_value & !TIMER_BIT;
 
-                Some(0x50)
+                    self.ime = false;
+                    self.gb_mem.write(0xFF0F, new_if);
+    
+                    return (requested, Some(0x50))
+                }
             }
-            else if (if_value & SERIAL_BIT != 0) && (ie_value & SERIAL_BIT != 0) {
-                let new_if = if_value & !SERIAL_BIT;
+            else if if_value & SERIAL_BIT != 0 {
+                requested = true;
 
-                self.ime = false;
-                self.gb_mem.write(0xFF0F, new_if);
+                if ie_value & SERIAL_BIT != 0 {
+                    let new_if = if_value & !SERIAL_BIT;
 
-                Some(0x58)
+                    self.ime = false;
+                    self.gb_mem.write(0xFF0F, new_if);
+    
+                    return (requested, Some(0x58));
+                }
             }
-            else if (if_value & JOYPAD_BIT != 0) && (ie_value & JOYPAD_BIT != 0) {
-                let new_if = if_value & !JOYPAD_BIT;
+            else if if_value & JOYPAD_BIT != 0 {
+                requested = true;
+                
+                if ie_value & JOYPAD_BIT != 0 {
+                    let new_if = if_value & !JOYPAD_BIT;
 
-                self.ime = false;
-                self.gb_mem.write(0xFF0F, new_if);
-
-                Some(0x60)
-            }
-            else {
-                None
+                    self.ime = false;
+                    self.gb_mem.write(0xFF0F, new_if);
+    
+                    return (requested, Some(0x60));
+                }
             }
         }
-        else {
-            None
-        }
+        
+        (requested, None)
     }
 
     pub fn enable_interrupts(&mut self, ei: bool) {

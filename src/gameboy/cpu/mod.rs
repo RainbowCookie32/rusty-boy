@@ -372,19 +372,30 @@ impl GameboyCPU {
     }
 
     fn execute_instruction(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
-        if let Some(int) = self.interrupt_handler.check_interrupts() {
-            // FIXME: If a breakpoint *is* hit, the interrupt will be discarded.
-            if self.stack_write(self.pc, breakpoints, dbg_mode) {
-                *dbg_mode = EmulatorMode::BreakpointHit;
-                return;
+        let (int_requested, int_address) = self.interrupt_handler.check_interrupts();
+
+        if int_requested {
+            if let Some(int) = int_address {    
+                // FIXME: If a breakpoint *is* hit, the interrupt will be discarded.
+                if self.stack_write(self.pc, breakpoints, dbg_mode) {
+                    *dbg_mode = EmulatorMode::BreakpointHit;
+                    return;
+                }
+    
+                self.pc = int;
             }
 
-            self.pc = int;
             self.halted = false;
             self.stopped = false;
         }
+        
 
         if self.halted || self.stopped {
+            // HACK: Since the CPU is stopped, the cycle counter doesn't increase.
+            // If the cycle counter doesn't increase, other parts of the system
+            // wont' move either, so interrupts won't be triggered. In this case,
+            // that'd mean it gets stuck on a halted or stop state forever.
+            self.cycles += 4;
             return;
         }
 
@@ -521,7 +532,7 @@ impl GameboyCPU {
             0x73 => self.store_r8_to_hl(breakpoints, dbg_mode, Register::DE(false)),
             0x74 => self.store_r8_to_hl(breakpoints, dbg_mode, Register::HL(true)),
             0x75 => self.store_r8_to_hl(breakpoints, dbg_mode, Register::HL(false)),
-            //0x76 => self.halt(),
+            0x76 => self.halt(),
             0x77 => self.store_r8_to_hl(breakpoints, dbg_mode, Register::AF),
             0x78 => self.load_r8_to_r8(Register::AF, Register::BC(true)),
             0x79 => self.load_r8_to_r8(Register::AF, Register::BC(false)),
@@ -1302,6 +1313,13 @@ impl GameboyCPU {
 
         self.pc += 2;
         self.cycles += 16;
+    }
+
+    fn halt(&mut self) {
+        self.halted = true;
+
+        self.pc += 1;
+        self.cycles += 4;
     }
 
     fn daa(&mut self) {
