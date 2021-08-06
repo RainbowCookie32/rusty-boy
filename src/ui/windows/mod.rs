@@ -1,10 +1,10 @@
-pub mod window_cart;
-pub mod window_cpu;
-pub mod window_disassembler;
-pub mod window_memory;
-pub mod window_screen;
-pub mod window_serial;
-pub mod window_vram_viewer;
+pub mod cart_info;
+pub mod cpu_debugger;
+pub mod disassembler;
+pub mod memory_viewer;
+pub mod screen;
+pub mod serial_output;
+pub mod vram_viewer;
 
 use std::borrow::Cow;
 
