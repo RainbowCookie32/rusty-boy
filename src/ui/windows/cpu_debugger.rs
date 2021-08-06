@@ -283,7 +283,7 @@ impl CPUWindow {
 
             ListBox::new(im_str!("##c")).size([220.0, 70.0]).build(ui, || {
                 for call in self.callstack_items.iter() {
-                    Selectable::new(call).build(&ui);
+                    Selectable::new(call).build(ui);
                 }
             });
         });
