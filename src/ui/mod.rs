@@ -7,17 +7,20 @@ use imgui::*;
 use imgui_glium_renderer::Renderer;
 use imgui_winit_support::{HiDpiMode, WinitPlatform};
 
-use glium::glutin;
 use glium::{Display, Surface};
-use glium::glutin::event::{Event, WindowEvent};
+use glium::glutin::ContextBuilder;
+use glium::glutin::dpi::LogicalSize;
+use glium::glutin::window::WindowBuilder;
 use glium::glutin::event_loop::{ControlFlow, EventLoop};
+use glium::glutin::event::{Event, WindowEvent, VirtualKeyCode};
 
 use windows::*;
 
 use crate::gameboy::Gameboy;
 use crate::gameboy::memory::GameboyMemory;
 
-pub fn draw_windows(gb: Arc<RwLock<Gameboy>>, gb_mem: Arc<GameboyMemory>, gb_serial: Arc<RwLock<Vec<u8>>>) {
+
+pub fn run_app(gb: Arc<RwLock<Gameboy>>, gb_mem: Arc<GameboyMemory>, gb_serial: Arc<RwLock<Vec<u8>>>) {
     let gb = gb;
     let gb_mem = gb_mem;
     let gb_joy = gb.read().unwrap().ui_get_joypad_handler();
@@ -26,11 +29,8 @@ pub fn draw_windows(gb: Arc<RwLock<Gameboy>>, gb_mem: Arc<GameboyMemory>, gb_ser
     let backgrounds_data = gb.read().unwrap().ui_get_backgrounds_data();
 
     let event_loop = EventLoop::new();
-    let glutin_context = glutin::ContextBuilder::new().with_vsync(true);
-    let window_builder = glutin::window::WindowBuilder::new()
-        .with_title("rusty-boy")
-        .with_inner_size(glutin::dpi::LogicalSize::new(1280, 768))
-    ;
+    let glutin_context = ContextBuilder::new().with_vsync(true);
+    let window_builder = WindowBuilder::new().with_title("rusty-boy").with_inner_size(LogicalSize::new(1280, 768));
     let display = Display::new(window_builder, glutin_context, &event_loop)
         .expect("Failed to create glium display")
     ;
@@ -91,7 +91,7 @@ pub fn draw_windows(gb: Arc<RwLock<Gameboy>>, gb_mem: Arc<GameboyMemory>, gb_ser
             }
             Event::WindowEvent { event: WindowEvent::KeyboardInput { input, ..}, ..} => {
                 if let Some(keycode) = input.virtual_keycode {
-                    if keycode == glutin::event::VirtualKeyCode::Escape {
+                    if keycode == VirtualKeyCode::Escape {
                         //app_state.memory_viewer.editing_byte = false;
                     }
                 }

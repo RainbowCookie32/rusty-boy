@@ -62,5 +62,5 @@ fn main() {
         }
     });
 
-    ui::draw_windows(gb_ui, gb_mem_ui, gb_serial);
+    ui::run_app(gb_ui, gb_mem_ui, gb_serial);
 }
