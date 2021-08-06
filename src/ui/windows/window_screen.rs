@@ -111,8 +111,15 @@ impl ScreenWindow {
             ui.input_int(im_str!("BG1 Scale"), &mut self.background_1_scale).build();
         });
 
+        let size = [SCREEN_WIDTH as f32 * 2.0, SCREEN_HEIGHT as f32 * 2.0];
+
         if self.show_screen {
-            Window::new(im_str!("Screen")).build(ui, || {
+            Window::new(im_str!("Screen")).size(size, Condition::Once).build(ui, || {
+                let window_size = ui.content_region_avail();
+
+                let x_scale = window_size[0] / SCREEN_WIDTH as f32;
+                let y_scale = window_size[1] / SCREEN_HEIGHT as f32;
+
                 if let Ok(lock) = self.screen_data.try_read() {
                     let mut data: Vec<u8> = Vec::with_capacity(SCREEN_WIDTH * SCREEN_HEIGHT);
     
@@ -126,8 +133,8 @@ impl ScreenWindow {
                 }
 
                 if let Some(id) = self.screen.id.as_ref() {
-                    let w = SCREEN_HEIGHT * self.screen_scale as usize;
-                    let h = SCREEN_HEIGHT * self.screen_scale as usize;
+                    let w = SCREEN_WIDTH as f32 * x_scale;
+                    let h = SCREEN_HEIGHT as f32 * y_scale;
 
                     Image::new(*id, [w as f32, h as f32]).build(ui);
                 }
