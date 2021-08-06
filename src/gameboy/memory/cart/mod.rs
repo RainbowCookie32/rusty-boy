@@ -103,6 +103,7 @@ pub trait GameboyCart {
     fn write(&self, address: u16, value: u8);
     fn dbg_write(&self, address: u16, value: u8);
 
+    fn reset(&self);
     fn get_header(&self) -> &CartHeader;
     
     fn is_ram_enabled(&self) -> bool;

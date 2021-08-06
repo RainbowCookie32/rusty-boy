@@ -91,6 +91,8 @@ impl GameboyMemory {
     }
 
     pub fn reset(&self) {
+        self.cartridge.reset();
+
         for b in self.vram.iter() {
             b.set(0);
         }

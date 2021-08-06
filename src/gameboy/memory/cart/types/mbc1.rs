@@ -149,6 +149,13 @@ impl GameboyCart for MBC1 {
         }
     }
 
+    fn reset(&self) {
+        self.banking_mode.set(0);
+        self.selected_rom_bank.set(1);
+        self.selected_ram_bank.set(0);
+        self.ram_enabled.store(false, Ordering::Relaxed);
+    }
+
     fn get_header(&self) -> &CartHeader {
         &self.header
     }

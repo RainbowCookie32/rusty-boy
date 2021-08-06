@@ -54,6 +54,10 @@ impl GameboyCart for NoMBC {
         }
     }
 
+    fn reset(&self) {
+        
+    }
+
     fn get_header(&self) -> &CartHeader {
         &self.header
     }
