@@ -183,6 +183,7 @@ impl JoypadHandler {
     }
 }
 
+#[derive(Clone)]
 pub struct Breakpoint {
     read: bool,
     write: bool,
@@ -238,7 +239,7 @@ impl Breakpoint {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum EmulatorMode {
     Paused,
     Running,

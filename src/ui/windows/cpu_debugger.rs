@@ -8,6 +8,11 @@ pub struct CPUWindow {
     gb: Arc<RwLock<Gameboy>>,
     callstack: Arc<RwLock<Vec<String>>>,
 
+    registers: [u16; 6],
+    dbg_mode: EmulatorMode,
+    callstack_items: Vec<ImString>,
+    breakpoints_list: Vec<Breakpoint>,
+
     bp_add_read: bool,
     bp_add_write: bool,
     bp_add_execute: bool,
@@ -29,6 +34,11 @@ impl CPUWindow {
             gb,
             callstack,
 
+            registers: [0, 0, 0, 0, 0, 0],
+            dbg_mode: EmulatorMode::Paused,
+            callstack_items: Vec::new(),
+            breakpoints_list: Vec::new(),
+
             bp_add_read: false,
             bp_add_write: false,
             bp_add_execute: false,
@@ -47,75 +57,118 @@ impl CPUWindow {
         let mut adjust_cursor = false;
 
         Window::new(im_str!("CPU Debugger")).build(ui, || {
-            if let Ok(lock) = self.gb.read() {
-                let (af, bc, de, hl, sp, pc) = lock.ui_get_cpu_registers();
+            if ui.is_window_focused() {
+                if let Ok(lock) = self.gb.try_read() {
+                    let (af, bc, de, hl, sp, pc) = lock.ui_get_cpu_registers();
+                    let mut breakpoints_list = Vec::with_capacity(lock.dbg_breakpoint_list.len());
 
-                ui.columns(2, im_str!("cpu_cols"), true);
+                    self.registers[0] = *af;
+                    self.registers[1] = *bc;
+                    self.registers[2] = *de;
+                    self.registers[3] = *hl;
+                    self.registers[4] = *sp;
+                    self.registers[5] = *pc;
 
-                ui.bullet_text(im_str!("CPU Registers"));
-                
-                ui.text(format!("AF: {:04X}", af));
-                ui.same_line(0.0);
-                ui.text(format!("BC: {:04X}", bc));
-                
-                ui.text(format!("DE: {:04X}", de));
-                ui.same_line(0.0);
-                ui.text(format!("HL: {:04X}", hl));
+                    self.dbg_mode = lock.dbg_mode.clone();
 
-                ui.text(format!("SP: {:04X}", sp));
-                ui.same_line(0.0);
-                ui.text(format!("PC: {:04X}", pc));
+                    for bp in lock.dbg_breakpoint_list.iter() {
+                        breakpoints_list.push(bp.clone());
+                    }
 
-                ui.next_column();
+                    self.breakpoints_list = breakpoints_list;
+                }
 
-                ui.bullet_text(im_str!("CPU Flags"));
+                if let Ok(lock) = self.callstack.try_read() {
+                    let mut callstack_items = Vec::with_capacity(lock.len());
 
-                ui.text(format!("ZF: {}", (af & 0x80) != 0));
-                ui.same_line(0.0);
-                ui.text(format!("NF: {}", (af & 0x40) != 0));
-                
-                ui.text(format!("HF: {}", (af & 0x20) != 0));
-                ui.same_line(0.0);
-                ui.text(format!("CF: {}", (af & 0x10) != 0));
+                    for call in lock.iter().rev() {
+                        callstack_items.push(ImString::from(call.clone()));
+                    }
 
-                ui.columns(1, im_str!("cpu_cols"), false);
+                    self.callstack_items = callstack_items;
+                }
             }
+
+            ui.columns(2, im_str!("cpu_cols"), true);
+
+            ui.bullet_text(im_str!("CPU Registers"));
+            
+            ui.text(format!("AF: {:04X}", self.registers[0]));
+            ui.same_line(0.0);
+            ui.text(format!("BC: {:04X}", self.registers[1]));
+            
+            ui.text(format!("DE: {:04X}", self.registers[2]));
+            ui.same_line(0.0);
+            ui.text(format!("HL: {:04X}", self.registers[3]));
+
+            ui.text(format!("SP: {:04X}", self.registers[4]));
+            ui.same_line(0.0);
+            ui.text(format!("PC: {:04X}", self.registers[5]));
+
+            ui.next_column();
+
+            ui.bullet_text(im_str!("CPU Flags"));
+
+            ui.text(format!("ZF: {}", (self.registers[0] & 0x80) != 0));
+            ui.same_line(0.0);
+            ui.text(format!("NF: {}", (self.registers[0] & 0x40) != 0));
+            
+            ui.text(format!("HF: {}", (self.registers[0] & 0x20) != 0));
+            ui.same_line(0.0);
+            ui.text(format!("CF: {}", (self.registers[0] & 0x10) != 0));
+
+            ui.columns(1, im_str!("cpu_cols"), false);
 
             ui.separator();
             ui.bullet_text(im_str!("CPU Controls"));
 
-            if let Ok(mut lock) = self.gb.write() {
-                ui.bullet_text(&ImString::from(format!("Status: {}", lock.dbg_mode)));
+            ui.bullet_text(&ImString::from(format!("Status: {}", self.dbg_mode)));
 
-                if lock.dbg_mode == EmulatorMode::Running {
-                    if ui.button(im_str!("Pause"), [0.0, 0.0]) {
-                        adjust_cursor = true;
+            if self.dbg_mode == EmulatorMode::Running {
+                if ui.button(im_str!("Pause"), [0.0, 0.0]) {
+                    adjust_cursor = true;
+
+                    if let Ok(mut lock) = self.gb.write() {
+                        self.dbg_mode = EmulatorMode::Paused;
                         lock.dbg_mode = EmulatorMode::Paused;
                     }
                 }
-                else if ui.button(im_str!("Resume"), [0.0, 0.0]) {
-                    adjust_cursor = true;
+            }
+            else if ui.button(im_str!("Resume"), [0.0, 0.0]) {
+                adjust_cursor = true;
+                
+                if let Ok(mut lock) = self.gb.write() {
+                    self.dbg_mode = EmulatorMode::Running;
                     lock.dbg_mode = EmulatorMode::Running;
                 }
+            }
 
-                ui.same_line(0.0);
+            ui.same_line(0.0);
 
-                if ui.button(im_str!("Step"), [0.0, 0.0]) {
-                    lock.dbg_mode = EmulatorMode::Stepping;
+            if ui.button(im_str!("Step"), [0.0, 0.0]) {
+                if let Ok(mut lock) = self.gb.write() {
                     lock.dbg_do_step = true;
+                    self.dbg_mode = EmulatorMode::Stepping;
+                    lock.dbg_mode = EmulatorMode::Stepping;
                 }
+            }
 
-                ui.same_line(0.0);
+            ui.same_line(0.0);
 
-                if ui.button(im_str!("Reset"), [0.0, 0.0]) {
-                    adjust_cursor = true;
+            if ui.button(im_str!("Reset"), [0.0, 0.0]) {
+                adjust_cursor = true;
+
+                if let Ok(mut lock) = self.gb.write() {
                     lock.gb_reset();
                 }
+            }
 
-                ui.same_line(0.0);
+            ui.same_line(0.0);
 
-                if ui.button(im_str!("Skip bootrom"), [0.0, 0.0]) {
-                    adjust_cursor = true;
+            if ui.button(im_str!("Skip bootrom"), [0.0, 0.0]) {
+                adjust_cursor = true;
+
+                if let Ok(mut lock) = self.gb.write() {
                     lock.gb_skip_bootrom();
                 }
             }
@@ -124,26 +177,24 @@ impl CPUWindow {
             ui.bullet_text(im_str!("CPU Breakpoints"));
 
             ListBox::new(im_str!("")).size([220.0, 70.0]).build(ui, || {
-                if let Ok(lock) = self.gb.read() {
-                    for (idx, bp) in lock.dbg_breakpoint_list.iter().enumerate() {
-                        let bp_string = format!("{:04X} - {}{}{}",
-                            bp.address(),
-                            if *bp.read() {"r"} else {""},
-                            if *bp.write() {"w"} else {""},
-                            if *bp.execute() {"x"} else {""},
-                        );
+                for (idx, bp) in self.breakpoints_list.iter().enumerate() {
+                    let bp_string = format!("{:04X} - {}{}{}",
+                        bp.address(),
+                        if *bp.read() {"r"} else {""},
+                        if *bp.write() {"w"} else {""},
+                        if *bp.execute() {"x"} else {""},
+                    );
 
-                        let selected = Selectable::new(&ImString::from(bp_string)).allow_double_click(true).build(ui);
-    
-                        if selected && ui.is_mouse_double_clicked(MouseButton::Left) {
-                            self.bp_edit_read = *bp.read();
-                            self.bp_edit_write = *bp.write();
-                            self.bp_edit_execute = *bp.execute();
-                            self.bp_edit_address = ImString::new(format!("{:04X}", bp.address()));
-                        
-                            self.bp_edit_idx = idx;
-                            self.bp_edit_popup_open = true;
-                        }
+                    let selected = Selectable::new(&ImString::from(bp_string)).allow_double_click(true).build(ui);
+
+                    if selected && ui.is_mouse_double_clicked(MouseButton::Left) {
+                        self.bp_edit_read = *bp.read();
+                        self.bp_edit_write = *bp.write();
+                        self.bp_edit_execute = *bp.execute();
+                        self.bp_edit_address = ImString::new(format!("{:04X}", bp.address()));
+                    
+                        self.bp_edit_idx = idx;
+                        self.bp_edit_popup_open = true;
                     }
                 }
             });
@@ -231,10 +282,8 @@ impl CPUWindow {
             ui.bullet_text(im_str!("CPU Callstack"));
 
             ListBox::new(im_str!("##c")).size([220.0, 70.0]).build(ui, || {
-                if let Ok(lock) = self.callstack.read() {
-                    for call in lock.iter().rev() {
-                        Selectable::new(&ImString::from(call.clone())).allow_double_click(true).build(ui);
-                    }
+                for call in self.callstack_items.iter() {
+                    Selectable::new(call).build(&ui);
                 }
             });
         });
