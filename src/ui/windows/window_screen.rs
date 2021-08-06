@@ -3,6 +3,7 @@ use std::sync::{Arc, RwLock};
 
 use imgui::*;
 use imgui_glium_renderer::Texture;
+use glium::glutin::event::VirtualKeyCode;
 
 use glium::{Display, Texture2d};
 use glium::texture::{ClientFormat, RawImage2d};
@@ -139,9 +140,9 @@ impl ScreenWindow {
                         lock.set_right_state(ui.is_key_down(Key::RightArrow));
 
                         lock.set_start_state(ui.is_key_down(Key::Enter));
-                        lock.set_select_state(ui.is_key_down(Key::Backspace));
-                        lock.set_b_state(ui.is_key_down(Key::X));
-                        lock.set_a_state(ui.is_key_down(Key::Z));
+                        lock.set_select_state(ui.io().keys_down[VirtualKeyCode::RShift as usize]);
+                        lock.set_b_state(ui.io().keys_down[VirtualKeyCode::S as usize]);
+                        lock.set_a_state(ui.io().keys_down[VirtualKeyCode::A as usize]);
                     }
                 }
             });
