@@ -1,33 +1,29 @@
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use imgui::*;
 
-use crate::gameboy::Gameboy;
+use crate::gameboy::memory::cart::CartHeader;
 
 pub struct CartWindow {
-    gb: Arc<RwLock<Gameboy>>
+    header: Arc<CartHeader>
 }
 
 impl CartWindow {
-    pub fn init(gb: Arc<RwLock<Gameboy>>) -> CartWindow {
+    pub fn init(header: Arc<CartHeader>) -> CartWindow {
         CartWindow {
-            gb
+            header
         }
     }
 
     pub fn draw(&self, ui: &Ui) {
         Window::new(im_str!("Cartridge Info")).build(ui, || {
-            if let Ok(lock) = self.gb.read() {
-                let header = lock.ui_get_header();
-
-                ui.text(format!("Cartridge Title: {}", header.title()));
-                ui.text(format!("Cartridge Controller: {}", header.cart_type()));
+            ui.text(format!("Cartridge Title: {}", self.header.title()));
+            ui.text(format!("Cartridge Controller: {}", self.header.cart_type()));
             
-                ui.separator();
+            ui.separator();
 
-                ui.text(format!("ROM Size: {} ({} banks)", header.rom_size(), header.rom_banks_count()));
-                ui.text(format!("RAM Size: {} ({} banks)", header.ram_size(), header.ram_banks_count()));
-            }
+            ui.text(format!("ROM Size: {} ({} banks)", self.header.rom_size(), self.header.rom_banks_count()));
+            ui.text(format!("RAM Size: {} ({} banks)", self.header.ram_size(), self.header.ram_banks_count()));
         });
     }
 }

@@ -24,6 +24,7 @@ pub fn run_app(gb: Arc<RwLock<Gameboy>>, gb_mem: Arc<GameboyMemory>, gb_serial: 
     let gb = gb;
     let gb_mem = gb_mem;
     let gb_joy = gb.read().unwrap().ui_get_joypad_handler();
+    let header = gb.read().unwrap().ui_get_header();
     let callstack = gb.read().unwrap().ui_get_callstack();
     let screen_data = gb.read().unwrap().ui_get_screen_data();
     let backgrounds_data = gb.read().unwrap().ui_get_backgrounds_data();
@@ -49,7 +50,7 @@ pub fn run_app(gb: Arc<RwLock<Gameboy>>, gb_mem: Arc<GameboyMemory>, gb_serial: 
     ;
 
     let mut win_cpu = cpu_debugger::CPUWindow::init(gb.clone(), callstack);
-    let win_cart = cart_info::CartWindow::init(gb.clone());
+    let win_cart = cart_info::CartWindow::init(header);
     let mut win_serial = serial_output::SerialWindow::init(gb_serial);
     let mut win_screen = screen::ScreenWindow::init(gb_joy, screen_data);
     let mut win_memory = memory_viewer::MemoryWindow::init(gb_mem.clone());

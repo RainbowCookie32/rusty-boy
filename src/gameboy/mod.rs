@@ -60,7 +60,7 @@ impl Gameboy {
         self.gb_gpu.gpu_cycle(self.gb_cpu.get_cycles());
     }
 
-    pub fn ui_get_header(&self) -> &CartHeader {
+    pub fn ui_get_header(&self) -> Arc<CartHeader> {
         self.gb_mem.header()
     }
 

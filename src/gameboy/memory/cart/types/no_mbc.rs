@@ -1,14 +1,16 @@
+use std::sync::Arc;
+
 use crate::gameboy::memory::regions::*;
 use crate::gameboy::memory::cart::CartHeader;
 use crate::gameboy::memory::{GameboyCart, GameboyByte};
 
 pub struct NoMBC {
-    header: CartHeader,
+    header: Arc<CartHeader>,
     rom_banks: Vec<Vec<GameboyByte>>
 }
 
 impl NoMBC {
-    pub fn new(header: CartHeader, data: Vec<u8>) -> NoMBC {
+    pub fn new(header: Arc<CartHeader>, data: Vec<u8>) -> NoMBC {
         let rom_banks = {
             let mut result = Vec::new();
             let chunks = data.chunks(16384);
@@ -58,8 +60,8 @@ impl GameboyCart for NoMBC {
         
     }
 
-    fn get_header(&self) -> &CartHeader {
-        &self.header
+    fn get_header(&self) -> Arc<CartHeader> {
+        self.header.clone()
     }
 
     fn is_ram_enabled(&self) -> bool {

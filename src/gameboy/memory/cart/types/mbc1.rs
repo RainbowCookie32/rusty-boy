@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::gameboy::memory::regions::*;
@@ -5,7 +6,7 @@ use crate::gameboy::memory::cart::CartHeader;
 use crate::gameboy::memory::{GameboyCart, GameboyByte};
 
 pub struct MBC1 {
-    header: CartHeader,
+    header: Arc<CartHeader>,
 
     rom_banks: Vec<Vec<GameboyByte>>,
     ram_banks: Vec<Vec<GameboyByte>>,
@@ -18,7 +19,7 @@ pub struct MBC1 {
 }
 
 impl MBC1 {
-    pub fn new(header: CartHeader, data: Vec<u8>) -> MBC1 {
+    pub fn new(header: Arc<CartHeader>, data: Vec<u8>) -> MBC1 {
         let rom_banks = {
             let mut result = Vec::new();
             let chunks = data.chunks(16384);
@@ -156,8 +157,8 @@ impl GameboyCart for MBC1 {
         self.ram_enabled.store(false, Ordering::Relaxed);
     }
 
-    fn get_header(&self) -> &CartHeader {
-        &self.header
+    fn get_header(&self) -> Arc<CartHeader> {
+        self.header.clone()
     }
 
     fn is_ram_enabled(&self) -> bool {

@@ -1,5 +1,7 @@
 mod types;
 
+use std::sync::Arc;
+
 use types::*;
 
 pub struct CartHeader {
@@ -104,7 +106,7 @@ pub trait GameboyCart {
     fn dbg_write(&self, address: u16, value: u8);
 
     fn reset(&self);
-    fn get_header(&self) -> &CartHeader;
+    fn get_header(&self) -> Arc<CartHeader>;
     
     fn is_ram_enabled(&self) -> bool;
     fn get_selected_rom_bank(&self) -> usize;
@@ -112,7 +114,7 @@ pub trait GameboyCart {
 }
 
 pub fn create_cart(data: Vec<u8>) -> Box<dyn GameboyCart + Send + Sync> {
-    let header = CartHeader::new(&data);
+    let header = Arc::new(CartHeader::new(&data));
 
     match header.cart_type {
         CartridgeType::MBC1 => Box::new(mbc1::MBC1::new(header, data)),

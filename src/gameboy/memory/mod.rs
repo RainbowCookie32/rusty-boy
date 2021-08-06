@@ -82,7 +82,7 @@ impl GameboyMemory {
         &self.cartridge
     }
 
-    pub fn header(&self) -> &CartHeader {
+    pub fn header(&self) -> Arc<CartHeader> {
         self.cartridge.get_header()
     }
 
