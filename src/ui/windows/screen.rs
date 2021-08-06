@@ -6,6 +6,7 @@ use imgui_glium_renderer::Texture;
 use glium::Display;
 use glium::glutin::event::VirtualKeyCode;
 
+use crate::gameboy::Gameboy;
 use crate::gameboy::JoypadHandler;
 use crate::ui::windows::GameboyTexture;
 
@@ -20,7 +21,10 @@ pub struct ScreenWindow {
 }
 
 impl ScreenWindow {
-    pub fn init(gb_joy: Arc<RwLock<JoypadHandler>>, screen_data: Arc<RwLock<Vec<u8>>>) -> ScreenWindow {
+    pub fn init(gb: Arc<RwLock<Gameboy>>) -> ScreenWindow {
+        let gb_joy = gb.read().unwrap().ui_get_joypad_handler();
+        let screen_data = gb.read().unwrap().ui_get_screen_data();
+
         ScreenWindow {
             screen: GameboyTexture::new(SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32),
 

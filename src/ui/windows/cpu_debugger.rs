@@ -22,7 +22,9 @@ pub struct CPUWindow {
 }
 
 impl CPUWindow {
-    pub fn init(gb: Arc<RwLock<Gameboy>>, callstack: Arc<RwLock<Vec<String>>>) -> CPUWindow {
+    pub fn init(gb: Arc<RwLock<Gameboy>>) -> CPUWindow {
+        let callstack = gb.read().unwrap().ui_get_callstack();
+
         CPUWindow {
             gb,
             callstack,

@@ -5,6 +5,7 @@ use imgui_glium_renderer::Texture;
 
 use glium::Display;
 
+use crate::gameboy::Gameboy;
 use crate::ui::windows::GameboyTexture;
 
 pub struct VramViewerWindow {
@@ -13,9 +14,12 @@ pub struct VramViewerWindow {
 }
 
 impl VramViewerWindow {
-    pub fn init(backgrounds_data: Arc<RwLock<Vec<Vec<u8>>>>) -> VramViewerWindow {
+    pub fn init(gb: Arc<RwLock<Gameboy>>) -> VramViewerWindow {
+        let backgrounds = vec![GameboyTexture::new(256, 256); 2];
+        let backgrounds_data = gb.read().unwrap().ui_get_backgrounds_data();
+
         VramViewerWindow {
-            backgrounds: vec![GameboyTexture::new(256, 256), GameboyTexture::new(256, 256)],
+            backgrounds,
             backgrounds_data
         }
     }

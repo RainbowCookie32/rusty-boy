@@ -1,7 +1,8 @@
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 use imgui::*;
 
+use crate::gameboy::Gameboy;
 use crate::gameboy::memory::cart::CartHeader;
 
 pub struct CartWindow {
@@ -9,7 +10,9 @@ pub struct CartWindow {
 }
 
 impl CartWindow {
-    pub fn init(header: Arc<CartHeader>) -> CartWindow {
+    pub fn init(gb: Arc<RwLock<Gameboy>>) -> CartWindow {
+        let header = gb.read().unwrap().ui_get_header();
+        
         CartWindow {
             header
         }

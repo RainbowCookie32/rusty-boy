@@ -15,6 +15,7 @@ use glium::{Display, Texture2d};
 use glium::texture::{ClientFormat, RawImage2d};
 use glium::uniforms::{MagnifySamplerFilter, MinifySamplerFilter, SamplerBehavior};
 
+#[derive(Clone)]
 pub struct GameboyTexture {
     id: Option<TextureId>,
 

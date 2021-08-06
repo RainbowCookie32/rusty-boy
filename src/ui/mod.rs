@@ -23,11 +23,6 @@ use crate::gameboy::memory::GameboyMemory;
 pub fn run_app(gb: Arc<RwLock<Gameboy>>, gb_mem: Arc<GameboyMemory>, gb_serial: Arc<RwLock<Vec<u8>>>) {
     let gb = gb;
     let gb_mem = gb_mem;
-    let gb_joy = gb.read().unwrap().ui_get_joypad_handler();
-    let header = gb.read().unwrap().ui_get_header();
-    let callstack = gb.read().unwrap().ui_get_callstack();
-    let screen_data = gb.read().unwrap().ui_get_screen_data();
-    let backgrounds_data = gb.read().unwrap().ui_get_backgrounds_data();
 
     let event_loop = EventLoop::new();
     let glutin_context = ContextBuilder::new().with_vsync(true);
@@ -49,13 +44,13 @@ pub fn run_app(gb: Arc<RwLock<Gameboy>>, gb_mem: Arc<GameboyMemory>, gb_serial: 
         .expect("Failed to create imgui renderer")
     ;
 
-    let mut win_cpu = cpu_debugger::CPUWindow::init(gb.clone(), callstack);
-    let win_cart = cart_info::CartWindow::init(header);
+    let win_cart = cart_info::CartWindow::init(gb.clone());
+    let mut win_cpu = cpu_debugger::CPUWindow::init(gb.clone());
     let mut win_serial = serial_output::SerialWindow::init(gb_serial);
-    let mut win_screen = screen::ScreenWindow::init(gb_joy, screen_data);
+    let mut win_screen = screen::ScreenWindow::init(gb.clone());
     let mut win_memory = memory_viewer::MemoryWindow::init(gb_mem.clone());
-    let mut win_disassembler = disassembler::DisassemblerWindow::init(gb, gb_mem);
-    let mut win_vram_viewer = vram_viewer::VramViewerWindow::init(backgrounds_data);
+    let mut win_disassembler = disassembler::DisassemblerWindow::init(gb.clone(), gb_mem);
+    let mut win_vram_viewer = vram_viewer::VramViewerWindow::init(gb);
 
     event_loop.run(move | event, _, control_flow| {
         match event {
