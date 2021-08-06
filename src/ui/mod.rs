@@ -51,9 +51,10 @@ pub fn draw_windows(gb: Arc<RwLock<Gameboy>>, gb_mem: Arc<GameboyMemory>, gb_ser
     let mut win_cpu = window_cpu::CPUWindow::init(gb.clone(), callstack);
     let win_cart = window_cart::CartWindow::init(gb.clone());
     let mut win_serial = window_serial::SerialWindow::init(gb_serial);
-    let mut win_screen = window_screen::ScreenWindow::init(gb_joy, screen_data, backgrounds_data);
+    let mut win_screen = window_screen::ScreenWindow::init(gb_joy, screen_data);
     let mut win_memory = window_memory::MemoryWindow::init(gb_mem.clone());
     let mut win_disassembler = window_disassembler::DisassemblerWindow::init(gb, gb_mem);
+    let mut win_vram_viewer = window_vram_viewer::VramViewerWindow::init(backgrounds_data);
 
     event_loop.run(move | event, _, control_flow| {
         match event {
@@ -72,6 +73,7 @@ pub fn draw_windows(gb: Arc<RwLock<Gameboy>>, gb_mem: Arc<GameboyMemory>, gb_ser
                 win_memory.draw(&ui);
                 win_disassembler.draw(&ui, adjust);
                 win_screen.draw(&ui, &display, renderer.textures());
+                win_vram_viewer.draw(&ui, &display, renderer.textures());
 
                 let gl_window = display.gl_window();
                 let mut target = display.draw();
