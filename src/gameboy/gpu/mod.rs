@@ -25,6 +25,37 @@ enum Interrupt {
     ModeSwitch(Mode)
 }
 
+struct Sprite {
+    pos_y: u8,
+    pos_x: u8,
+    tile_id: u8,
+
+    bg_priority: bool,
+    flip_x: bool,
+    flip_y: bool,
+    palette: bool
+}
+
+impl Sprite {
+    pub fn new(data: &[u8]) -> Sprite {
+        let bg_priority = data[3] & 0x80 != 0;
+        let flip_x = data[3] & 0x40 != 0;
+        let flip_y = data[3] & 0x20 != 0;
+        let palette = data[3] & 0x10 != 0;
+
+        Sprite {
+            pos_y: data[0].saturating_sub(16),
+            pos_x: data[1].saturating_sub(8),
+            tile_id: data[2],
+
+            bg_priority,
+            flip_x,
+            flip_y,
+            palette
+        }
+    }
+}
+
 #[derive(Clone)]
 struct Palette {
     colors: Vec<u8>
@@ -114,8 +145,8 @@ impl GameboyGPU {
         self.wx = self.gb_mem.read(0xFF4B);
 
         self.bg_palette.update(self.gb_mem.read(0xFF47));
-        self.obj_palettes[0].update(self.gb_mem.read(0xFF48));
-        self.obj_palettes[1].update(self.gb_mem.read(0xFF49));
+        self.obj_palettes[0].update(self.gb_mem.read(0xFF48) & 0xFC);
+        self.obj_palettes[1].update(self.gb_mem.read(0xFF49) & 0xFC);
 
         if self.lcdc & 0x80 == 0 {
             self.frame_time = time::Instant::now();
@@ -137,6 +168,7 @@ impl GameboyGPU {
             *cycles = 0;
             
             self.draw_screen_line();
+            self.draw_sprites();
 
             self.cycles = 0;
             self.set_mode(Mode::Hblank);
@@ -308,6 +340,122 @@ impl GameboyGPU {
         }
     }
 
+    fn draw_sprites(&mut self) {
+        // OBJ Enabled flag.
+        if self.lcdc & 2 != 0 {
+            // Whether to use 8x16 sprites or 8x8.
+            let sprite_heigth = if self.lcdc & 4 != 0 {16} else {8};
+            let mut oam_data = Vec::with_capacity(160);
+            let mut sprites_to_draw = Vec::with_capacity(10);
+
+            for offset in 0..160 {
+                oam_data.push(self.gb_mem.read(0xFE00 + offset));
+            }
+            
+            for chunk in oam_data.chunks_exact(4) {
+                let sprite = Sprite::new(chunk);
+                
+                match self.ly.cmp(&sprite.pos_y){
+                    std::cmp::Ordering::Equal => sprites_to_draw.push(sprite),
+                    std::cmp::Ordering::Greater => {
+                        if (self.ly - sprite.pos_y) < sprite_heigth {
+                            sprites_to_draw.push(sprite);
+                        }
+                    }
+                    _ => {}
+                }
+
+                // Can only draw 10 sprites per line.
+                if sprites_to_draw.len() >= 10 {
+                    break;
+                }
+            }
+
+            for sprite in sprites_to_draw {
+                // Sprite is off-screen.
+                if sprite.pos_x == 0 || sprite.pos_x >= 160 || sprite.pos_y == 0 || sprite.pos_y >= 144 {
+                    continue;
+                }
+
+                let sprite_line_offset = (self.ly - sprite.pos_y) as usize;
+                let mut tile_data = Vec::with_capacity((sprite_heigth * 2) as usize);
+
+                let palette = if !sprite.palette {&self.obj_palettes[0]} else {&self.obj_palettes[1]};
+
+                if sprite_heigth == 16 {
+                    let tiles = [sprite.tile_id & 0xFE, sprite.tile_id | 1];
+
+                    for idx in tiles {
+                        let tile_addr = 0x8000 + (16 * idx as u16);
+                        
+                        for offset in 0..16 {
+                            tile_data.push(self.gb_mem.read(tile_addr + offset));
+                        }
+                    }
+                }
+                else {
+                    let idx = sprite.tile_id as u16;
+                    let tile_addr = 0x8000 + (16 * idx);
+                        
+                    for offset in 0..16 {
+                        tile_data.push(self.gb_mem.read(tile_addr + offset));
+                    }
+                }
+
+                let idx = {
+                    if sprite.flip_x {
+                        ((sprite_heigth as usize * 2) - 2) - (2 * sprite_line_offset)
+                    }
+                    else {
+                        2 * sprite_line_offset
+                    }
+                };
+                let sprite_line = &tile_data[idx..idx+2];
+
+                let mut result = Vec::new();
+                let mut screen_idx = (160 * self.ly as usize) + sprite.pos_x as usize;
+
+                if sprite.flip_y {
+                    for bit in 0..8 {
+                        let color_idx = ((sprite_line[0] >> bit) & 1) | (((sprite_line[1] >> bit) & 1) << 1);
+                        result.push(color_idx);
+                    }
+                }
+                else {
+                    for bit in (0..8).rev() {
+                        let color_idx = ((sprite_line[0] >> bit) & 1) | (((sprite_line[1] >> bit) & 1) << 1);
+                        result.push(color_idx);
+                    }
+                }
+
+                for color_idx in result {
+                    if color_idx == 0 {
+                        screen_idx += 1;
+                        continue;
+                    }
+
+                    let pixel_color = palette.get_color(color_idx);
+    
+                    if let Ok(mut lock) = self.screen.write() {
+                        if sprite.bg_priority {
+                            let point_color = lock[screen_idx];
+                            let color_0 = self.bg_palette.get_color(0);
+    
+                            if point_color == color_0 {
+                                lock[screen_idx] = pixel_color;
+                            }
+                        }
+                        else {
+                            lock[screen_idx] = pixel_color;
+                        }
+                    }
+    
+                    screen_idx += 1;
+                }
+            }
+        }
+    }
+
     fn draw_backgrounds(&mut self) {
         let (signed, tiles_start, tiles_end) = if self.lcdc & 0x10 == 0 {(true, 0x8800, 0x9800)} else {(false, 0x8000, 0x9000)};
 
@@ -356,7 +504,7 @@ impl GameboyGPU {
                             let mut idx = x_offset + (256 * (y_offset + tile_y));
 
                             for bit in (0..8).rev() {
-                                let color_idx = ((line[1] >> bit) & 1) | (((line[0] >> bit) & 1) << 1);
+                                let color_idx = ((line[0] >> bit) & 1) | (((line[1] >> bit) & 1) << 1);
                                 let pixel_color = self.bg_palette.get_color(color_idx);
 
                                 background[idx] = pixel_color;
