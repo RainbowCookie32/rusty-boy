@@ -5,6 +5,7 @@ pub mod disassembler;
 
 use std::fmt;
 use std::sync::{Arc, RwLock};
+use std::sync::mpsc::Sender;
 
 use cpu::GameboyCPU;
 use gpu::GameboyGPU;
@@ -24,7 +25,9 @@ pub struct Gameboy {
 }
 
 impl Gameboy {
-    pub fn init(gb_mem: Arc<GameboyMemory>, gb_joy: Arc<RwLock<JoypadHandler>>) -> Gameboy {
+    pub fn init(gb_mem: Arc<GameboyMemory>) -> Gameboy {
+        let gb_joy = gb_mem.gb_joy();
+
         Gameboy {
             gb_cpu: GameboyCPU::init(gb_mem.clone()),
             gb_gpu: GameboyGPU::init(gb_mem.clone()),
@@ -35,6 +38,35 @@ impl Gameboy {
             dbg_do_step: false,
             dbg_breakpoint_list: Vec::new()
         }
+    }
+
+    pub fn gb_start(gameboy: Arc<RwLock<Gameboy>>) -> Sender<()> {
+        let (tx, rx) = std::sync::mpsc::channel();
+
+        std::thread::spawn(move || {
+            let exit_rx = rx;
+            let gameboy = gameboy;
+    
+            loop {
+                if let Ok(mut lock) = gameboy.try_write() {
+                    if lock.dbg_mode == EmulatorMode::Running {
+                        lock.gb_cpu_cycle();
+                        lock.gb_gpu_cycle();
+                    }
+                    else if lock.dbg_mode == EmulatorMode::Stepping && lock.dbg_do_step {
+                        lock.gb_cpu_cycle();
+                        lock.gb_gpu_cycle();
+                        lock.dbg_do_step = false;
+                    }
+                }
+
+                if exit_rx.try_recv().is_ok() {
+                    break;
+                }
+            }
+        });
+
+        tx
     }
 
     pub fn gb_reset(&mut self) {

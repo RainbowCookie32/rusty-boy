@@ -1,7 +1,9 @@
 pub mod cart_info;
 pub mod cpu_debugger;
 pub mod disassembler;
+pub mod file_picker;
 pub mod memory_viewer;
+pub mod notification;
 pub mod screen;
 pub mod serial_output;
 pub mod vram_viewer;

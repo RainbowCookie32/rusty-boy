@@ -1,10 +1,12 @@
 mod windows;
 
+use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
+use std::sync::mpsc::Sender;
 
 use imgui::*;
 
-use imgui_glium_renderer::Renderer;
+use imgui_glium_renderer::{Renderer, Texture};
 use imgui_winit_support::{HiDpiMode, WinitPlatform};
 
 use glium::{Display, Surface};
@@ -14,16 +16,105 @@ use glium::glutin::window::WindowBuilder;
 use glium::glutin::event_loop::{ControlFlow, EventLoop};
 use glium::glutin::event::{Event, WindowEvent, VirtualKeyCode};
 
+use serde::{Deserialize, Serialize};
+
+use ron::de::from_reader;
+use ron::ser::{PrettyConfig, to_string_pretty};
+
 use windows::*;
+use windows::notification::Notification;
+use windows::file_picker::FilePickerWindow;
 
-use crate::gameboy::Gameboy;
 use crate::gameboy::memory::GameboyMemory;
+use crate::gameboy::{EmulatorMode, Gameboy, JoypadHandler};
 
 
-pub fn run_app(gb: Arc<RwLock<Gameboy>>, gb_mem: Arc<GameboyMemory>) {
-    let gb = gb;
-    let gb_mem = gb_mem;
+pub struct AppState {
+    config: AppConfig,
 
+    rom_data: Vec<u8>,
+    bootrom_data: Vec<u8>,
+
+    reload: bool,
+    picking_rom: bool,
+    picking_bootrom: bool,
+
+    gb: Option<Arc<RwLock<Gameboy>>>,
+    gb_mem: Option<Arc<GameboyMemory>>,
+    gb_exit_tx: Option<Sender<()>>,
+
+    notifications: Vec<Notification>,
+    file_picker_instance: FilePickerWindow,
+
+    window_cart_info: (bool, Option<cart_info::CartWindow>),
+    window_cpu_debugger: (bool, Option<cpu_debugger::CPUWindow>),
+    window_disassembler: (bool, Option<disassembler::DisassemblerWindow>),
+    window_memory_viewer: (bool, Option<memory_viewer::MemoryWindow>),
+    window_screen: (bool, Option<screen::ScreenWindow>),
+    window_serial: (bool, Option<serial_output::SerialWindow>),
+    window_vram_viewer: (bool, Option<vram_viewer::VramViewerWindow>)
+}
+
+impl AppState {
+    pub fn init() -> AppState {
+        let config = AppConfig::load();
+        let current_path = config.last_dir_rom.clone();
+
+        AppState {
+            config,
+
+            rom_data: Vec::new(),
+            bootrom_data: Vec::new(),
+
+            reload: false,
+            picking_rom: false,
+            picking_bootrom: false,
+
+            gb: None,
+            gb_mem: None,
+            gb_exit_tx: None,
+
+            notifications: Vec::new(),
+            file_picker_instance: FilePickerWindow::init(current_path),
+
+            window_cart_info: (false, None),
+            window_cpu_debugger: (false, None),
+            window_disassembler: (false, None),
+            window_memory_viewer: (false, None),
+            window_screen: (false, None),
+            window_serial: (false, None),
+            window_vram_viewer: (false, None)
+        }
+    }
+}
+
+#[derive(Default, Deserialize, Serialize)]
+pub struct AppConfig {
+    last_dir_rom: PathBuf,
+    last_dir_bootrom: PathBuf
+}
+
+impl AppConfig {
+    pub fn load() -> AppConfig {
+        if let Ok(file) = std::fs::File::open("config.ron") {
+            if let Ok(config) = from_reader(file) {
+                return config;
+            }
+        }
+        
+        AppConfig::default()
+    }
+
+    pub fn save(&self) {
+        if let Ok(data) = to_string_pretty(self, PrettyConfig::default()) {
+            if let Err(error) = std::fs::write("config.ron", data) {
+                println!("Error saving config: {}", error.to_string());
+            }
+        }
+    }
+}
+
+pub fn run_app() {
     let event_loop = EventLoop::new();
     let glutin_context = ContextBuilder::new().with_vsync(true);
     let window_builder = WindowBuilder::new().with_title("rusty-boy").with_inner_size(LogicalSize::new(1280, 768));
@@ -44,13 +135,7 @@ pub fn run_app(gb: Arc<RwLock<Gameboy>>, gb_mem: Arc<GameboyMemory>) {
         .expect("Failed to create imgui renderer")
     ;
 
-    let win_cart = cart_info::CartWindow::init(gb.clone());
-    let mut win_cpu = cpu_debugger::CPUWindow::init(gb.clone());
-    let mut win_serial = serial_output::SerialWindow::init(gb.clone());
-    let mut win_screen = screen::ScreenWindow::init(gb.clone());
-    let mut win_memory = memory_viewer::MemoryWindow::init(gb_mem.clone());
-    let mut win_disassembler = disassembler::DisassemblerWindow::init(gb.clone(), gb_mem);
-    let mut win_vram_viewer = vram_viewer::VramViewerWindow::init(gb);
+    let mut app_state = AppState::init();
 
     event_loop.run(move | event, _, control_flow| {
         match event {
@@ -62,14 +147,25 @@ pub fn run_app(gb: Arc<RwLock<Gameboy>>, gb_mem: Arc<GameboyMemory>) {
             }
             Event::RedrawRequested(_) => {
                 let ui = imgui_ctx.frame();
-                let adjust = win_cpu.draw(&ui);
+                
+                draw_menu_bar(&mut app_state, &ui, control_flow);
 
-                win_cart.draw(&ui);
-                win_serial.draw(&ui);
-                win_memory.draw(&ui);
-                win_disassembler.draw(&ui, adjust);
-                win_screen.draw(&ui, &display, renderer.textures());
-                win_vram_viewer.draw(&ui, &display, renderer.textures());
+                if app_state.picking_rom {
+                    draw_rom_picker(&mut app_state, &ui);
+                }
+
+                if app_state.picking_bootrom {
+                    draw_bootrom_picker(&mut app_state, &ui);
+                }
+
+                if app_state.reload {
+                    reload_app(&mut app_state, &ui);
+                }
+                else if app_state.gb.is_some() {
+                    draw_windows(&mut app_state, &ui, &display, renderer.textures());
+                }
+
+                show_notifications(&mut app_state, &ui);
 
                 let gl_window = display.gl_window();
                 let mut target = display.draw();
@@ -99,4 +195,322 @@ pub fn run_app(gb: Arc<RwLock<Gameboy>>, gb_mem: Arc<GameboyMemory>) {
             }
         }
     });
+}
+
+fn create_windows(app_state: &mut AppState) {
+    if let Some(gb) = app_state.gb.as_ref() {
+        app_state.window_cart_info = (true, Some(cart_info::CartWindow::init(gb.clone())));
+        app_state.window_cpu_debugger = (false, Some(cpu_debugger::CPUWindow::init(gb.clone())));
+
+        if let Some(gb_mem) = app_state.gb_mem.as_ref() {
+            app_state.window_disassembler = (false, Some(disassembler::DisassemblerWindow::init(gb.clone(), gb_mem.clone())));
+            app_state.window_memory_viewer = (false, Some(memory_viewer::MemoryWindow::init(gb_mem.clone())));
+        }
+
+        app_state.window_screen = (true, Some(screen::ScreenWindow::init(gb.clone())));
+        app_state.window_serial = (false, Some(serial_output::SerialWindow::init(gb.clone())));
+        app_state.window_vram_viewer = (false, Some(vram_viewer::VramViewerWindow::init(gb.clone())));
+    }
+}
+
+fn reload_app(app_state: &mut AppState, ui: &Ui) {
+    if !app_state.rom_data.is_empty() && !app_state.bootrom_data.is_empty() {
+        let bootrom_data = app_state.bootrom_data.clone();
+        let romfile_data = app_state.rom_data.clone();
+
+        let gb_joy = Arc::new(RwLock::new(JoypadHandler::default()));
+
+        let gb_mem = Arc::new(GameboyMemory::init(bootrom_data, romfile_data, gb_joy));
+        let gb = Arc::new(RwLock::new(Gameboy::init(gb_mem.clone())));
+
+        let gb_exit_tx = Gameboy::gb_start(gb.clone());
+
+        app_state.gb = Some(gb);
+        app_state.gb_mem = Some(gb_mem);
+        app_state.gb_exit_tx = Some(gb_exit_tx);
+
+        app_state.notifications.push(
+            Notification::init(
+                ImString::new("rusty-boy"),
+                ImString::new("Emulator ready!"),
+                ui.time()
+            )
+        );
+
+        create_windows(app_state);
+    }
+
+    app_state.reload = false;
+}
+
+fn show_notifications(app_state: &mut AppState, ui: &Ui) {
+    let mut finished_notifications = 0;
+
+    for (i, n) in app_state.notifications.iter_mut().enumerate() {
+        if n.draw(ui, i) {
+            finished_notifications += 1;
+        }
+    }
+
+    for _ in 0..finished_notifications {
+        app_state.notifications.remove(0);
+    }
+}
+
+fn draw_menu_bar(app_state: &mut AppState, ui: &Ui, control_flow: &mut ControlFlow) {
+    ui.main_menu_bar(|| {
+        ui.menu(im_str!("File"), true, || {
+            if MenuItem::new(im_str!("Load ROM")).build(ui) {
+                app_state.picking_rom = true;
+                app_state.file_picker_instance = FilePickerWindow::init(app_state.config.last_dir_rom.clone());
+            }
+
+            if MenuItem::new(im_str!("Load Bootrom")).build(ui) {
+                app_state.picking_bootrom = true;
+                app_state.file_picker_instance = FilePickerWindow::init(app_state.config.last_dir_bootrom.clone());
+            }
+
+            ui.separator();
+
+            if MenuItem::new(im_str!("Reload")).enabled(app_state.gb.is_some()).build(ui) {
+                if let Some(tx) = app_state.gb_exit_tx.as_ref() {
+                    tx.send(()).unwrap();
+                }
+
+                app_state.reload = true;
+
+                app_state.gb = None;
+                app_state.gb_mem = None;
+                app_state.gb_exit_tx = None;
+            }
+
+            ui.separator();
+
+            if MenuItem::new(im_str!("Exit")).build(ui) {
+                *control_flow = ControlFlow::Exit;
+            }
+        });
+
+        ui.menu(im_str!("Emulator"), app_state.gb.is_some(), || {
+            if let Some(gb) = app_state.gb.as_ref() {
+                if let Ok(mut lock) = gb.write() {
+                    match lock.dbg_mode {
+                        EmulatorMode::Running => {
+                            if MenuItem::new(im_str!("Pause")).build(ui) {
+                                lock.dbg_mode = EmulatorMode::Paused;
+                            }
+                        }
+                        EmulatorMode::UnknownInstruction(_, _) => {
+                            MenuItem::new(im_str!("Resume")).enabled(false).build(ui);
+                        }
+                        _ => {
+                            if MenuItem::new(im_str!("Resume")).build(ui) {
+                                lock.dbg_mode = EmulatorMode::Running;
+                            }
+                        }
+                    }
+
+                    if MenuItem::new(im_str!("Restart")).build(ui) {
+                        lock.gb_reset();
+                    }
+                }
+                else {
+                    MenuItem::new(im_str!("Resume")).enabled(false).build(ui);
+                    MenuItem::new(im_str!("Restart")).enabled(false).build(ui);
+                }
+            }
+        });
+
+        ui.menu(im_str!("View"), app_state.gb.is_some(), || {
+            if app_state.window_cart_info.0 {
+                if MenuItem::new(im_str!("Hide cartridge info")).build(ui) {
+                    app_state.window_cart_info.0 = false;
+                }
+            }
+            else if MenuItem::new(im_str!("Show cartridge info")).build(ui) {
+                app_state.window_cart_info.0 = true;
+            }
+
+            if app_state.window_cpu_debugger.0 {
+                if MenuItem::new(im_str!("Hide CPU debugger")).build(ui) {
+                    app_state.window_cpu_debugger.0 = false;
+                }
+            }
+            else if MenuItem::new(im_str!("Show CPU debugger")).build(ui) {
+                app_state.window_cpu_debugger.0 = true;
+            }
+
+            if app_state.window_disassembler.0 {
+                if MenuItem::new(im_str!("Hide disassembler")).build(ui) {
+                    app_state.window_disassembler.0 = false;
+                }
+            }
+            else if MenuItem::new(im_str!("Show disassembler")).build(ui) {
+                app_state.window_disassembler.0 = true;
+            }
+
+            if app_state.window_memory_viewer.0 {
+                if MenuItem::new(im_str!("Hide memory viewer")).build(ui) {
+                    app_state.window_memory_viewer.0 = false;
+                }
+            }
+            else if MenuItem::new(im_str!("Show memory viewer")).build(ui) {
+                app_state.window_memory_viewer.0 = true;
+            }
+
+            if app_state.window_serial.0 {
+                if MenuItem::new(im_str!("Hide serial output")).build(ui) {
+                    app_state.window_serial.0 = false;
+                }
+            }
+            else if MenuItem::new(im_str!("Show serial output")).build(ui) {
+                app_state.window_serial.0 = true;
+            }
+
+            if app_state.window_vram_viewer.0 {
+                if MenuItem::new(im_str!("Hide VRAM viewer")).build(ui) {
+                    app_state.window_vram_viewer.0 = false;
+                }
+            }
+            else if MenuItem::new(im_str!("Show VRAM viewer")).build(ui) {
+                app_state.window_vram_viewer.0 = true;
+            }
+        });
+    });
+}
+
+fn draw_windows(app_state: &mut AppState, ui: &Ui, display: &Display, textures: &mut Textures<Texture>) {
+    let mut adjust = false;
+
+    if app_state.window_cart_info.0 {
+        if let Some(cart_win) = app_state.window_cart_info.1.as_ref() {
+            cart_win.draw(ui);
+        }
+    }
+    
+    if app_state.window_cpu_debugger.0 {
+        if let Some(cpu_win) = app_state.window_cpu_debugger.1.as_mut() {
+            adjust = cpu_win.draw(ui);
+        }
+    }
+
+    if app_state.window_disassembler.0 {
+        if let Some(disas_win) = app_state.window_disassembler.1.as_mut() {
+            disas_win.draw(ui, adjust);
+        }
+    }
+
+    if app_state.window_memory_viewer.0 {
+        if let Some(mem_win) = app_state.window_memory_viewer.1.as_mut() {
+            mem_win.draw(ui);
+        }
+    }
+
+    if app_state.window_screen.0 {
+        if let Some(screen_win) = app_state.window_screen.1.as_mut() {
+            screen_win.draw(ui, display, textures);
+        }
+    }
+
+    if app_state.window_serial.0 {
+        if let Some(serial_win) = app_state.window_serial.1.as_mut() {
+            serial_win.draw(ui);
+        }
+    }
+
+    if app_state.window_vram_viewer.0 {
+        if let Some(vram_win) = app_state.window_vram_viewer.1.as_mut() {
+            vram_win.draw(ui, display, textures);
+        }
+    }
+}
+
+fn draw_rom_picker(app_state: &mut AppState, ui: &Ui) {
+    if let Some(path) = app_state.file_picker_instance.draw(ui) {
+        if path.exists() {
+            let rom_result = std::fs::read(&path);
+
+            if let Ok(data) = rom_result {
+                let filename = {
+                    if let Some(filename) = path.file_name() {
+                        filename.to_string_lossy()
+                    }
+                    else {
+                        std::borrow::Cow::from("filename")
+                    }
+                };
+
+                app_state.rom_data = data;
+                app_state.reload = true;
+                app_state.picking_rom = false;
+                app_state.config.last_dir_rom = path.parent().unwrap().into();
+        
+                app_state.config.save();
+
+                app_state.notifications.push(
+                    Notification::init(
+                        ImString::new("Loader"),
+                        ImString::new(format!("Loaded ROM file {}.", filename)),
+                        ui.time()
+                    )
+                );
+            }
+            else if let Err(error) = rom_result {
+                app_state.reload = false;
+
+                app_state.notifications.push(
+                    Notification::init(
+                        ImString::new("Loader"),
+                        ImString::new(format!("Failed to load ROM file ({}).", error.to_string())),
+                        ui.time()
+                    )
+                );
+            }
+        }
+    }
+}
+
+fn draw_bootrom_picker(app_state: &mut AppState, ui: &Ui) {
+    if let Some(path) = app_state.file_picker_instance.draw(ui) {
+        if path.exists() {
+            let bootrom_result = std::fs::read(&path);
+
+            if let Ok(data) = bootrom_result {
+                let filename = {
+                    if let Some(filename) = path.file_name() {
+                        filename.to_string_lossy()
+                    }
+                    else {
+                        std::borrow::Cow::from("filename")
+                    }
+                };
+
+                app_state.bootrom_data = data;
+                app_state.reload = true;
+                app_state.picking_bootrom = false;
+                app_state.config.last_dir_bootrom = path.parent().unwrap().into();
+        
+                app_state.config.save();
+
+                app_state.notifications.push(
+                    Notification::init(
+                        ImString::new("Loader"),
+                        ImString::new(format!("Loaded bootrom file {}.", filename)),
+                        ui.time()
+                    )
+                );
+            }
+            else if let Err(error) = bootrom_result {
+                app_state.reload = false;
+
+                app_state.notifications.push(
+                    Notification::init(
+                        ImString::new("Loader"),
+                        ImString::new(format!("Failed to load bootrom file ({}).", error.to_string())),
+                        ui.time()
+                    )
+                );
+            }
+        }
+    }
 }

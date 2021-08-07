@@ -19,7 +19,7 @@ impl CartWindow {
     }
 
     pub fn draw(&self, ui: &Ui) {
-        Window::new(im_str!("Cartridge Info")).build(ui, || {
+        Window::new(im_str!("Cartridge Info")).size([290.0, 105.0], Condition::Always).resizable(false).build(ui, || {
             ui.text(format!("Cartridge Title: {}", self.header.title()));
             ui.text(format!("Cartridge Controller: {}", self.header.cart_type()));
             

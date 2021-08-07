@@ -86,6 +86,10 @@ impl GameboyMemory {
         self.cartridge.get_header()
     }
 
+    pub fn gb_joy(&self) -> Arc<RwLock<JoypadHandler>> {
+        self.gb_joy.clone()
+    }
+
     pub fn serial_output(&self) -> Arc<RwLock<Vec<u8>>> {
         self.serial_output.clone()
     }
