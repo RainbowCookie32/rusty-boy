@@ -20,7 +20,7 @@ use crate::gameboy::Gameboy;
 use crate::gameboy::memory::GameboyMemory;
 
 
-pub fn run_app(gb: Arc<RwLock<Gameboy>>, gb_mem: Arc<GameboyMemory>, gb_serial: Arc<RwLock<Vec<u8>>>) {
+pub fn run_app(gb: Arc<RwLock<Gameboy>>, gb_mem: Arc<GameboyMemory>) {
     let gb = gb;
     let gb_mem = gb_mem;
 
@@ -46,7 +46,7 @@ pub fn run_app(gb: Arc<RwLock<Gameboy>>, gb_mem: Arc<GameboyMemory>, gb_serial: 
 
     let win_cart = cart_info::CartWindow::init(gb.clone());
     let mut win_cpu = cpu_debugger::CPUWindow::init(gb.clone());
-    let mut win_serial = serial_output::SerialWindow::init(gb_serial);
+    let mut win_serial = serial_output::SerialWindow::init(gb.clone());
     let mut win_screen = screen::ScreenWindow::init(gb.clone());
     let mut win_memory = memory_viewer::MemoryWindow::init(gb_mem.clone());
     let mut win_disassembler = disassembler::DisassemblerWindow::init(gb.clone(), gb_mem);

@@ -42,7 +42,6 @@ fn main() {
     
     let gb_ui = gb.clone();
     let gb_mem_ui = gb_mem;
-    let gb_serial = gb.read().unwrap().ui_get_serial_output();
 
     std::thread::spawn(move || {
         let gameboy = gb;
@@ -62,5 +61,5 @@ fn main() {
         }
     });
 
-    ui::run_app(gb_ui, gb_mem_ui, gb_serial);
+    ui::run_app(gb_ui, gb_mem_ui);
 }

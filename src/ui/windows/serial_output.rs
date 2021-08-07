@@ -2,13 +2,17 @@ use std::sync::{Arc, RwLock};
 
 use imgui::*;
 
+use crate::gameboy::Gameboy;
+
 pub struct SerialWindow {
     gb_serial: Arc<RwLock<Vec<u8>>>,
     serial_show_lines_as_hex: bool
 }
 
 impl SerialWindow {
-    pub fn init(gb_serial: Arc<RwLock<Vec<u8>>>) -> SerialWindow {
+    pub fn init(gb: Arc<RwLock<Gameboy>>) -> SerialWindow {
+        let gb_serial = gb.read().unwrap().ui_get_serial_output();
+        
         SerialWindow {
             gb_serial,
             serial_show_lines_as_hex: false
