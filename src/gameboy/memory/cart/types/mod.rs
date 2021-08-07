@@ -20,7 +20,7 @@ impl fmt::Display for CartridgeType {
             CartridgeType::MBC3 => write!(f, "MBC3"),
             CartridgeType::MBC5 => write!(f, "MBC5"),
             CartridgeType::MBC6 => write!(f, "MBC6"),
-            CartridgeType::NoController => write!(f, "No Memory Controller")
+            CartridgeType::NoController => write!(f, "No MBC")
         }
     }
 }
