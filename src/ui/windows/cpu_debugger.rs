@@ -13,17 +13,12 @@ pub struct CPUWindow {
     callstack_items: Vec<ImString>,
     breakpoints_list: Vec<Breakpoint>,
 
-    bp_add_read: bool,
-    bp_add_write: bool,
-    bp_add_execute: bool,
-    bp_add_address: ImString,
+    bp_add_addr: ImString,
+    bp_edit_addr: ImString,
+    bp_edit_show_popup: bool,
 
-    bp_edit_idx: usize,
-    bp_edit_read: bool,
-    bp_edit_write: bool,
-    bp_edit_execute: bool,
-    bp_edit_address: ImString,
-    bp_edit_popup_open: bool
+    bp_add: (usize, Breakpoint),
+    bp_edit: (usize, Breakpoint)
 }
 
 impl CPUWindow {
@@ -39,17 +34,12 @@ impl CPUWindow {
             callstack_items: Vec::new(),
             breakpoints_list: Vec::new(),
 
-            bp_add_read: false,
-            bp_add_write: false,
-            bp_add_execute: false,
-            bp_add_address: ImString::new(""),
-        
-            bp_edit_idx: 0,
-            bp_edit_read: false,
-            bp_edit_write: false,
-            bp_edit_execute: false,
-            bp_edit_address: ImString::new(""),
-            bp_edit_popup_open: false
+            bp_add_addr: ImString::new(""),
+            bp_edit_addr: ImString::new(""),
+            bp_edit_show_popup: false,
+
+            bp_add: (0, Breakpoint::new(false, false, false, 0xFFFF)),
+            bp_edit: (0, Breakpoint::new(false, false, false, 0xFFFF))
         }
     }
 
@@ -58,7 +48,7 @@ impl CPUWindow {
 
         Window::new(im_str!("CPU Debugger")).build(ui, || {
             if ui.is_window_focused() {
-                if let Ok(lock) = self.gb.try_read() {
+                if let Ok(lock) = self.gb.read() {
                     let (af, bc, de, hl, sp, pc) = lock.ui_get_cpu_registers();
                     let mut breakpoints_list = Vec::with_capacity(lock.dbg_breakpoint_list.len());
 
@@ -78,7 +68,7 @@ impl CPUWindow {
                     self.breakpoints_list = breakpoints_list;
                 }
 
-                if let Ok(lock) = self.callstack.try_read() {
+                if let Ok(lock) = self.callstack.read() {
                     let mut callstack_items = Vec::with_capacity(lock.len());
 
                     for call in lock.iter().rev() {
@@ -188,44 +178,39 @@ impl CPUWindow {
                     let selected = Selectable::new(&ImString::from(bp_string)).allow_double_click(true).build(ui);
 
                     if selected && ui.is_mouse_double_clicked(MouseButton::Left) {
-                        self.bp_edit_read = *bp.read();
-                        self.bp_edit_write = *bp.write();
-                        self.bp_edit_execute = *bp.execute();
-                        self.bp_edit_address = ImString::new(format!("{:04X}", bp.address()));
-                    
-                        self.bp_edit_idx = idx;
-                        self.bp_edit_popup_open = true;
+                        self.bp_edit = (idx, bp.clone());
+                        self.bp_edit_addr = ImString::new(format!("{:04X}", bp.address()));
+                        self.bp_edit_show_popup = true;
                     }
                 }
             });
 
-            if self.bp_edit_popup_open {
+            if self.bp_edit_show_popup {
                 ui.open_popup(im_str!("Edit breakpoint"));
                 ui.popup_modal(im_str!("Edit breakpoint")).build(|| {
-                    ui.input_text(im_str!("Address"), &mut self.bp_edit_address).resize_buffer(true).build();
+                    ui.input_text(im_str!("Address"), &mut self.bp_edit_addr).resize_buffer(true).build();
                     ui.separator();
 
-                    ui.checkbox(im_str!("Read"), &mut self.bp_edit_read);
+                    ui.checkbox(im_str!("Read"), self.bp_edit.1.read_mut());
                     ui.same_line(0.0);
-                    ui.checkbox(im_str!("Write"), &mut self.bp_edit_write);
+                    ui.checkbox(im_str!("Write"), self.bp_edit.1.write_mut());
                     ui.same_line(0.0);
-                    ui.checkbox(im_str!("Execute"), &mut self.bp_edit_execute);
+                    ui.checkbox(im_str!("Execute"), self.bp_edit.1.execute_mut());
 
                     ui.separator();
 
                     if ui.button(im_str!("Save"), [0.0, 0.0]) {
                         if let Ok(mut lock) = self.gb.write() {
-                            if let Some(bp) = lock.dbg_breakpoint_list.get_mut(self.bp_edit_idx) {
-                                if let Ok(address) = u16::from_str_radix(&self.bp_edit_address.to_string(), 16) {
-                                    bp.set_address(address);
+                            if let Some(bp) = lock.dbg_breakpoint_list.get_mut(self.bp_edit.0) {
+                                if let Ok(address) = u16::from_str_radix(&self.bp_edit_addr.to_string(), 16) {
+                                    self.bp_edit.1.set_address(address);
+                                    *bp = self.bp_edit.1.clone();
                                 }
-    
-                                bp.set_read(self.bp_edit_read);
-                                bp.set_write(self.bp_edit_write);
-                                bp.set_execute(self.bp_edit_execute);
                             }
-    
-                            self.bp_edit_popup_open = false;
+
+                            self.breakpoints_list[self.bp_edit.0] = self.bp_edit.1.clone();
+                            self.bp_edit = (0, Breakpoint::new(false, false, false, 0xFFFF));
+                            self.bp_edit_show_popup = false;
                         }
                     }
 
@@ -233,15 +218,15 @@ impl CPUWindow {
 
                     if ui.button(im_str!("Remove"), [0.0, 0.0]) {
                         if let Ok(mut lock) = self.gb.write() {
-                            lock.dbg_breakpoint_list.remove(self.bp_edit_idx);
-                            self.bp_edit_popup_open = false;
+                            lock.dbg_breakpoint_list.remove(self.bp_edit.0);
+                            self.bp_edit_show_popup = false;
                         }
                     }
 
                     ui.same_line(0.0);
 
                     if ui.button(im_str!("Cancel"), [0.0, 0.0]) {
-                        self.bp_edit_popup_open = false;
+                        self.bp_edit_show_popup = false;
                     }
                 });
             }
@@ -249,30 +234,25 @@ impl CPUWindow {
             let submitted_input: bool;
             let submitted_button: bool;
 
-            submitted_input = ui.input_text(im_str!(""), &mut self.bp_add_address).enter_returns_true(true).build();
+            submitted_input = ui.input_text(im_str!(""), &mut self.bp_add_addr).enter_returns_true(true).build();
             ui.same_line(0.0);
             submitted_button = ui.button(im_str!("Add"), [0.0, 0.0]);
 
-            ui.checkbox(im_str!("Read"), &mut self.bp_add_read);
+            ui.checkbox(im_str!("Read"), self.bp_add.1.read_mut());
             ui.same_line(0.0);
-            ui.checkbox(im_str!("Write"), &mut self.bp_add_write);
+            ui.checkbox(im_str!("Write"), self.bp_add.1.write_mut());
             ui.same_line(0.0);
-            ui.checkbox(im_str!("Execute"), &mut self.bp_add_execute);
+            ui.checkbox(im_str!("Execute"), self.bp_add.1.execute_mut());
 
             if submitted_input || submitted_button {
-                let valid_bp = (self.bp_add_read || self.bp_add_write || self.bp_add_execute) && !self.bp_add_address.is_empty();
+                let valid_bp = self.bp_add.1.is_valid() && !self.bp_add_addr.is_empty();
 
                 if valid_bp {
-                    if let Ok(address) = u16::from_str_radix(&self.bp_add_address.to_string(), 16) {
-                        let bp = Breakpoint::new(
-                            self.bp_add_read,
-                            self.bp_add_write,
-                            self.bp_add_execute,
-                            address
-                        );
-
+                    if let Ok(address) = u16::from_str_radix(&self.bp_add_addr.to_string(), 16) {
                         if let Ok(mut lock) = self.gb.write() {
-                            lock.dbg_breakpoint_list.push(bp);
+                            self.bp_add.1.set_address(address);
+                            lock.dbg_breakpoint_list.push(self.bp_add.1.clone());
+                            self.bp_add = (0, Breakpoint::new(false, false, false, 0xFFFF));
                         }
                     }
                 }

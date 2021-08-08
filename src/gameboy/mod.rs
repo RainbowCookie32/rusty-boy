@@ -238,16 +238,32 @@ impl Breakpoint {
         &self.read
     }
 
+    pub fn read_mut(&mut self) -> &mut bool {
+        &mut self.read
+    }
+
     pub fn write(&self) -> &bool {
         &self.write
+    }
+
+    pub fn write_mut(&mut self) -> &mut bool {
+        &mut self.write
     }
 
     pub fn execute(&self) -> &bool {
         &self.execute
     }
 
+    pub fn execute_mut(&mut self) -> &mut bool {
+        &mut self.execute
+    }
+
     pub fn address(&self) -> &u16 {
         &self.address
+    }
+
+    pub fn is_valid(&self) -> bool {
+        self.read || self.write || self.execute
     }
 
     /// Set the breakpoint's read.

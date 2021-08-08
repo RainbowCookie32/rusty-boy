@@ -86,6 +86,40 @@ impl AppState {
             window_vram_viewer: (false, None)
         }
     }
+
+    fn emu_reset(&self) {
+        if let Some(gb) = self.gb.as_ref() {
+            if let Ok(mut lock) = gb.write() {
+                lock.gb_reset();
+            }
+        }
+    }
+
+    fn emu_do_step(&self) {
+        if let Some(gb) = self.gb.as_ref() {
+            if let Ok(mut lock) = gb.write() {
+                lock.dbg_do_step = true;
+            }
+        }
+    }
+
+    fn emu_get_mode(&self) -> EmulatorMode {
+        if let Some(gb) = self.gb.as_ref() {
+            if let Ok(lock) = gb.read() {
+                return lock.dbg_mode.clone();
+            }
+        }
+        
+        EmulatorMode::Paused
+    }
+
+    fn emu_set_mode(&self, mode: EmulatorMode) {
+        if let Some(gb) = self.gb.as_ref() {
+            if let Ok(mut lock) = gb.write() {
+                lock.dbg_mode = mode;
+            }
+        }
+    }
 }
 
 #[derive(Default, Deserialize, Serialize)]
@@ -186,24 +220,16 @@ pub fn run_app() {
                     if let Some(keycode) = input.virtual_keycode {
                         match keycode {
                             VirtualKeyCode::F3 => {
-                                if let Some(gb) = app_state.gb.as_ref() {
-                                    if let Ok(mut lock) = gb.write() {
-                                        if lock.dbg_mode == EmulatorMode::Stepping {
-                                            lock.dbg_do_step = true;
-                                        }
-                                    }
+                                if app_state.emu_get_mode() == EmulatorMode::Stepping {
+                                    app_state.emu_do_step();
                                 }
                             }
                             VirtualKeyCode::F9 => {
-                                if let Some(gb) = app_state.gb.as_ref() {
-                                    if let Ok(mut lock) = gb.write() {    
-                                        if lock.dbg_mode != EmulatorMode::Running {
-                                            lock.dbg_mode = EmulatorMode::Running;
-                                        }
-                                        else {
-                                            lock.dbg_mode = EmulatorMode::Paused;
-                                        }
-                                    }
+                                if app_state.emu_get_mode() != EmulatorMode::Running {
+                                    app_state.emu_set_mode(EmulatorMode::Running)
+                                }
+                                else {
+                                    app_state.emu_set_mode(EmulatorMode::Paused)
                                 }
                             }
                             _ => {}
@@ -315,32 +341,26 @@ fn draw_menu_bar(app_state: &mut AppState, ui: &Ui, control_flow: &mut ControlFl
         });
 
         ui.menu(im_str!("Emulator"), app_state.gb.is_some(), || {
-            if let Some(gb) = app_state.gb.as_ref() {
-                if let Ok(mut lock) = gb.write() {
-                    match lock.dbg_mode {
-                        EmulatorMode::Running => {
-                            if MenuItem::new(im_str!("Pause")).build(ui) {
-                                lock.dbg_mode = EmulatorMode::Paused;
-                            }
-                        }
-                        EmulatorMode::UnknownInstruction(_, _) => {
-                            MenuItem::new(im_str!("Resume")).enabled(false).build(ui);
-                        }
-                        _ => {
-                            if MenuItem::new(im_str!("Resume")).build(ui) {
-                                lock.dbg_mode = EmulatorMode::Running;
-                            }
-                        }
-                    }
-
-                    if MenuItem::new(im_str!("Restart")).build(ui) {
-                        lock.gb_reset();
+            let mode = app_state.emu_get_mode();
+            
+            match mode {
+                EmulatorMode::Running => {
+                    if MenuItem::new(im_str!("Pause")).build(ui) {
+                        app_state.emu_set_mode(EmulatorMode::Paused);
                     }
                 }
-                else {
+                EmulatorMode::UnknownInstruction(_, _) => {
                     MenuItem::new(im_str!("Resume")).enabled(false).build(ui);
-                    MenuItem::new(im_str!("Restart")).enabled(false).build(ui);
                 }
+                _ => {
+                    if MenuItem::new(im_str!("Resume")).build(ui) {
+                        app_state.emu_set_mode(EmulatorMode::Running);
+                    }
+                }
+            }
+
+            if MenuItem::new(im_str!("Restart")).build(ui) {
+                app_state.emu_reset();
             }
         });
 

@@ -31,7 +31,7 @@ impl SerialWindow {
                                 output.push('\n');
                             }
                             else {
-                                output.push_str(&format!("${:02X} ", *b));
+                                output.push(*b as char);
                             }
                         }
                     }
