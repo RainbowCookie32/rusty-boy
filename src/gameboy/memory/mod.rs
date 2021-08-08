@@ -78,6 +78,7 @@ impl GameboyMemory {
         }
     }
 
+    #[allow(clippy::borrowed_box)]
     pub fn cartridge(&self) -> &Box<dyn GameboyCart + Send + Sync> {
         &self.cartridge
     }
