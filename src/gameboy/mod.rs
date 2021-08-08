@@ -266,21 +266,6 @@ impl Breakpoint {
         self.read || self.write || self.execute
     }
 
-    /// Set the breakpoint's read.
-    pub fn set_read(&mut self, read: bool) {
-        self.read = read;
-    }
-
-    /// Set the breakpoint's write.
-    pub fn set_write(&mut self, write: bool) {
-        self.write = write;
-    }
-
-    /// Set the breakpoint's execute.
-    pub fn set_execute(&mut self, execute: bool) {
-        self.execute = execute;
-    }
-
     /// Set the breakpoint's address.
     pub fn set_address(&mut self, address: u16) {
         self.address = address;
