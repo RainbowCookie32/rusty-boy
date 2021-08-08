@@ -14,7 +14,7 @@ use glium::glutin::ContextBuilder;
 use glium::glutin::dpi::LogicalSize;
 use glium::glutin::window::WindowBuilder;
 use glium::glutin::event_loop::{ControlFlow, EventLoop};
-use glium::glutin::event::{Event, WindowEvent, VirtualKeyCode};
+use glium::glutin::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
 
 use serde::{Deserialize, Serialize};
 
@@ -182,9 +182,32 @@ pub fn run_app() {
                 *control_flow = ControlFlow::Exit;
             }
             Event::WindowEvent { event: WindowEvent::KeyboardInput { input, ..}, ..} => {
-                if let Some(keycode) = input.virtual_keycode {
-                    if keycode == VirtualKeyCode::Escape {
-                        //app_state.memory_viewer.editing_byte = false;
+                if input.state == ElementState::Pressed {
+                    if let Some(keycode) = input.virtual_keycode {
+                        match keycode {
+                            VirtualKeyCode::F3 => {
+                                if let Some(gb) = app_state.gb.as_ref() {
+                                    if let Ok(mut lock) = gb.write() {
+                                        if lock.dbg_mode == EmulatorMode::Stepping {
+                                            lock.dbg_do_step = true;
+                                        }
+                                    }
+                                }
+                            }
+                            VirtualKeyCode::F9 => {
+                                if let Some(gb) = app_state.gb.as_ref() {
+                                    if let Ok(mut lock) = gb.write() {    
+                                        if lock.dbg_mode != EmulatorMode::Running {
+                                            lock.dbg_mode = EmulatorMode::Running;
+                                        }
+                                        else {
+                                            lock.dbg_mode = EmulatorMode::Paused;
+                                        }
+                                    }
+                                }
+                            }
+                            _ => {}
+                        }
                     }
                 }
 
