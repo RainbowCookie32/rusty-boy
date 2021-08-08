@@ -22,6 +22,7 @@ use ron::de::from_reader;
 use ron::ser::{PrettyConfig, to_string_pretty};
 
 use windows::*;
+use windows::settings::SettingsWindow;
 use windows::notification::Notification;
 use windows::file_picker::FilePickerWindow;
 
@@ -38,6 +39,7 @@ pub struct AppState {
     reload: bool,
     picking_rom: bool,
     picking_bootrom: bool,
+    settings_opened: bool,
 
     gb: Option<Arc<RwLock<Gameboy>>>,
     gb_mem: Option<Arc<GameboyMemory>>,
@@ -69,6 +71,7 @@ impl AppState {
             reload: false,
             picking_rom: false,
             picking_bootrom: false,
+            settings_opened: false,
 
             gb: None,
             gb_mem: None,
@@ -124,6 +127,11 @@ impl AppState {
 
 #[derive(Default, Deserialize, Serialize)]
 pub struct AppConfig {
+    screen_size: [f32; 2],
+
+    pause_emulator_on_startup: bool,
+    pause_emulator_on_focus_loss: bool,
+
     last_dir_rom: PathBuf,
     last_dir_bootrom: PathBuf
 }
@@ -136,7 +144,10 @@ impl AppConfig {
             }
         }
         
-        AppConfig::default()
+        AppConfig {
+            screen_size: [160.0, 140.0],
+            ..Default::default()
+        }
     }
 
     pub fn save(&self) {
@@ -170,6 +181,7 @@ pub fn run_app() {
     ;
 
     let mut app_state = AppState::init();
+    let mut settings_window = SettingsWindow::init();
 
     event_loop.run(move | event, _, control_flow| {
         match event {
@@ -190,6 +202,10 @@ pub fn run_app() {
 
                 if app_state.picking_bootrom {
                     draw_bootrom_picker(&mut app_state, &ui);
+                }
+
+                if app_state.settings_opened {
+                    settings_window.draw(&ui, &mut app_state);
                 }
 
                 if app_state.reload {
@@ -287,6 +303,10 @@ fn reload_app(app_state: &mut AppState, ui: &Ui) {
         );
 
         create_windows(app_state);
+
+        if !app_state.config.pause_emulator_on_startup {
+            app_state.emu_set_mode(EmulatorMode::Running);
+        }
     }
 
     app_state.reload = false;
@@ -334,6 +354,10 @@ fn draw_menu_bar(app_state: &mut AppState, ui: &Ui, control_flow: &mut ControlFl
             }
 
             ui.separator();
+
+            if MenuItem::new(im_str!("Settings")).build(ui) {
+                app_state.settings_opened = true;
+            }
 
             if MenuItem::new(im_str!("Exit")).build(ui) {
                 *control_flow = ControlFlow::Exit;
@@ -451,7 +475,9 @@ fn draw_windows(app_state: &mut AppState, ui: &Ui, display: &Display, textures: 
 
     if app_state.window_screen.0 {
         if let Some(screen_win) = app_state.window_screen.1.as_mut() {
-            screen_win.draw(ui, display, textures);
+            if !screen_win.draw(&mut app_state.config, ui, display, textures) && app_state.config.pause_emulator_on_focus_loss {
+                app_state.emu_set_mode(EmulatorMode::Paused);
+            }
         }
     }
 

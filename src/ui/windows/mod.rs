@@ -6,6 +6,7 @@ pub mod memory_viewer;
 pub mod notification;
 pub mod screen;
 pub mod serial_output;
+pub mod settings;
 pub mod vram_viewer;
 
 use std::borrow::Cow;

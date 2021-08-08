@@ -8,6 +8,8 @@ use glium::glutin::event::VirtualKeyCode;
 
 use crate::gameboy::Gameboy;
 use crate::gameboy::JoypadHandler;
+
+use crate::ui::AppConfig;
 use crate::ui::windows::GameboyTexture;
 
 const SCREEN_WIDTH: usize = 160;
@@ -33,14 +35,16 @@ impl ScreenWindow {
         }
     }
 
-    pub fn draw(&mut self, ui: &Ui, display: &Display, textures: &mut Textures<Texture>) {
-        let size = [SCREEN_WIDTH as f32 * 2.0, SCREEN_HEIGHT as f32 * 2.0];
+    pub fn draw(&mut self, config: &mut AppConfig, ui: &Ui, display: &Display, textures: &mut Textures<Texture>) -> bool {
+        let mut focused = false;
 
-        Window::new(im_str!("Screen")).size(size, Condition::Once).build(ui, || {
+        Window::new(im_str!("Screen")).size(config.screen_size, Condition::Always).build(ui, || {
             let window_size = ui.content_region_avail();
 
             let x_scale = window_size[0] / SCREEN_WIDTH as f32;
             let y_scale = window_size[1] / SCREEN_HEIGHT as f32;
+
+            focused = ui.is_window_focused();
 
             if let Ok(lock) = self.screen_data.try_read() {
                 let mut data: Vec<u8> = Vec::with_capacity(SCREEN_WIDTH * SCREEN_HEIGHT);
@@ -74,6 +78,13 @@ impl ScreenWindow {
                     lock.set_a_state(ui.io().keys_down[VirtualKeyCode::A as usize]);
                 }
             }
+
+            if config.screen_size != ui.window_size() {
+                config.screen_size = ui.window_size();
+                config.save()
+            }
         });
+
+        focused
     }
 }
