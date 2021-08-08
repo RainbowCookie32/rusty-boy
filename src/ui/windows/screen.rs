@@ -4,7 +4,6 @@ use imgui::*;
 use imgui_glium_renderer::Texture;
 
 use glium::Display;
-use glium::glutin::event::VirtualKeyCode;
 
 use crate::gameboy::Gameboy;
 use crate::gameboy::JoypadHandler;
@@ -67,15 +66,15 @@ impl ScreenWindow {
 
             if ui.is_window_focused() {
                 if let Ok(mut lock) = self.gb_joy.write() {
-                    lock.set_down_state(ui.is_key_down(Key::DownArrow));
-                    lock.set_up_state(ui.is_key_down(Key::UpArrow));
-                    lock.set_left_state(ui.is_key_down(Key::LeftArrow));
-                    lock.set_right_state(ui.is_key_down(Key::RightArrow));
+                    lock.set_a_state(ui.io().keys_down[config.keybinds.gb_a as usize]);
+                    lock.set_b_state(ui.io().keys_down[config.keybinds.gb_b as usize]);
+                    lock.set_start_state(ui.io().keys_down[config.keybinds.gb_start as usize]);
+                    lock.set_select_state(ui.io().keys_down[config.keybinds.gb_select as usize]);
 
-                    lock.set_start_state(ui.is_key_down(Key::Enter));
-                    lock.set_select_state(ui.io().keys_down[VirtualKeyCode::RShift as usize]);
-                    lock.set_b_state(ui.io().keys_down[VirtualKeyCode::S as usize]);
-                    lock.set_a_state(ui.io().keys_down[VirtualKeyCode::A as usize]);
+                    lock.set_up_state(ui.io().keys_down[config.keybinds.gb_up as usize]);
+                    lock.set_down_state(ui.io().keys_down[config.keybinds.gb_down as usize]);
+                    lock.set_left_state(ui.io().keys_down[config.keybinds.gb_left as usize]);
+                    lock.set_right_state(ui.io().keys_down[config.keybinds.gb_right as usize]);
                 }
             }
 

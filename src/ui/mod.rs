@@ -127,6 +127,7 @@ impl AppState {
 
 #[derive(Default, Deserialize, Serialize)]
 pub struct AppConfig {
+    keybinds: Keybinds,
     screen_size: [f32; 2],
 
     pause_emulator_on_startup: bool,
@@ -155,6 +156,41 @@ impl AppConfig {
             if let Err(error) = std::fs::write("config.ron", data) {
                 println!("Error saving config: {}", error.to_string());
             }
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct Keybinds {
+    gb_a: VirtualKeyCode,
+    gb_b: VirtualKeyCode,
+    gb_start: VirtualKeyCode,
+    gb_select: VirtualKeyCode,
+
+    gb_up: VirtualKeyCode,
+    gb_down: VirtualKeyCode,
+    gb_left: VirtualKeyCode,
+    gb_right: VirtualKeyCode,
+
+    emu_step: VirtualKeyCode,
+    emu_resume: VirtualKeyCode
+}
+
+impl Default for Keybinds {
+    fn default() -> Keybinds {
+        Keybinds {
+            gb_a: VirtualKeyCode::A,
+            gb_b: VirtualKeyCode::S,
+            gb_start: VirtualKeyCode::Return,
+            gb_select: VirtualKeyCode::RShift,
+
+            gb_up: VirtualKeyCode::Up,
+            gb_down: VirtualKeyCode::Down,
+            gb_left: VirtualKeyCode::Left,
+            gb_right: VirtualKeyCode::Right,
+
+            emu_step: VirtualKeyCode::F3,
+            emu_resume: VirtualKeyCode::F9
         }
     }
 }

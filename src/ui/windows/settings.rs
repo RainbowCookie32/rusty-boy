@@ -18,6 +18,51 @@ impl SettingsWindow {
 
                     ui.input_float2(im_str!("Screen size (Default: 160x140)"), &mut app_state.config.screen_size).build();
                 });
+
+                TabItem::new(im_str!("Keybinds")).build(ui, || {
+                    ui.bullet_text(im_str!("Gameboy"));
+                    ui.separator();
+
+                    ui.text(im_str!("A     "));
+                    ui.same_line(0.0);
+                    ui.button(&ImString::from(format!("{:#?}", app_state.config.keybinds.gb_a)), [60.0, 0.0]);
+
+                    ui.same_line(160.0);
+
+                    ui.text(im_str!("Up   "));
+                    ui.same_line(0.0);
+                    ui.button(&ImString::from(format!("{:#?}", app_state.config.keybinds.gb_up)), [60.0, 0.0]);
+
+                    ui.text(im_str!("B     "));
+                    ui.same_line(0.0);
+                    ui.button(&ImString::from(format!("{:#?}", app_state.config.keybinds.gb_b)), [60.0, 0.0]);
+
+                    ui.same_line(160.0);
+
+                    ui.text(im_str!("Down "));
+                    ui.same_line(0.0);
+                    ui.button(&ImString::from(format!("{:#?}", app_state.config.keybinds.gb_down)), [60.0, 0.0]);
+
+                    ui.text(im_str!("Start "));
+                    ui.same_line(0.0);
+                    ui.button(&ImString::from(format!("{:#?}", app_state.config.keybinds.gb_start)), [60.0, 0.0]);
+
+                    ui.same_line(160.0);
+
+                    ui.text(im_str!("Left "));
+                    ui.same_line(0.0);
+                    ui.button(&ImString::from(format!("{:#?}", app_state.config.keybinds.gb_left)), [60.0, 0.0]);
+
+                    ui.text(im_str!("Select"));
+                    ui.same_line(0.0);
+                    ui.button(&ImString::from(format!("{:#?}", app_state.config.keybinds.gb_down)), [60.0, 0.0]);
+
+                    ui.same_line(160.0);
+
+                    ui.text(im_str!("Right"));
+                    ui.same_line(0.0);
+                    ui.button(&ImString::from(format!("{:#?}", app_state.config.keybinds.gb_right)), [60.0, 0.0]);
+                });
             });
 
             ui.separator();
