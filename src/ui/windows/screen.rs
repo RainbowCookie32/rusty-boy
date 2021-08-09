@@ -7,9 +7,9 @@ use glium::Display;
 
 use crate::gameboy::Gameboy;
 use crate::gameboy::JoypadHandler;
+use crate::gameboy::gpu::utils::GameboyTexture;
 
 use crate::ui::AppConfig;
-use crate::ui::windows::GameboyTexture;
 
 const SCREEN_WIDTH: usize = 160;
 const SCREEN_HEIGHT: usize = 144;
@@ -46,7 +46,7 @@ impl ScreenWindow {
             focused = ui.is_window_focused();
 
             if let Ok(lock) = self.screen_data.try_read() {
-                let mut data: Vec<u8> = Vec::with_capacity(SCREEN_WIDTH * SCREEN_HEIGHT);
+                let mut data: Vec<u8> = Vec::with_capacity((SCREEN_WIDTH * SCREEN_HEIGHT) * 3);
 
                 for b in lock.iter() {                        
                     data.push(*b);
@@ -57,7 +57,7 @@ impl ScreenWindow {
                 self.screen.update_texture(data, display, textures);
             }
 
-            if let Some(id) = self.screen.id.as_ref() {
+            if let Some(id) = self.screen.id().as_ref() {
                 let w = SCREEN_WIDTH as f32 * x_scale;
                 let h = SCREEN_HEIGHT as f32 * y_scale;
 

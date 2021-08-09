@@ -6,19 +6,31 @@ use imgui_glium_renderer::Texture;
 use glium::Display;
 
 use crate::gameboy::Gameboy;
-use crate::ui::windows::GameboyTexture;
+use crate::gameboy::memory::GameboyMemory;
+
+use crate::gameboy::gpu::utils;
+use crate::gameboy::gpu::utils::GameboyTexture;
 
 pub struct VramViewerWindow {
+    gb_mem: Arc<GameboyMemory>,
+    
+    tiles: Vec<GameboyTexture>,
     backgrounds: Vec<GameboyTexture>,
     backgrounds_data: Arc<RwLock<Vec<Vec<u8>>>>
 }
 
 impl VramViewerWindow {
     pub fn init(gb: Arc<RwLock<Gameboy>>) -> VramViewerWindow {
+        let gb_mem = gb.read().unwrap().ui_get_memory();
+
+        let tiles = vec![GameboyTexture::new(8, 8); 256];
         let backgrounds = vec![GameboyTexture::new(256, 256); 2];
         let backgrounds_data = gb.read().unwrap().ui_get_backgrounds_data();
 
         VramViewerWindow {
+            gb_mem,
+
+            tiles,
             backgrounds,
             backgrounds_data
         }
@@ -35,7 +47,7 @@ impl VramViewerWindow {
 
                     if let Ok(backgrounds) = self.backgrounds_data.try_read() {
                         let background = &backgrounds[0];
-                        let mut data: Vec<u8> = Vec::with_capacity(256 * 256);
+                        let mut data: Vec<u8> = Vec::with_capacity((256 * 256) * 3);
         
                         for b in background {                        
                             data.push(*b);
@@ -59,7 +71,7 @@ impl VramViewerWindow {
                     
                     if let Ok(backgrounds) = self.backgrounds_data.try_read() {
                         let background = &backgrounds[1];
-                        let mut data: Vec<u8> = Vec::with_capacity(256 * 256);
+                        let mut data: Vec<u8> = Vec::with_capacity((256 * 256) * 3);
         
                         for b in background {                        
                             data.push(*b);
@@ -72,6 +84,51 @@ impl VramViewerWindow {
 
                     if let Some(id) = self.backgrounds[1].id().as_ref() {
                         Image::new(*id, [256.0 * x_scale, 256.0 * y_scale]).build(ui);
+                    }
+                });
+
+                TabItem::new(im_str!("Tiles")).build(ui, || {
+                    let mut palette = utils::Palette::new();
+                    let mut data = Vec::new();
+
+                    palette.update(self.gb_mem.read(0xFF47));
+
+                    for address in 0x8000..0x87FF {
+                        data.push(self.gb_mem.read(address));
+                    }
+
+                    for address in 0x8800..0x8FFF {
+                        data.push(self.gb_mem.read(address));
+                    }
+
+                    for (idx, tile_data) in data.chunks_exact(16).enumerate() {
+                        let tile = utils::create_tile(tile_data, &palette);
+                        let mut data = Vec::with_capacity(64 * 3);
+
+                        for byte in tile {
+                            data.push(byte);
+                            data.push(byte);
+                            data.push(byte);
+                        }
+
+                        self.tiles[idx].update_texture(data, display, textures);
+                    }
+
+                    let mut same_line_offset = 0.0;
+
+                    for tex in self.tiles.iter() {
+                        if let Some(id) = tex.id().as_ref() {
+                            Image::new(*id, [8.0 * 3.0, 8.0 * 3.0]).build(ui);
+                        }
+
+                        same_line_offset += (8.0 * 3.0) + 3.0;
+
+                        if same_line_offset > ui.content_region_avail()[0] {
+                            same_line_offset = 0.0;
+                        }
+                        else {
+                            ui.same_line(same_line_offset);
+                        }
                     }
                 });
             });

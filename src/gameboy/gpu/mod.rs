@@ -1,11 +1,14 @@
+pub mod utils;
+
 use std::time;
 use std::sync::{Arc, RwLock};
+
+use utils::Palette;
 
 use crate::gameboy::memory::GameboyMemory;
 
 const SCREEN_WIDTH: usize = 160;
 const SCREEN_HEIGHT: usize = 144;
-const COLORS: [u8; 4] = [255, 192, 96, 0];
 
 const LYC_BIT: u8 = 0x04;
 const HBLANK_INT_BIT: u8 = 0x08;
@@ -53,34 +56,6 @@ impl Sprite {
             flip_y,
             palette
         }
-    }
-}
-
-#[derive(Clone)]
-struct Palette {
-    colors: Vec<u8>
-}
-
-impl Palette {
-    pub fn new() -> Palette {
-        let colors = vec![255, 192, 96, 0];
-
-        Palette {
-            colors
-        }
-    }
-
-    pub fn update(&mut self, value: u8) {
-        let value = value as usize;
-
-        self.colors[0] = COLORS[value & 3];
-        self.colors[1] = COLORS[(value >> 2) & 3];
-        self.colors[2] = COLORS[(value >> 4) & 3];
-        self.colors[3] = COLORS[(value >> 6) & 3];
-    }
-
-    pub fn get_color(&self, idx: u8) -> u8 {
-        self.colors[idx as usize]
     }
 }
 
@@ -497,18 +472,14 @@ impl GameboyGPU {
                             *tile_idx as u16
                         };
 
-                        let tile = &tiles[tile_idx as usize];
-                        let tile_data = tile.chunks_exact(2);
+                        let tile = utils::create_tile(&tiles[tile_idx as usize], &self.bg_palette);
+                        let tile_data = tile.chunks_exact(8);
 
                         for (tile_y, line) in tile_data.enumerate() {
                             let mut idx = x_offset + (256 * (y_offset + tile_y));
 
-                            for bit in (0..8).rev() {
-                                let color_idx = ((line[0] >> bit) & 1) | (((line[1] >> bit) & 1) << 1);
-                                let pixel_color = self.bg_palette.get_color(color_idx);
-
-                                background[idx] = pixel_color;
-
+                            for pixel in line {
+                                background[idx] = *pixel;
                                 idx += 1;
                             }
                         }
