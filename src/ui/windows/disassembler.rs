@@ -15,7 +15,9 @@ pub struct DisassemblerWindow {
 }
 
 impl DisassemblerWindow {
-    pub fn init(gb: Arc<RwLock<Gameboy>>, gb_mem: Arc<GameboyMemory>) -> DisassemblerWindow {
+    pub fn init(gb: Arc<RwLock<Gameboy>>) -> DisassemblerWindow {
+        let gb_mem = gb.read().unwrap().ui_get_memory();
+
         DisassemblerWindow {
             gb,
             gb_mem,

@@ -16,7 +16,7 @@ impl SettingsWindow {
                     ui.checkbox(im_str!("Pause emulator on startup"), &mut app_state.config.pause_emulator_on_startup);
                     ui.checkbox(im_str!("Pause emulator on screen focus loss"), &mut app_state.config.pause_emulator_on_focus_loss);
 
-                    ui.input_float2(im_str!("Screen size (Default: 160x140)"), &mut app_state.config.screen_size).build();
+                    ui.input_float2(im_str!("Screen size (Default: 160x144)"), &mut app_state.config.screen_size).build();
                 });
 
                 TabItem::new(im_str!("Keybinds")).build(ui, || {

@@ -146,7 +146,7 @@ impl AppConfig {
         }
         
         AppConfig {
-            screen_size: [160.0, 140.0],
+            screen_size: [160.0, 144.0],
             ..Default::default()
         }
     }
@@ -304,7 +304,7 @@ fn create_windows(app_state: &mut AppState) {
         app_state.window_cpu_debugger = (false, Some(cpu_debugger::CPUWindow::init(gb.clone())));
 
         if let Some(gb_mem) = app_state.gb_mem.as_ref() {
-            app_state.window_disassembler = (false, Some(disassembler::DisassemblerWindow::init(gb.clone(), gb_mem.clone())));
+            app_state.window_disassembler = (false, Some(disassembler::DisassemblerWindow::init(gb.clone())));
             app_state.window_memory_viewer = (false, Some(memory_viewer::MemoryWindow::init(gb_mem.clone())));
         }
 

@@ -1,5 +1,5 @@
 mod cpu;
-mod gpu;
+pub mod gpu;
 pub mod memory;
 pub mod disassembler;
 
@@ -94,6 +94,10 @@ impl Gameboy {
 
     pub fn ui_get_header(&self) -> Arc<CartHeader> {
         self.gb_mem.header()
+    }
+
+    pub fn ui_get_memory(&self) -> Arc<GameboyMemory> {
+        self.gb_mem.clone()
     }
 
     pub fn ui_get_cpu_registers(&self) -> (&u16, &u16, &u16, &u16, &u16, &u16) {
