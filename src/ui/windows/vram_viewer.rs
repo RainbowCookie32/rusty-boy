@@ -114,19 +114,32 @@ impl VramViewerWindow {
                         self.tiles[idx].update_texture(data, display, textures);
                     }
 
+                    let mut tile_addr = 0x8000;
                     let mut same_line_offset = 0.0;
 
-                    for tex in self.tiles.iter() {
+                    for (idx, tex) in self.tiles.iter().enumerate() {
                         if let Some(id) = tex.id().as_ref() {
                             Image::new(*id, [8.0 * 3.0, 8.0 * 3.0]).build(ui);
+
+                            if ui.is_item_hovered() {
+                                ui.tooltip(|| {
+                                    ui.text(format!("Tile ID: ${:02X}", idx));
+                                    ui.text(format!("Tile Address: ${:04X}", tile_addr));
+                                });
+                            }
+
+                            tile_addr += 16;
                         }
 
-                        same_line_offset += (8.0 * 3.0) + 3.0;
-
-                        if same_line_offset > ui.content_region_avail()[0] {
+                        if tile_addr == 0x8800 {
+                            ui.spacing();
+                            same_line_offset = 0.0;
+                        }
+                        else if same_line_offset > ui.content_region_avail()[0] {
                             same_line_offset = 0.0;
                         }
                         else {
+                            same_line_offset += (8.0 * 3.0) + 3.5;
                             ui.same_line(same_line_offset);
                         }
                     }
