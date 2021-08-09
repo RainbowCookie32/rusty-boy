@@ -32,7 +32,21 @@ impl MBC1 {
             result
         };
 
-        let ram_banks = vec![vec![GameboyByte::from(0); 8192]; header.ram_banks_count];
+        let ram_banks = {
+            if let Ok(data) = std::fs::read(format!("ram/{}.bin", header.title())) {
+                let mut result = Vec::with_capacity(8192 * header.ram_banks_count());
+
+                for chunk in data.chunks_exact(8192) {
+                    let chunk: Vec<GameboyByte> = chunk.iter().map(|b| GameboyByte::from(*b)).collect();
+                    result.push(chunk.to_vec());
+                }
+
+                result
+            }
+            else {
+                vec![vec![GameboyByte::from(0); 8192]; header.ram_banks_count]
+            }
+        };
 
         MBC1 {
             header,
@@ -45,6 +59,26 @@ impl MBC1 {
             banking_mode: GameboyByte::from(0),
             selected_rom_bank: GameboyByte::from(1),
             selected_ram_bank: GameboyByte::from(0)
+        }
+    }
+
+    fn save_ram(&self) {
+        let mut data = Vec::with_capacity(8192 * self.ram_banks.len());
+
+        for bank in self.ram_banks.iter() {
+            for byte in bank {
+                data.push(byte.get());
+            }
+        }
+
+        if let Err(error) = std::fs::create_dir("ram") {
+            if error.kind() != std::io::ErrorKind::AlreadyExists {
+                println!("Error creating RAM directory: {}", error.to_string());
+            }
+        }
+
+        if let Err(error) = std::fs::write(format!("ram/{}.bin", self.header.title()), data) {
+            println!("Error saving ram contents: {}", error.to_string());
         }
     }
 
@@ -100,7 +134,13 @@ impl GameboyCart for MBC1 {
 
     fn write(&self, address: u16, value: u8) {
         if MBC1_ENABLE_RAM.contains(&address) {
-            self.ram_enabled.store((value & 0x0F) == 0x0A, Ordering::Relaxed);
+            let enable_ram = (value & 0x0F) == 0x0A;
+
+            if !enable_ram {
+                self.save_ram();
+            }
+
+            self.ram_enabled.store(enable_ram, Ordering::Relaxed);
         }
         else if MBC1_ROM_BANK.contains(&address) {
             // Mask the bank value to fit the amount of banks on the cart.
