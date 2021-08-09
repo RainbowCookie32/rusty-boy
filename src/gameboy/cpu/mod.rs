@@ -65,6 +65,7 @@ pub struct GameboyCPU {
     stopped: bool,
 
     cycles: usize,
+    div_cycles: usize,
     callstack: Arc<RwLock<Vec<String>>>,
 
     dma_transfer: Option<DmaTransfer>,
@@ -90,6 +91,7 @@ impl GameboyCPU {
             stopped: false,
 
             cycles: 0,
+            div_cycles: 0,
             callstack: Arc::new(RwLock::new(Vec::new())),
 
             dma_transfer: None,
@@ -378,7 +380,24 @@ impl GameboyCPU {
             }
         }
 
+        self.increase_div();
         self.execute_instruction(breakpoints, dbg_mode);
+    }
+
+    fn increase_div(&mut self) {
+        if self.cycles > self.div_cycles {
+            let elapsed = self.cycles - self.div_cycles;
+
+            if elapsed >= 256 {
+                let div_value = self.memory.read(0xFF04);
+                
+                self.div_cycles = self.cycles;
+                self.memory.write(0xFF04, div_value.wrapping_add(1));
+            }
+        }
+        else {
+            self.div_cycles = 0;
+        }
     }
 
     fn execute_instruction(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
