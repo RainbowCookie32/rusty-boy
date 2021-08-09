@@ -24,7 +24,7 @@ impl MemoryWindow {
     }
 
     pub fn draw(&mut self, ui: &Ui) {
-        Window::new(im_str!("Memory Viewer")).build(ui, || {
+        Window::new(im_str!("Memory Viewer")).size([350.0, 170.0], Condition::FirstUseEver).build(ui, || {
             let style_padding = ui.push_style_var(StyleVar::FramePadding([0.0, 0.0]));
             let style_spacing = ui.push_style_var(StyleVar::ItemSpacing([5.0, 1.0]));
 

@@ -25,7 +25,7 @@ impl VramViewerWindow {
     }
 
     pub fn draw(&mut self, ui: &Ui, display: &Display, textures: &mut Textures<Texture>) {
-        Window::new(im_str!("VRAM Viewer")).size([256.0, 256.0], Condition::Once).build(ui, || {
+        Window::new(im_str!("VRAM Viewer")).size([256.0, 256.0], Condition::FirstUseEver).build(ui, || {
             TabBar::new(im_str!("Viewer Tabs")).build(ui, || {
                 TabItem::new(im_str!("Background 0")).build(ui, || {
                     let window_size = ui.content_region_avail();

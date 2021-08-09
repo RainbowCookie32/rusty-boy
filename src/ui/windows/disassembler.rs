@@ -35,7 +35,7 @@ impl DisassemblerWindow {
             }
         };
 
-        Window::new(im_str!("Disassembler")).build(ui, || {
+        Window::new(im_str!("Disassembler")).size([300.0, 325.0], Condition::FirstUseEver).build(ui, || {
             let mut clipper = ListClipper::new(0xFFFF).items_height(ui.text_line_height() / 2.0).begin(ui);
             clipper.step();
 

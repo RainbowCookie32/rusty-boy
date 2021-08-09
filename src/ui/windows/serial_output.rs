@@ -20,7 +20,7 @@ impl SerialWindow {
     }
 
     pub fn draw(&mut self, ui: &Ui) {
-        Window::new(im_str!("Serial Output")).build(ui, || {
+        Window::new(im_str!("Serial Output")).size([475.0, 170.0], Condition::FirstUseEver).build(ui, || {
             if let Ok(lock) = self.gb_serial.read() {
                 let mut output = String::new();
 
