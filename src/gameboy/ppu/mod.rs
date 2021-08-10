@@ -264,6 +264,10 @@ impl GameboyPPU {
 
     // Draw a screen line using the data in self.backgrounds.
     fn draw_screen_line(&mut self) {
+        if self.lcdc & 1 == 0 {
+            return;
+        }
+
         if let Ok(backgrounds) = self.backgrounds.read() {
             let start = 256 * self.ly.wrapping_add(self.scy) as usize;
 
