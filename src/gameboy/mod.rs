@@ -1,5 +1,5 @@
 mod cpu;
-pub mod gpu;
+pub mod ppu;
 pub mod memory;
 pub mod disassembler;
 
@@ -8,14 +8,14 @@ use std::sync::{Arc, RwLock};
 use std::sync::mpsc::Sender;
 
 use cpu::GameboyCPU;
-use gpu::GameboyGPU;
+use ppu::GameboyPPU;
 
 use memory::GameboyMemory;
 use memory::cart::CartHeader;
 
 pub struct Gameboy {
     gb_cpu: GameboyCPU,
-    gb_gpu: GameboyGPU,
+    gb_ppu: GameboyPPU,
     gb_mem: Arc<GameboyMemory>,
     gb_joy: Arc<RwLock<JoypadHandler>>,
 
@@ -30,7 +30,7 @@ impl Gameboy {
 
         Gameboy {
             gb_cpu: GameboyCPU::init(gb_mem.clone()),
-            gb_gpu: GameboyGPU::init(gb_mem.clone()),
+            gb_ppu: GameboyPPU::init(gb_mem.clone()),
             gb_mem,
             gb_joy,
 
@@ -51,11 +51,11 @@ impl Gameboy {
                 if let Ok(mut lock) = gameboy.try_write() {
                     if lock.dbg_mode == EmulatorMode::Running {
                         lock.gb_cpu_cycle();
-                        lock.gb_gpu_cycle();
+                        lock.gb_ppu_cycle();
                     }
                     else if lock.dbg_mode == EmulatorMode::Stepping && lock.dbg_do_step {
                         lock.gb_cpu_cycle();
-                        lock.gb_gpu_cycle();
+                        lock.gb_ppu_cycle();
                         lock.dbg_do_step = false;
                     }
                 }
@@ -88,8 +88,8 @@ impl Gameboy {
         self.gb_cpu.cpu_cycle(&self.dbg_breakpoint_list, &mut self.dbg_mode);
     }
 
-    pub fn gb_gpu_cycle(&mut self) {
-        self.gb_gpu.gpu_cycle(self.gb_cpu.get_cycles());
+    pub fn gb_ppu_cycle(&mut self) {
+        self.gb_ppu.ppu_cycle(self.gb_cpu.get_cycles());
     }
 
     pub fn ui_get_header(&self) -> Arc<CartHeader> {
@@ -117,11 +117,11 @@ impl Gameboy {
     }
 
     pub fn ui_get_screen_data(&self) -> Arc<RwLock<Vec<u8>>> {
-        self.gb_gpu.get_screen_data()
+        self.gb_ppu.get_screen_data()
     }
 
     pub fn ui_get_backgrounds_data(&self) -> Arc<RwLock<Vec<Vec<u8>>>> {
-        self.gb_gpu.get_backgrounds_data()
+        self.gb_ppu.get_backgrounds_data()
     }
 }
 

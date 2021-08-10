@@ -8,8 +8,8 @@ use glium::Display;
 use crate::gameboy::Gameboy;
 use crate::gameboy::memory::GameboyMemory;
 
-use crate::gameboy::gpu::utils;
-use crate::gameboy::gpu::utils::GameboyTexture;
+use crate::gameboy::ppu::utils;
+use crate::gameboy::ppu::utils::GameboyTexture;
 
 pub struct VramViewerWindow {
     gb_mem: Arc<GameboyMemory>,

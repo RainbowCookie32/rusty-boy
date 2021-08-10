@@ -7,7 +7,7 @@ use glium::Display;
 
 use crate::gameboy::Gameboy;
 use crate::gameboy::JoypadHandler;
-use crate::gameboy::gpu::utils::GameboyTexture;
+use crate::gameboy::ppu::utils::GameboyTexture;
 
 use crate::ui::AppConfig;
 

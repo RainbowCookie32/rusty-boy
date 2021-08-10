@@ -59,7 +59,7 @@ impl Sprite {
     }
 }
 
-pub struct GameboyGPU {
+pub struct GameboyPPU {
     ly: u8,
     lyc: u8,
     scy: u8,
@@ -82,9 +82,9 @@ pub struct GameboyGPU {
     frame_time: time::Instant,
 }
 
-impl GameboyGPU {
-    pub fn init(gb_mem: Arc<GameboyMemory>) -> GameboyGPU {
-        GameboyGPU {
+impl GameboyPPU {
+    pub fn init(gb_mem: Arc<GameboyMemory>) -> GameboyPPU {
+        GameboyPPU {
             ly: 0,
             lyc: 0,
             scy: 0,
@@ -108,7 +108,7 @@ impl GameboyGPU {
         }
     }
 
-    pub fn gpu_cycle(&mut self, cycles: &mut usize) {
+    pub fn ppu_cycle(&mut self, cycles: &mut usize) {
         self.ly = self.gb_mem.read(0xFF44);
         self.lyc = self.gb_mem.read(0xFF45);
         self.scy = self.gb_mem.read(0xFF42);
