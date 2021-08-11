@@ -3,40 +3,11 @@ pub mod cart;
 pub mod regions;
 
 use std::sync::{Arc, RwLock};
-use std::sync::atomic::{AtomicU8, Ordering};
 
 use regions::*;
 use cart::{CartHeader, GameboyCart};
 
 use crate::gameboy::JoypadHandler;
-
-pub struct GameboyByte {
-    value: AtomicU8
-}
-
-impl GameboyByte {
-    pub fn from(value: u8) -> GameboyByte {
-        GameboyByte {
-            value: AtomicU8::from(value)
-        }
-    }
-
-    pub fn get(&self) -> u8 {
-        self.value.load(Ordering::Relaxed)
-    }
-
-    pub fn set(&self, value: u8) {
-        self.value.store(value, Ordering::Relaxed)
-    }
-}
-
-impl Clone for GameboyByte {
-    fn clone(&self) -> GameboyByte {
-        GameboyByte {
-            value: AtomicU8::from(self.value.load(Ordering::Relaxed))
-        }
-    }
-}
 
 pub struct GameboyMemory {
     bootrom: Vec<u8>,

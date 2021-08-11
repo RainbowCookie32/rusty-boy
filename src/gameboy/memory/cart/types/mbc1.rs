@@ -1,9 +1,8 @@
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::gameboy::memory::regions::*;
+use crate::gameboy::memory::GameboyCart;
 use crate::gameboy::memory::cart::CartHeader;
-use crate::gameboy::memory::{GameboyCart, GameboyByte};
 
 pub struct MBC1 {
     header: Arc<CartHeader>,

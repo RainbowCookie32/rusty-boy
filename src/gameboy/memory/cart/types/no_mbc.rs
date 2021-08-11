@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
 use crate::gameboy::memory::regions::*;
+use crate::gameboy::memory::GameboyCart;
 use crate::gameboy::memory::cart::CartHeader;
-use crate::gameboy::memory::{GameboyCart, GameboyByte};
 
 pub struct NoMBC {
     header: Arc<CartHeader>,
-    rom_banks: Vec<Vec<GameboyByte>>
+    rom_banks: Vec<Vec<u8>>
 }
 
 impl NoMBC {
@@ -16,7 +16,6 @@ impl NoMBC {
             let chunks = data.chunks(16384);
 
             for chunk in chunks {
-                let chunk: Vec<GameboyByte> = chunk.iter().map(|b| GameboyByte::from(*b)).collect();
                 result.push(chunk.to_vec());
             }
 
@@ -33,10 +32,10 @@ impl NoMBC {
 impl GameboyCart for NoMBC {
     fn read(&self, address: u16) -> u8 {
         if CARTRIDGE_ROM_BANK0.contains(&address) {
-            self.rom_banks[0][address as usize].get()
+            self.rom_banks[0][address as usize]
         }
         else if CARTRIDGE_ROM_BANKX.contains(&address) {
-            self.rom_banks[1][address as usize - 0x4000].get()
+            self.rom_banks[1][address as usize - 0x4000]
         }
         else {
             0
@@ -49,10 +48,10 @@ impl GameboyCart for NoMBC {
 
     fn dbg_write(&mut self, address: u16, value: u8) {
         if CARTRIDGE_ROM_BANK0.contains(&address) {
-            self.rom_banks[0][address as usize].set(value)
+            self.rom_banks[0][address as usize] = value;
         }
         else if CARTRIDGE_ROM_BANKX.contains(&address) {
-            self.rom_banks[1][address as usize - 0x4000].set(value)
+            self.rom_banks[1][address as usize - 0x4000] = value;
         }
     }
 
