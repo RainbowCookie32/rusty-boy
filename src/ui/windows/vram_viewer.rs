@@ -12,7 +12,7 @@ use crate::gameboy::ppu::utils;
 use crate::gameboy::ppu::utils::GameboyTexture;
 
 pub struct VramViewerWindow {
-    gb_mem: Arc<GameboyMemory>,
+    gb_mem: Arc<RwLock<GameboyMemory>>,
     
     tiles: Vec<GameboyTexture>,
     backgrounds: Vec<GameboyTexture>,
@@ -91,14 +91,16 @@ impl VramViewerWindow {
                     let mut palette = utils::Palette::new();
                     let mut data = Vec::new();
 
-                    palette.update(self.gb_mem.read(0xFF47));
+                    if let Ok(lock) = self.gb_mem.read() {
+                        palette.update(lock.read(0xFF47));
 
-                    for address in 0x8000..0x87FF {
-                        data.push(self.gb_mem.read(address));
-                    }
-
-                    for address in 0x8800..0x8FFF {
-                        data.push(self.gb_mem.read(address));
+                        for address in 0x8000..0x87FF {
+                            data.push(lock.read(address));
+                        }
+    
+                        for address in 0x8800..0x8FFF {
+                            data.push(lock.read(address));
+                        }
                     }
 
                     for (idx, tile_data) in data.chunks_exact(16).enumerate() {

@@ -1,11 +1,11 @@
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 use imgui::*;
 
 use crate::gameboy::memory::GameboyMemory;
 
 pub struct MemoryWindow {
-    gb_mem: Arc<GameboyMemory>,
+    gb_mem: Arc<RwLock<GameboyMemory>>,
 
     editing_byte: bool,
     target_byte_address: u16,
@@ -13,7 +13,7 @@ pub struct MemoryWindow {
 }
 
 impl MemoryWindow {
-    pub fn init(gb_mem: Arc<GameboyMemory>) -> MemoryWindow {
+    pub fn init(gb_mem: Arc<RwLock<GameboyMemory>>) -> MemoryWindow {
         MemoryWindow {
             gb_mem,
 
@@ -37,7 +37,15 @@ impl MemoryWindow {
                 let mut current_addr = line as u16 * 8;
 
                 for _ in 0..8 {
-                    values.push(self.gb_mem.read(current_addr));
+                    values.push(
+                        if let Ok(lock) = self.gb_mem.read() {
+                            lock.read(current_addr)
+                        }
+                        else {
+                            0
+                        }
+                    );
+
                     current_addr += 1;
                 }
 
@@ -62,7 +70,10 @@ impl MemoryWindow {
 
                         if ui.input_text(im_str!("##data"), &mut self.target_byte_new_value).flags(flags).resize_buffer(true).build() {
                             if let Ok(value) = u8::from_str_radix(&self.target_byte_new_value.to_string(), 16) {
-                                self.gb_mem.dbg_write(value_address, value);
+                                if let Ok(mut lock) = self.gb_mem.write() {
+                                    lock.dbg_write(value_address, value);
+                                }
+                                
                             }
 
                             self.editing_byte = false;

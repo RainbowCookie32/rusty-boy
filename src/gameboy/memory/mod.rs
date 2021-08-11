@@ -39,39 +39,38 @@ impl Clone for GameboyByte {
 }
 
 pub struct GameboyMemory {
-    bootrom: Vec<GameboyByte>,
+    bootrom: Vec<u8>,
     cartridge: Box<dyn GameboyCart + Send + Sync>,
 
-    vram: Vec<GameboyByte>,
-    wram: Vec<GameboyByte>,
+    vram: Vec<u8>,
+    wram: Vec<u8>,
 
-    oam: Vec<GameboyByte>,
-    io: Vec<GameboyByte>,
-    hram: Vec<GameboyByte>,
+    oam: Vec<u8>,
+    io: Vec<u8>,
+    hram: Vec<u8>,
 
-    ie: GameboyByte,
+    ie: u8,
 
     gb_joy: Arc<RwLock<JoypadHandler>>,
     serial_output: Arc<RwLock<Vec<u8>>>
 }
 
 impl GameboyMemory {
-    pub fn init(bootrom_data: Vec<u8>, romfile_data: Vec<u8>, gb_joy: Arc<RwLock<JoypadHandler>>) -> GameboyMemory {
+    pub fn init(bootrom: Vec<u8>, romfile_data: Vec<u8>, gb_joy: Arc<RwLock<JoypadHandler>>) -> GameboyMemory {
         let cartridge = cart::create_cart(romfile_data);
-        let bootrom = bootrom_data.into_iter().map(GameboyByte::from).collect();
 
         GameboyMemory {
             bootrom,
             cartridge,
             
-            vram: vec![GameboyByte::from(0); 0x2000],
-            wram: vec![GameboyByte::from(0); 0x2000],
+            vram: vec![0; 0x2000],
+            wram: vec![0; 0x2000],
 
-            oam: vec![GameboyByte::from(0); 0x00A0],
-            io: vec![GameboyByte::from(0); 0x0080],
-            hram: vec![GameboyByte::from(0); 0x007F],
+            oam: vec![0; 0x00A0],
+            io: vec![0; 0x0080],
+            hram: vec![0; 0x007F],
 
-            ie: GameboyByte::from(0),
+            ie: 0,
 
             gb_joy,
             serial_output: Arc::new(RwLock::new(Vec::new()))
@@ -95,30 +94,30 @@ impl GameboyMemory {
         self.serial_output.clone()
     }
 
-    pub fn reset(&self) {
+    pub fn reset(&mut self) {
         self.cartridge.reset();
 
-        for b in self.vram.iter() {
-            b.set(0);
+        for b in self.vram.iter_mut() {
+            *b = 0;
         }
 
-        for b in self.wram.iter() {
-            b.set(0);
+        for b in self.wram.iter_mut() {
+            *b = 0;
         }
 
-        for b in self.oam.iter() {
-            b.set(0);
+        for b in self.oam.iter_mut() {
+            *b = 0;
         }
 
-        for b in self.io.iter() {
-            b.set(0);
+        for b in self.io.iter_mut() {
+            *b = 0;
         }
 
-        for b in self.hram.iter() {
-            b.set(0);
+        for b in self.hram.iter_mut() {
+            *b = 0;
         }
 
-        self.ie.set(0);
+        self.ie = 0;
 
         if let Ok(mut lock) = self.serial_output.write() {
             lock.clear();
@@ -134,7 +133,7 @@ impl GameboyMemory {
                     self.cartridge.read(address)
                 }
                 else {
-                    self.bootrom[address as usize].get()
+                    self.bootrom[address as usize]
                 }
             }
             else {
@@ -142,19 +141,19 @@ impl GameboyMemory {
             }
         }
         else if VRAM.contains(&address) {
-            self.vram[address as usize - 0x8000].get()
+            self.vram[address as usize - 0x8000]
         }
         else if CARTRIDGE_RAM.contains(&address) {
             self.cartridge.read(address)
         }
         else if WRAM.contains(&address) {
-            self.wram[address as usize - 0xC000].get()
+            self.wram[address as usize - 0xC000]
         }
         else if ECHO.contains(&address) {
-            self.wram[address as usize - 0xE000].get()
+            self.wram[address as usize - 0xE000]
         }
         else if OAM.contains(&address) {
-            self.oam[address as usize - 0xFE00].get()
+            self.oam[address as usize - 0xFE00]
         }
         // Unused.
         else if (0xFEA0..=0xFEFF).contains(&address) {
@@ -167,34 +166,34 @@ impl GameboyMemory {
                 }
             }
 
-            self.io[address as usize - 0xFF00].get()
+            self.io[address as usize - 0xFF00]
         }
         else if HRAM.contains(&address) {
-            self.hram[address as usize - 0xFF80].get()
+            self.hram[address as usize - 0xFF80]
         }
         else {
-            self.ie.get()
+            self.ie
         }
     }
 
-    pub fn write(&self, address: u16, value: u8) {
+    pub fn write(&mut self, address: u16, value: u8) {
         if CARTRIDGE_ROM.contains(&address) {
             self.cartridge.write(address, value);
         }
         else if VRAM.contains(&address) {
-            self.vram[address as usize - 0x8000].set(value);
+            self.vram[address as usize - 0x8000] = value;
         }
         else if CARTRIDGE_RAM.contains(&address) {
             self.cartridge.write(address, value);
         }
         else if WRAM.contains(&address) {
-            self.wram[address as usize - 0xC000].set(value);
+            self.wram[address as usize - 0xC000] = value;
         }
         else if ECHO.contains(&address) {
-            self.wram[address as usize - 0xE000].set(value);
+            self.wram[address as usize - 0xE000] = value;
         }
         else if OAM.contains(&address) {
-            self.oam[address as usize - 0xFE00].set(value);
+            self.oam[address as usize - 0xFE00] = value;
         }
         // Unused.
         else if (0xFEA0..=0xFEFF).contains(&address) {
@@ -213,17 +212,17 @@ impl GameboyMemory {
                 }
             }
 
-            self.io[address as usize - 0xFF00].set(value);
+            self.io[address as usize - 0xFF00] = value;
         }
         else if HRAM.contains(&address) {
-            self.hram[address as usize - 0xFF80].set(value);
+            self.hram[address as usize - 0xFF80] = value;
         }
         else {
-            self.ie.set(value);
+            self.ie = value;
         }
     }
 
-    pub fn dbg_write(&self, address: u16, value: u8) {
+    pub fn dbg_write(&mut self, address: u16, value: u8) {
         if CARTRIDGE_ROM.contains(&address) {
             let bootrom_enabled = self.read(0xFF50) == 0;
 
@@ -232,7 +231,7 @@ impl GameboyMemory {
                     self.cartridge.dbg_write(address, value);
                 }
                 else {
-                    self.bootrom[address as usize].set(value)
+                    self.bootrom[address as usize] = value;
                 }
             }
             else {
@@ -240,32 +239,32 @@ impl GameboyMemory {
             }
         }
         else if VRAM.contains(&address) {
-            self.vram[address as usize - 0x8000].set(value);
+            self.vram[address as usize - 0x8000] = value;
         }
         else if CARTRIDGE_RAM.contains(&address) {
             self.cartridge.write(address, value);
         }
         else if WRAM.contains(&address) {
-            self.wram[address as usize - 0xC000].set(value);
+            self.wram[address as usize - 0xC000] = value;
         }
         else if ECHO.contains(&address) {
-            self.wram[address as usize - 0xE000].set(value);
+            self.wram[address as usize - 0xE000] = value;
         }
         else if OAM.contains(&address) {
-            self.oam[address as usize - 0xFE00].set(value);
+            self.oam[address as usize - 0xFE00] = value;
         }
         // Unused.
         else if (0xFEA0..=0xFEFF).contains(&address) {
             
         }
         else if IO.contains(&address) {
-            self.io[address as usize - 0xFF00].set(value);
+            self.io[address as usize - 0xFF00] = value;
         }
         else if HRAM.contains(&address) {
-            self.hram[address as usize - 0xFF80].set(value);
+            self.hram[address as usize - 0xFF80] = value;
         }
         else {
-            self.ie.set(value);
+            self.ie = value;
         }
     }
 }

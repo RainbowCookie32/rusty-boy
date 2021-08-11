@@ -102,10 +102,10 @@ impl CartHeader {
 
 pub trait GameboyCart {
     fn read(&self, address: u16) -> u8;
-    fn write(&self, address: u16, value: u8);
-    fn dbg_write(&self, address: u16, value: u8);
+    fn write(&mut self, address: u16, value: u8);
+    fn dbg_write(&mut self, address: u16, value: u8);
 
-    fn reset(&self);
+    fn reset(&mut self);
     fn get_header(&self) -> Arc<CartHeader>;
     
     fn is_ram_enabled(&self) -> bool;

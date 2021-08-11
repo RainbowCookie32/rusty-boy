@@ -73,17 +73,17 @@ pub struct GameboyPPU {
     bg_palette: Palette,
     obj_palettes: Vec<Palette>,
 
-    cycles: usize,
+    gb_cyc: Arc<RwLock<usize>>,
     
     screen: Arc<RwLock<Vec<u8>>>,
     backgrounds: Arc<RwLock<Vec<Vec<u8>>>>,
 
-    gb_mem: Arc<GameboyMemory>,
+    gb_mem: Arc<RwLock<GameboyMemory>>,
     frame_time: time::Instant,
 }
 
 impl GameboyPPU {
-    pub fn init(gb_mem: Arc<GameboyMemory>) -> GameboyPPU {
+    pub fn init(gb_cyc: Arc<RwLock<usize>>, gb_mem: Arc<RwLock<GameboyMemory>>) -> GameboyPPU {
         GameboyPPU {
             ly: 0,
             lyc: 0,
@@ -98,7 +98,7 @@ impl GameboyPPU {
             bg_palette: Palette::new(),
             obj_palettes: vec![Palette::new(); 2],
 
-            cycles: 0,
+            gb_cyc,
 
             screen: Arc::new(RwLock::new(vec![255; SCREEN_WIDTH * SCREEN_HEIGHT])),
             backgrounds: Arc::new(RwLock::new(vec![vec![255; 256 * 256]; 2])),
@@ -108,48 +108,48 @@ impl GameboyPPU {
         }
     }
 
-    pub fn ppu_cycle(&mut self, cycles: &mut usize) {
-        self.ly = self.gb_mem.read(0xFF44);
-        self.lyc = self.gb_mem.read(0xFF45);
-        self.scy = self.gb_mem.read(0xFF42);
-        self.scx = self.gb_mem.read(0xFF43);
-        self.lcdc = self.gb_mem.read(0xFF40);
-        self.stat = self.gb_mem.read(0xFF41);
+    pub fn ppu_cycle(&mut self) {
+        self.ly = self.read(0xFF44);
+        self.lyc = self.read(0xFF45);
+        self.scy = self.read(0xFF42);
+        self.scx = self.read(0xFF43);
+        self.lcdc = self.read(0xFF40);
+        self.stat = self.read(0xFF41);
 
-        self.wy = self.gb_mem.read(0xFF4A);
-        self.wx = self.gb_mem.read(0xFF4B);
+        self.wy = self.read(0xFF4A);
+        self.wx = self.read(0xFF4B);
 
-        self.bg_palette.update(self.gb_mem.read(0xFF47));
-        self.obj_palettes[0].update(self.gb_mem.read(0xFF48) & 0xFC);
-        self.obj_palettes[1].update(self.gb_mem.read(0xFF49) & 0xFC);
+        let bg_pal = self.read(0xFF47);
+        let obj0_pal = self.read(0xFF48) & 0xFC;
+        let obj1_pal = self.read(0xFF49) & 0xFC;
+
+        self.bg_palette.update(bg_pal);
+        self.obj_palettes[0].update(obj0_pal);
+        self.obj_palettes[1].update(obj1_pal);
 
         if self.lcdc & 0x80 == 0 {
             self.frame_time = time::Instant::now();
             return;
         }
 
-        self.cycles += *cycles - self.cycles;
-
         let current_mode = self.stat & 3;
 
         // Mode 2 - OAM scan.
-        if self.cycles >= 80 && current_mode == 2 {
-            *cycles = 0;
-            self.cycles = 0;
+        if *self.gb_cyc.read().unwrap() >= 80 && current_mode == 2 {
+            *self.gb_cyc.write().unwrap() = 0;
             self.set_mode(Mode::LcdTransfer);
         }
         // Mode 3 - Access OAM and VRAM to generate the picture.
-        else if self.cycles >= 172 && current_mode == 3 {
-            *cycles = 0;
+        else if *self.gb_cyc.read().unwrap() >= 172 && current_mode == 3 {
+            *self.gb_cyc.write().unwrap() = 0;
             
             self.draw_screen_line();
             self.draw_sprites();
 
-            self.cycles = 0;
             self.set_mode(Mode::Hblank);
         }
         // Mode 0 - H-Blank.
-        else if self.cycles >= 204 && current_mode == 0 {
+        else if *self.gb_cyc.read().unwrap() >= 204 && current_mode == 0 {
             self.ly += 1;
 
             if self.ly < 144 {
@@ -161,21 +161,20 @@ impl GameboyPPU {
 
             if self.ly == self.lyc {
                 self.stat |= LYC_BIT;
-                self.gb_mem.write(0xFF41, self.stat);
+                self.write(0xFF41, self.stat);
                 self.request_interrupt(Interrupt::Coincidence);
             }
             else {
                 self.stat &= !LYC_BIT;
-                self.gb_mem.write(0xFF41, self.stat);
+                self.write(0xFF41, self.stat);
             }
 
-            *cycles = 0;
-            self.cycles = 0;
+            *self.gb_cyc.write().unwrap() = 0;
 
-            self.gb_mem.write(0xFF44, self.ly);
+            self.write(0xFF44, self.ly);
         }
         // Mode 1 - V-Blank.
-        else if self.cycles >= 456 && current_mode == 1 {
+        else if *self.gb_cyc.read().unwrap() >= 456 && current_mode == 1 {
             self.ly += 1;
 
             if self.ly > 153 {
@@ -192,19 +191,33 @@ impl GameboyPPU {
 
             if self.ly == self.lyc {
                 self.stat |= LYC_BIT;
-                self.gb_mem.write(0xFF41, self.stat);
+                self.write(0xFF41, self.stat);
                 self.request_interrupt(Interrupt::Coincidence);
             }
             else {
                 self.stat &= !LYC_BIT;
-                self.gb_mem.write(0xFF41, self.stat);
+                self.write(0xFF41, self.stat);
             }
 
-            *cycles = 0;
-            self.cycles = 0;
+            *self.gb_cyc.write().unwrap() = 0;
 
             self.draw_backgrounds();
-            self.gb_mem.write(0xFF44, self.ly);
+            self.write(0xFF44, self.ly);
+        }
+    }
+
+    fn read(&self, address: u16) -> u8 {
+        if let Ok(lock) = self.gb_mem.read() {
+            lock.read(address)
+        }
+        else {
+            0
+        }
+    }
+
+    fn write(&self, address: u16, value: u8) {
+        if let Ok(mut lock) = self.gb_mem.write() {
+            lock.write(address, value);
         }
     }
 
@@ -226,13 +239,13 @@ impl GameboyPPU {
             _ => {}
         }
 
-        self.gb_mem.write(0xFF41, self.stat);
+        self.write(0xFF41, self.stat);
         self.request_interrupt(Interrupt::ModeSwitch(mode));
     }
 
     fn request_interrupt(&mut self, int: Interrupt) {
         let mut vblank = false;
-        let mut if_value = self.gb_mem.read(0xFF0F);
+        let mut if_value = self.read(0xFF0F);
 
         let enabled = {
             match int {
@@ -259,7 +272,7 @@ impl GameboyPPU {
             if_value |= 2;
         }
 
-        self.gb_mem.write(0xFF0F, if_value);
+        self.write(0xFF0F, if_value);
     }
 
     // Draw a screen line using the data in self.backgrounds.
@@ -328,7 +341,7 @@ impl GameboyPPU {
             let mut sprites_to_draw = Vec::with_capacity(10);
 
             for offset in 0..160 {
-                oam_data.push(self.gb_mem.read(0xFE00 + offset));
+                oam_data.push(self.read(0xFE00 + offset));
             }
             
             for chunk in oam_data.chunks_exact(4) {
@@ -368,7 +381,7 @@ impl GameboyPPU {
                         let tile_addr = 0x8000 + (16 * idx as u16);
                         
                         for offset in 0..16 {
-                            tile_data.push(self.gb_mem.read(tile_addr + offset));
+                            tile_data.push(self.read(tile_addr + offset));
                         }
                     }
                 }
@@ -377,7 +390,7 @@ impl GameboyPPU {
                     let tile_addr = 0x8000 + (16 * idx);
                         
                     for offset in 0..16 {
-                        tile_data.push(self.gb_mem.read(tile_addr + offset));
+                        tile_data.push(self.read(tile_addr + offset));
                     }
                 }
 
@@ -447,7 +460,7 @@ impl GameboyPPU {
                     let mut data = Vec::new();
 
                     for address in tiles_start..tiles_end {
-                        data.push(self.gb_mem.read(address));
+                        data.push(self.read(address));
                     }
 
                     data.chunks_exact(16).for_each(|t| res.push(t.to_owned()));
@@ -458,7 +471,7 @@ impl GameboyPPU {
                     let mut res = Vec::with_capacity(1024);
 
                     for address in map_start..map_end {
-                        res.push(self.gb_mem.read(address));
+                        res.push(self.read(address));
                     }
 
                     res

@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 use crate::gameboy::memory::GameboyMemory;
 
@@ -11,11 +11,11 @@ pub struct DmaTransfer {
 
     copied: usize,
     started_at: usize,
-    gb_mem: Arc<GameboyMemory>
+    gb_mem: Arc<RwLock<GameboyMemory>>
 }
 
 impl DmaTransfer {
-    pub fn new(source: u8, started_at: usize, gb_mem: Arc<GameboyMemory>) -> DmaTransfer {
+    pub fn new(source: u8, started_at: usize, gb_mem: Arc<RwLock<GameboyMemory>>) -> DmaTransfer {
         let source = (source as u16) << 8;
 
         DmaTransfer {
@@ -42,12 +42,15 @@ impl DmaTransfer {
         };
 
         for _ in 0..bytes_to_copy {
-            let byte = self.gb_mem.read(self.source);
-            self.gb_mem.write(self.current, byte);
-
-            self.copied += 1;
-            self.source += 1;
-            self.current += 1;
+            if let Ok(mut lock) = self.gb_mem.write() {
+                let byte = lock.read(self.source);
+                lock.write(self.current, byte);
+    
+                self.copied += 1;
+                self.source += 1;
+                self.current += 1;
+            }
+            
         }
 
         self.current >= TRANSFER_TARGET + DMA_COPY_SIZE

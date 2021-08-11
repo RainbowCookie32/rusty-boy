@@ -8,14 +8,14 @@ use crate::gameboy::memory::{GameboyCart, GameboyByte};
 pub struct MBC1 {
     header: Arc<CartHeader>,
 
-    rom_banks: Vec<Vec<GameboyByte>>,
-    ram_banks: Vec<Vec<GameboyByte>>,
+    rom_banks: Vec<Vec<u8>>,
+    ram_banks: Vec<Vec<u8>>,
 
-    ram_enabled: AtomicBool,
+    ram_enabled: bool,
 
-    banking_mode: GameboyByte,
-    selected_rom_bank: GameboyByte,
-    selected_ram_bank: GameboyByte
+    banking_mode: u8,
+    selected_rom_bank: u8,
+    selected_ram_bank: u8
 }
 
 impl MBC1 {
@@ -25,7 +25,6 @@ impl MBC1 {
             let chunks = data.chunks(16384);
 
             for chunk in chunks {
-                let chunk: Vec<GameboyByte> = chunk.iter().map(|b| GameboyByte::from(*b)).collect();
                 result.push(chunk.to_vec());
             }
 
@@ -37,14 +36,13 @@ impl MBC1 {
                 let mut result = Vec::with_capacity(8192 * header.ram_banks_count());
 
                 for chunk in data.chunks_exact(8192) {
-                    let chunk: Vec<GameboyByte> = chunk.iter().map(|b| GameboyByte::from(*b)).collect();
                     result.push(chunk.to_vec());
                 }
 
                 result
             }
             else {
-                vec![vec![GameboyByte::from(0); 8192]; header.ram_banks_count]
+                vec![vec![0; 8192]; header.ram_banks_count]
             }
         };
 
@@ -54,11 +52,11 @@ impl MBC1 {
             rom_banks,
             ram_banks,
 
-            ram_enabled: AtomicBool::new(false),
+            ram_enabled: false,
 
-            banking_mode: GameboyByte::from(0),
-            selected_rom_bank: GameboyByte::from(1),
-            selected_ram_bank: GameboyByte::from(0)
+            banking_mode: 0,
+            selected_rom_bank: 1,
+            selected_ram_bank: 0
         }
     }
 
@@ -67,7 +65,7 @@ impl MBC1 {
 
         for bank in self.ram_banks.iter() {
             for byte in bank {
-                data.push(byte.get());
+                data.push(*byte);
             }
         }
 
@@ -83,48 +81,48 @@ impl MBC1 {
     }
 
     fn get_rom_bank(&self) -> usize {
-        ((self.selected_ram_bank.get() << 5) | self.selected_rom_bank.get()) as usize
+        ((self.selected_ram_bank << 5) | self.selected_rom_bank) as usize
     }
 }
 
 impl GameboyCart for MBC1 {
     fn read(&self, address: u16) -> u8 {
         if CARTRIDGE_ROM_BANK0.contains(&address) {
-            if self.banking_mode.get() == 1 {
-                let bank = (self.selected_ram_bank.get() << 5) as usize;
+            if self.banking_mode == 1 {
+                let bank = (self.selected_ram_bank << 5) as usize;
 
                 if let Some(bank) = self.rom_banks.get(bank) {
-                    return bank[address as usize].get();
+                    return bank[address as usize];
                 }
             }
 
-            return self.rom_banks[0][address as usize].get();
+            return self.rom_banks[0][address as usize];
         }
         else if CARTRIDGE_ROM_BANKX.contains(&address) {
             let bank = self.get_rom_bank();
             let address = (address - 0x4000) as usize;
 
             if let Some(bank) = self.rom_banks.get(bank) {
-                return bank[address as usize].get();
+                return bank[address as usize];
             }
 
-            return self.rom_banks[1][address as usize].get();
+            return self.rom_banks[1][address as usize];
         }
         else if CARTRIDGE_RAM.contains(&address) && self.is_ram_enabled() {
             let address = (address - 0xA000) as usize;
 
-            if self.banking_mode.get() == 0 {
+            if self.banking_mode == 0 {
                 if let Some(bank) = self.ram_banks.get(0) {
-                    return bank[address as usize].get();
+                    return bank[address as usize];
                 }
             }
             else {
                 // MBC1 carts can have 0, 1, or 4 banks of RAM.
                 // The bank register is only used if the cart is the latter.
-                let bank = if self.ram_banks.len() == 4 {self.selected_ram_bank.get() as usize} else {0};
+                let bank = if self.ram_banks.len() == 4 {self.selected_ram_bank as usize} else {0};
             
                 if let Some(bank) = self.ram_banks.get(bank) {
-                    return bank[address as usize].get();
+                    return bank[address as usize];
                 }
             }
         }
@@ -132,7 +130,7 @@ impl GameboyCart for MBC1 {
         0xFF
     }
 
-    fn write(&self, address: u16, value: u8) {
+    fn write(&mut self, address: u16, value: u8) {
         if MBC1_ENABLE_RAM.contains(&address) {
             let enable_ram = (value & 0x0F) == 0x0A;
 
@@ -140,7 +138,7 @@ impl GameboyCart for MBC1 {
                 self.save_ram();
             }
 
-            self.ram_enabled.store(enable_ram, Ordering::Relaxed);
+            self.ram_enabled = enable_ram;
         }
         else if MBC1_ROM_BANK.contains(&address) {
             // Mask the bank value to fit the amount of banks on the cart.
@@ -152,49 +150,49 @@ impl GameboyCart for MBC1 {
                 _ => value & 0x1F
             };
 
-            self.selected_rom_bank.set(if value == 0 {1} else {value});
+            self.selected_rom_bank = if value == 0 {1} else {value};
         }
         else if MBC1_RAM_BANK.contains(&address) {
-            self.selected_ram_bank.set(value & 3);
+            self.selected_ram_bank = value & 3;
         }
         else if MBC1_BANKING_MODE.contains(&address) {
-            self.banking_mode.set(value & 1);
+            self.banking_mode = value & 1;
         }
         else if CARTRIDGE_RAM.contains(&address) && self.is_ram_enabled() {
             let address = (address - 0xA000) as usize;
 
-            if self.banking_mode.get() == 0 {
-                if let Some(bank) = self.ram_banks.get(0) {
-                    bank[address as usize].set(value);
+            if self.banking_mode == 0 {
+                if let Some(bank) = self.ram_banks.get_mut(0) {
+                    bank[address as usize] = value;
                 }
             }
             else {
                 // MBC1 carts can have no 0, 1, or 4 banks of RAM.
                 // The bank register is only used if the cart is the latter.
-                let bank = if self.ram_banks.len() == 4 {self.selected_ram_bank.get() as usize} else {0};
+                let bank = if self.ram_banks.len() == 4 {self.selected_ram_bank as usize} else {0};
                 
-                if let Some(bank) = self.ram_banks.get(bank) {
-                    bank[address as usize].set(value);
+                if let Some(bank) = self.ram_banks.get_mut(bank) {
+                    bank[address as usize] = value;
                 }
             }
         }
     }
 
     // TODO: Get this to work properly with banking.
-    fn dbg_write(&self, address: u16, value: u8) {
+    fn dbg_write(&mut self, address: u16, value: u8) {
         if CARTRIDGE_ROM_BANK0.contains(&address) {
-            self.rom_banks[0][address as usize].set(value)
+            self.rom_banks[0][address as usize] = value
         }
         else if CARTRIDGE_ROM_BANKX.contains(&address) {
-            self.rom_banks[1][address as usize - 0x4000].set(value)
+            self.rom_banks[1][address as usize - 0x4000] = value
         }
     }
 
-    fn reset(&self) {
-        self.banking_mode.set(0);
-        self.selected_rom_bank.set(1);
-        self.selected_ram_bank.set(0);
-        self.ram_enabled.store(false, Ordering::Relaxed);
+    fn reset(&mut self) {
+        self.banking_mode = 0;
+        self.selected_rom_bank = 1;
+        self.selected_ram_bank = 0;
+        self.ram_enabled = false;
     }
 
     fn get_header(&self) -> Arc<CartHeader> {
@@ -202,7 +200,7 @@ impl GameboyCart for MBC1 {
     }
 
     fn is_ram_enabled(&self) -> bool {
-        self.ram_enabled.load(Ordering::Relaxed)
+        self.ram_enabled
     }
 
     fn get_selected_rom_bank(&self) -> usize {
@@ -210,6 +208,6 @@ impl GameboyCart for MBC1 {
     }
 
     fn get_selected_ram_bank(&self) -> usize {
-        self.selected_ram_bank.get() as usize
+        self.selected_ram_bank as usize
     }
 }

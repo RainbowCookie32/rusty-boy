@@ -9,7 +9,7 @@ use crate::gameboy::{Breakpoint, EmulatorMode, Gameboy};
 
 pub struct DisassemblerWindow {
     gb: Arc<RwLock<Gameboy>>,
-    gb_mem: Arc<GameboyMemory>,
+    gb_mem: Arc<RwLock<GameboyMemory>>,
 
     adjusted_cursor: bool
 }
@@ -30,7 +30,7 @@ impl DisassemblerWindow {
         let pc = {
             if let Ok(lock) = self.gb.read() {
                 let (_, _, _, _, _, pc) = lock.ui_get_cpu_registers();
-                *pc
+                pc
             }
             else {
                 0
@@ -55,7 +55,16 @@ impl DisassemblerWindow {
                             String::from("ROM00")
                         }
                         else if CARTRIDGE_ROM_BANKX.contains(&current_addr) {
-                            format!("ROM{:02}", self.gb_mem.cartridge().get_selected_rom_bank())
+                            let bank = {
+                                if let Ok(lock) = self.gb_mem.read() {
+                                    lock.cartridge().get_selected_rom_bank()
+                                }
+                                else {
+                                    1
+                                }
+                            };
+
+                            format!("ROM{:02}", bank)
                         }
                         else if VRAM.contains(&current_addr) {
                             String::from("VRAM")

@@ -52,12 +52,12 @@ impl CPUWindow {
                     let (af, bc, de, hl, sp, pc) = lock.ui_get_cpu_registers();
                     let mut breakpoints_list = Vec::with_capacity(lock.dbg_breakpoint_list.len());
 
-                    self.registers[0] = *af;
-                    self.registers[1] = *bc;
-                    self.registers[2] = *de;
-                    self.registers[3] = *hl;
-                    self.registers[4] = *sp;
-                    self.registers[5] = *pc;
+                    self.registers[0] = af;
+                    self.registers[1] = bc;
+                    self.registers[2] = de;
+                    self.registers[3] = hl;
+                    self.registers[4] = sp;
+                    self.registers[5] = pc;
 
                     self.dbg_mode = lock.dbg_mode.clone();
 
@@ -150,16 +150,6 @@ impl CPUWindow {
 
                 if let Ok(mut lock) = self.gb.write() {
                     lock.gb_reset();
-                }
-            }
-
-            ui.same_line(0.0);
-
-            if ui.button(im_str!("Skip bootrom"), [0.0, 0.0]) {
-                adjust_cursor = true;
-
-                if let Ok(mut lock) = self.gb.write() {
-                    lock.gb_skip_bootrom();
                 }
             }
 

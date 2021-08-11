@@ -43,11 +43,11 @@ impl GameboyCart for NoMBC {
         }
     }
 
-    fn write(&self, _address: u16, _value: u8) {
+    fn write(&mut self, _address: u16, _value: u8) {
         
     }
 
-    fn dbg_write(&self, address: u16, value: u8) {
+    fn dbg_write(&mut self, address: u16, value: u8) {
         if CARTRIDGE_ROM_BANK0.contains(&address) {
             self.rom_banks[0][address as usize].set(value)
         }
@@ -56,7 +56,7 @@ impl GameboyCart for NoMBC {
         }
     }
 
-    fn reset(&self) {
+    fn reset(&mut self) {
         
     }
 

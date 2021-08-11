@@ -14,9 +14,10 @@ use memory::GameboyMemory;
 use memory::cart::CartHeader;
 
 pub struct Gameboy {
-    gb_cpu: GameboyCPU,
-    gb_ppu: GameboyPPU,
-    gb_mem: Arc<GameboyMemory>,
+    gb_cyc: Arc<RwLock<usize>>,
+    gb_cpu: Arc<RwLock<GameboyCPU>>,
+    gb_ppu: Arc<RwLock<GameboyPPU>>,
+    gb_mem: Arc<RwLock<GameboyMemory>>,
     gb_joy: Arc<RwLock<JoypadHandler>>,
 
     pub dbg_mode: EmulatorMode,
@@ -25,12 +26,16 @@ pub struct Gameboy {
 }
 
 impl Gameboy {
-    pub fn init(gb_mem: Arc<GameboyMemory>) -> Gameboy {
-        let gb_joy = gb_mem.gb_joy();
+    pub fn init(gb_mem: Arc<RwLock<GameboyMemory>>) -> Gameboy {
+        let gb_cyc = Arc::new(RwLock::new(0));
+        let gb_cpu = Arc::new(RwLock::new(GameboyCPU::init(gb_cyc.clone(), gb_mem.clone())));
+        let gb_ppu = Arc::new(RwLock::new(GameboyPPU::init(gb_cyc.clone(), gb_mem.clone())));
+        let gb_joy = gb_mem.read().unwrap().gb_joy();
 
         Gameboy {
-            gb_cpu: GameboyCPU::init(gb_mem.clone()),
-            gb_ppu: GameboyPPU::init(gb_mem.clone()),
+            gb_cyc,
+            gb_cpu,
+            gb_ppu,
             gb_mem,
             gb_joy,
 
@@ -70,46 +75,47 @@ impl Gameboy {
     }
 
     pub fn gb_reset(&mut self) {
-        self.gb_cpu.reset();
-        self.gb_mem.reset();
+        self.gb_cpu.write().unwrap().reset();
+        self.gb_mem.write().unwrap().reset();
 
-        self.dbg_mode = EmulatorMode::Paused;
-    }
-
-    pub fn gb_skip_bootrom(&mut self) {
-        self.gb_cpu.skip_bootrom();
-        // Disable the Bootrom by writing 1 to $FF50.
-        self.gb_mem.write(0xFF50, 1);
+        if let Ok(mut cycles) = self.gb_cyc.write() {
+            *cycles = 0;
+        }
 
         self.dbg_mode = EmulatorMode::Paused;
     }
 
     pub fn gb_cpu_cycle(&mut self) {
-        self.gb_cpu.cpu_cycle(&self.dbg_breakpoint_list, &mut self.dbg_mode);
+        if let Ok(mut lock) = self.gb_cpu.write() {
+            lock.cpu_cycle(&self.dbg_breakpoint_list, &mut self.dbg_mode);
+        }
     }
 
     pub fn gb_ppu_cycle(&mut self) {
-        self.gb_ppu.ppu_cycle(self.gb_cpu.get_cycles());
+        if let Ok(mut lock) = self.gb_ppu.write() {
+            lock.ppu_cycle();
+        }
     }
 
     pub fn ui_get_header(&self) -> Arc<CartHeader> {
-        self.gb_mem.header()
+        self.gb_mem.read().unwrap().header()
     }
 
-    pub fn ui_get_memory(&self) -> Arc<GameboyMemory> {
+    pub fn ui_get_memory(&self) -> Arc<RwLock<GameboyMemory>> {
         self.gb_mem.clone()
     }
 
-    pub fn ui_get_cpu_registers(&self) -> (&u16, &u16, &u16, &u16, &u16, &u16) {
-        self.gb_cpu.get_all_registers()
+    pub fn ui_get_cpu_registers(&self) -> (u16, u16, u16, u16, u16, u16) {
+        let lock = self.gb_cpu.read().unwrap();
+        lock.get_all_registers()
     }
 
     pub fn ui_get_callstack(&self) -> Arc<RwLock<Vec<String>>> {
-        self.gb_cpu.get_callstack()
+        self.gb_cpu.read().unwrap().get_callstack()
     }
 
     pub fn ui_get_serial_output(&self) -> Arc<RwLock<Vec<u8>>> {
-        self.gb_mem.serial_output()
+        self.gb_mem.read().unwrap().serial_output()
     }
 
     pub fn ui_get_joypad_handler(&self) -> Arc<RwLock<JoypadHandler>> {
@@ -117,11 +123,11 @@ impl Gameboy {
     }
 
     pub fn ui_get_screen_data(&self) -> Arc<RwLock<Vec<u8>>> {
-        self.gb_ppu.get_screen_data()
+        self.gb_ppu.read().unwrap().get_screen_data()
     }
 
     pub fn ui_get_backgrounds_data(&self) -> Arc<RwLock<Vec<Vec<u8>>>> {
-        self.gb_ppu.get_backgrounds_data()
+        self.gb_ppu.read().unwrap().get_backgrounds_data()
     }
 }
 

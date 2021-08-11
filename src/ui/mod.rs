@@ -42,7 +42,7 @@ pub struct AppState {
     settings_opened: bool,
 
     gb: Option<Arc<RwLock<Gameboy>>>,
-    gb_mem: Option<Arc<GameboyMemory>>,
+    gb_mem: Option<Arc<RwLock<GameboyMemory>>>,
     gb_exit_tx: Option<Sender<()>>,
 
     notifications: Vec<Notification>,
@@ -321,7 +321,7 @@ fn reload_app(app_state: &mut AppState, ui: &Ui) {
 
         let gb_joy = Arc::new(RwLock::new(JoypadHandler::default()));
 
-        let gb_mem = Arc::new(GameboyMemory::init(bootrom_data, romfile_data, gb_joy));
+        let gb_mem = Arc::new(RwLock::new(GameboyMemory::init(bootrom_data, romfile_data, gb_joy)));
         let gb = Arc::new(RwLock::new(Gameboy::init(gb_mem.clone())));
 
         let gb_exit_tx = Gameboy::gb_start(gb.clone());

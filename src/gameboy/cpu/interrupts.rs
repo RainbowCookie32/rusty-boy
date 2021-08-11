@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 use crate::gameboy::memory::GameboyMemory;
 
@@ -14,11 +14,11 @@ pub struct InterruptHandler {
     ei_executed: bool,
     instructions_since_ei: u8,
 
-    gb_mem: Arc<GameboyMemory>
+    gb_mem: Arc<RwLock<GameboyMemory>>
 }
 
 impl InterruptHandler {
-    pub fn init(gb_mem: Arc<GameboyMemory>) -> InterruptHandler {
+    pub fn init(gb_mem: Arc<RwLock<GameboyMemory>>) -> InterruptHandler {
         InterruptHandler {
             ime: false,
 
@@ -26,6 +26,21 @@ impl InterruptHandler {
             instructions_since_ei: 0,
 
             gb_mem
+        }
+    }
+
+    fn read(&self, address: u16) -> u8 {
+        if let Ok(lock) = self.gb_mem.read() {
+            lock.read(address)
+        }
+        else {
+            0
+        }
+    }
+
+    fn write(&self, address: u16, value: u8) {
+        if let Ok(mut lock) = self.gb_mem.write() {
+            lock.write(address, value)
         }
     }
 
@@ -46,8 +61,8 @@ impl InterruptHandler {
         }
 
         if self.ime {
-            let if_value = self.gb_mem.read(0xFF0F);
-            let ie_value = self.gb_mem.read(0xFFFF);
+            let if_value = self.read(0xFF0F);
+            let ie_value = self.read(0xFFFF);
 
             if if_value & VBLANK_BIT != 0 {
                 requested = true;
@@ -56,7 +71,7 @@ impl InterruptHandler {
                     let new_if = if_value & !VBLANK_BIT;
 
                     self.ime = false;
-                    self.gb_mem.write(0xFF0F, new_if);
+                    self.write(0xFF0F, new_if);
 
                     return (requested, Some(0x40));
                 }
@@ -68,7 +83,7 @@ impl InterruptHandler {
                     let new_if = if_value & !STAT_BIT;
 
                     self.ime = false;
-                    self.gb_mem.write(0xFF0F, new_if);
+                    self.write(0xFF0F, new_if);
     
                     return (requested, Some(0x48))
                 }
@@ -80,7 +95,7 @@ impl InterruptHandler {
                     let new_if = if_value & !TIMER_BIT;
 
                     self.ime = false;
-                    self.gb_mem.write(0xFF0F, new_if);
+                    self.write(0xFF0F, new_if);
     
                     return (requested, Some(0x50))
                 }
@@ -92,7 +107,7 @@ impl InterruptHandler {
                     let new_if = if_value & !SERIAL_BIT;
 
                     self.ime = false;
-                    self.gb_mem.write(0xFF0F, new_if);
+                    self.write(0xFF0F, new_if);
     
                     return (requested, Some(0x58));
                 }
@@ -104,7 +119,7 @@ impl InterruptHandler {
                     let new_if = if_value & !JOYPAD_BIT;
 
                     self.ime = false;
-                    self.gb_mem.write(0xFF0F, new_if);
+                    self.write(0xFF0F, new_if);
     
                     return (requested, Some(0x60));
                 }

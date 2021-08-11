@@ -78,7 +78,7 @@ impl ScreenWindow {
                 }
             }
 
-            if config.screen_size != ui.window_size() {
+            if !config.screen_size.eq(&ui.window_size()) {
                 config.screen_size = ui.window_size();
                 config.save()
             }

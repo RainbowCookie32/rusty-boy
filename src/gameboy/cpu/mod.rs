@@ -64,19 +64,19 @@ pub struct GameboyCPU {
     halted: bool,
     stopped: bool,
 
-    cycles: usize,
+    gb_cyc: Arc<RwLock<usize>>,
     div_cycles: usize,
     callstack: Arc<RwLock<Vec<String>>>,
 
     dma_transfer: Option<DmaTransfer>,
 
-    memory: Arc<GameboyMemory>,
+    gb_mem: Arc<RwLock<GameboyMemory>>,
     interrupt_handler: InterruptHandler
 }
 
 impl GameboyCPU {
-    pub fn init(memory: Arc<GameboyMemory>) -> GameboyCPU {
-        let interrupt_handler = InterruptHandler::init(memory.clone());
+    pub fn init(gb_cyc: Arc<RwLock<usize>>, gb_mem: Arc<RwLock<GameboyMemory>>) -> GameboyCPU {
+        let interrupt_handler = InterruptHandler::init(gb_mem.clone());
 
         GameboyCPU {
             af: 0,
@@ -90,13 +90,13 @@ impl GameboyCPU {
             halted: false,
             stopped: false,
 
-            cycles: 0,
+            gb_cyc,
             div_cycles: 0,
             callstack: Arc::new(RwLock::new(Vec::new())),
 
             dma_transfer: None,
 
-            memory,
+            gb_mem,
             interrupt_handler
         }
     }
@@ -250,21 +250,12 @@ impl GameboyCPU {
         }
     }
 
-    pub fn skip_bootrom(&mut self) {
-        self.af = 0x01B0;
-        self.bc = 0x0013;
-        self.de = 0x00D8;
-        self.hl = 0x014D;
-        self.sp = 0xFFFE;
-        self.pc = 0x0100;
-    }
-
     pub fn get_callstack(&self) -> Arc<RwLock<Vec<String>>> {
         self.callstack.clone()
     }
 
-    pub fn get_all_registers(&self) -> (&u16, &u16, &u16, &u16, &u16, &u16) {
-        (&self.af, &self.bc, &self.de, &self.hl, &self.sp, &self.pc)
+    pub fn get_all_registers(&self) -> (u16, u16, u16, u16, u16, u16) {
+        (self.af, self.bc, self.de, self.hl, self.sp, self.pc)
     }
 
     fn read_u8(&self, address: u16, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) -> (bool, u8) {
@@ -280,7 +271,16 @@ impl GameboyCPU {
             }
         }
 
-        (found_bp, self.memory.read(address))
+        let value = {
+            if let Ok(lock) = self.gb_mem.read() {
+                lock.read(address)
+            }
+            else {
+                0
+            }
+        };
+
+        (found_bp, value)
     }
 
     fn read_u16(&self, address: u16, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) -> (bool, u16) {
@@ -295,9 +295,16 @@ impl GameboyCPU {
             }
         }
 
-        let values = [self.memory.read(address), self.memory.read(address + 1)];
+        let result = {
+            if let Ok(lock) = self.gb_mem.read() {
+                u16::from_le_bytes([lock.read(address), lock.read(address + 1)])
+            }
+            else {
+                0
+            }
+        };
 
-        (found_bp, u16::from_le_bytes(values))
+        (found_bp, result)
     }
 
     fn write(&mut self, address: u16, value: u8, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) -> bool {
@@ -311,11 +318,14 @@ impl GameboyCPU {
         }
 
         if address == 0xFF46 {
-            let transfer = DmaTransfer::new(value, self.cycles, self.memory.clone());
+            let transfer = DmaTransfer::new(value, *self.gb_cyc.read().unwrap(), self.gb_mem.clone());
             self.dma_transfer = Some(transfer);
         }
 
-        self.memory.write(address, value);
+        if let Ok(mut lock) = self.gb_mem.write() {
+            lock.write(address, value);
+        }
+        
         false
     }
 
@@ -331,10 +341,18 @@ impl GameboyCPU {
             }
         }
 
-        let values = [self.memory.read(self.sp), self.memory.read(self.sp + 1)];
+        let result = {
+            if let Ok(lock) = self.gb_mem.read() {
+                u16::from_le_bytes([lock.read(self.sp), lock.read(self.sp + 1)])
+            }
+            else {
+                0
+            }
+        };
+
         self.sp = self.sp.wrapping_add(2);
 
-        (found_bp, u16::from_le_bytes(values))
+        (found_bp, result)
     }
 
     fn stack_write(&mut self, value: u16, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) -> bool {
@@ -361,15 +379,10 @@ impl GameboyCPU {
         self.hl = 0;
         self.sp = 0;
         self.pc = 0;
-        self.cycles = 0;
         
         if let Ok(mut lock) = self.callstack.write() {
             lock.clear();
         }
-    }
-
-    pub fn get_cycles(&mut self) -> &mut usize {
-        &mut self.cycles
     }
 
     pub fn cpu_cycle(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -385,18 +398,22 @@ impl GameboyCPU {
     }
 
     fn increase_div(&mut self) {
-        if self.cycles > self.div_cycles {
-            let elapsed = self.cycles - self.div_cycles;
-
-            if elapsed >= 256 {
-                let div_value = self.memory.read(0xFF04);
-                
-                self.div_cycles = self.cycles;
-                self.memory.write(0xFF04, div_value.wrapping_add(1));
+        if let Ok(cycles) = self.gb_cyc.read() {
+            if *cycles > self.div_cycles {
+                let elapsed = *cycles - self.div_cycles;
+    
+                if elapsed >= 256 {
+                    if let Ok(mut lock) = self.gb_mem.write() {
+                        let div_value = lock.read(0xFF04);
+    
+                        self.div_cycles = *cycles;
+                        lock.write(0xFF04, div_value.wrapping_add(1));
+                    }
+                }
             }
-        }
-        else {
-            self.div_cycles = 0;
+            else {
+                self.div_cycles = 0;
+            }
         }
     }
 
@@ -424,12 +441,15 @@ impl GameboyCPU {
             // If the cycle counter doesn't increase, other parts of the system
             // wont' move either, so interrupts won't be triggered. In this case,
             // that'd mean it gets stuck on a halted or stop state forever.
-            self.cycles += 4;
+            if let Ok(mut cycles) = self.gb_cyc.write() {
+                *cycles += 4;
+            }
+
             return;
         }
 
         if let Some(transfer) = self.dma_transfer.as_mut() {
-            if transfer.step(self.cycles) {
+            if transfer.step(*self.gb_cyc.read().unwrap()) {
                 self.dma_transfer = None;
             }
         }
@@ -1003,7 +1023,7 @@ impl GameboyCPU {
 
     fn nop(&mut self) {
         self.pc += 1;
-        self.cycles += 4;
+        *self.gb_cyc.write().unwrap() += 4;
     }
 
     fn load_u8_to_r8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, reg: Register) {
@@ -1017,7 +1037,7 @@ impl GameboyCPU {
         self.set_r8(reg, value);
 
         self.pc += 2;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn load_hl_to_r8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, reg: Register) {
@@ -1031,7 +1051,7 @@ impl GameboyCPU {
         self.set_r8(reg, value);
 
         self.pc += 1;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn load_a_from_rp(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, reg: Register) {
@@ -1046,7 +1066,7 @@ impl GameboyCPU {
         self.set_r8(Register::AF, value);
 
         self.pc += 1;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn load_a_from_hl_and_inc(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -1061,7 +1081,7 @@ impl GameboyCPU {
         self.set_rp(Register::HL(true), self.hl.wrapping_add(1));
 
         self.pc += 1;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn load_a_from_hl_and_dec(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -1076,7 +1096,7 @@ impl GameboyCPU {
         self.set_rp(Register::HL(true), self.hl.wrapping_sub(1));
 
         self.pc += 1;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn load_a_from_io_c(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -1090,7 +1110,7 @@ impl GameboyCPU {
         self.set_r8(Register::AF, value);
 
         self.pc += 1;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn load_a_from_io_u8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -1111,7 +1131,7 @@ impl GameboyCPU {
         self.set_r8(Register::AF, value);
 
         self.pc += 2;
-        self.cycles += 12;
+        *self.gb_cyc.write().unwrap() += 12;
     }
 
     fn load_a_from_u16(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -1132,7 +1152,7 @@ impl GameboyCPU {
         self.set_r8(Register::AF, value);
 
         self.pc += 3;
-        self.cycles += 16;
+        *self.gb_cyc.write().unwrap() += 16;
     }
 
     fn load_u16_to_rp(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, reg: Register) {
@@ -1146,21 +1166,21 @@ impl GameboyCPU {
         self.set_rp(reg, value);
 
         self.pc += 3;
-        self.cycles += 12;
+        *self.gb_cyc.write().unwrap() += 12;
     }
 
     fn load_hl_to_sp(&mut self) {
         self.sp = self.hl;
         
         self.pc += 1;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn load_r8_to_r8(&mut self, target: Register, source: Register) {
         self.set_r8(target, self.get_r8(&source));
         
         self.pc += 1;
-        self.cycles += 4;
+        *self.gb_cyc.write().unwrap() += 4;
     }
 
     fn load_sp_i8_to_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -1183,7 +1203,7 @@ impl GameboyCPU {
         self.set_flag(Flag::Carry((sp & 0x00FF) + (value & 0x00FF) > 0xFF));
 
         self.pc += 2;
-        self.cycles += 12;
+        *self.gb_cyc.write().unwrap() += 12;
     }
 
     fn store_r8_to_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, reg: Register) {
@@ -1195,7 +1215,7 @@ impl GameboyCPU {
         }
         
         self.pc += 1;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn store_a_to_hl_and_inc(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -1209,7 +1229,7 @@ impl GameboyCPU {
         self.set_rp(Register::HL(false), self.hl.wrapping_add(1));
 
         self.pc += 1;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn store_a_to_hl_and_dec(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -1223,7 +1243,7 @@ impl GameboyCPU {
         self.set_rp(Register::HL(false), self.hl.wrapping_sub(1));
 
         self.pc += 1;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn store_a_to_rp(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, reg: Register) {
@@ -1235,7 +1255,7 @@ impl GameboyCPU {
         }
 
         self.pc += 1;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn store_a_to_io_c(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -1247,7 +1267,7 @@ impl GameboyCPU {
         }
         
         self.pc += 1;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn store_a_to_io_u8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -1266,7 +1286,7 @@ impl GameboyCPU {
         }
         
         self.pc += 2;
-        self.cycles += 12;
+        *self.gb_cyc.write().unwrap() += 12;
     }
 
     fn store_a_to_u16(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -1283,7 +1303,7 @@ impl GameboyCPU {
         }
 
         self.pc += 3;
-        self.cycles += 16;
+        *self.gb_cyc.write().unwrap() += 16;
     }
 
     fn store_sp_to_u16(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -1307,7 +1327,7 @@ impl GameboyCPU {
         }
 
         self.pc += 3;
-        self.cycles += 20;
+        *self.gb_cyc.write().unwrap() += 20;
     }
 
     fn store_u8_to_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -1324,7 +1344,7 @@ impl GameboyCPU {
         }
 
         self.pc += 2;
-        self.cycles += 12;
+        *self.gb_cyc.write().unwrap() += 12;
     }
 
     fn add_i8_to_sp(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -1347,14 +1367,14 @@ impl GameboyCPU {
         self.set_flag(Flag::Carry((sp & 0x00FF) + (value & 0x00FF) > 0xFF));
 
         self.pc += 2;
-        self.cycles += 16;
+        *self.gb_cyc.write().unwrap() += 16;
     }
 
     fn halt(&mut self) {
         self.halted = true;
 
         self.pc += 1;
-        self.cycles += 4;
+        *self.gb_cyc.write().unwrap() += 4;
     }
 
     fn daa(&mut self) {
@@ -1382,7 +1402,7 @@ impl GameboyCPU {
         self.set_flag(Flag::HalfCarry(false));
 
         self.pc += 1;
-        self.cycles += 4;
+        *self.gb_cyc.write().unwrap() += 4;
     }
 
     fn scf(&mut self) {
@@ -1391,7 +1411,7 @@ impl GameboyCPU {
         self.set_flag(Flag::Carry(true));
 
         self.pc += 1;
-        self.cycles += 4;
+        *self.gb_cyc.write().unwrap() += 4;
     }
 
     fn ccf(&mut self) {
@@ -1402,7 +1422,7 @@ impl GameboyCPU {
         self.set_flag(Flag::Carry(carry));
 
         self.pc += 1;
-        self.cycles += 4;
+        *self.gb_cyc.write().unwrap() += 4;
     }
 
     fn cpl(&mut self) {
@@ -1414,7 +1434,7 @@ impl GameboyCPU {
         self.set_flag(Flag::HalfCarry(true));
 
         self.pc += 1;
-        self.cycles += 4;
+        *self.gb_cyc.write().unwrap() += 4;
     }
 
     fn pop_rp(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, reg: Register) {
@@ -1428,7 +1448,7 @@ impl GameboyCPU {
         self.set_rp(reg, value);
 
         self.pc += 1;
-        self.cycles += 12;
+        *self.gb_cyc.write().unwrap() += 12;
     }
 
     fn push_rp(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, reg: Register) {
@@ -1440,7 +1460,7 @@ impl GameboyCPU {
         }
 
         self.pc += 1;
-        self.cycles += 16;
+        *self.gb_cyc.write().unwrap() += 16;
     }
 
     fn inc_rp(&mut self, reg: Register) {
@@ -1449,7 +1469,7 @@ impl GameboyCPU {
         self.set_rp(reg, value.wrapping_add(1));
         
         self.pc += 1;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn dec_rp(&mut self, reg: Register) {
@@ -1458,7 +1478,7 @@ impl GameboyCPU {
         self.set_rp(reg, value.wrapping_sub(1));
         
         self.pc += 1;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn inc(&mut self, value: u8) -> u8 {
@@ -1476,7 +1496,7 @@ impl GameboyCPU {
         self.set_r8(reg, result);
         
         self.pc += 1;
-        self.cycles += 4;
+        *self.gb_cyc.write().unwrap() += 4;
     }
 
     fn inc_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -1495,7 +1515,7 @@ impl GameboyCPU {
         }
 
         self.pc += 1;
-        self.cycles += 12;
+        *self.gb_cyc.write().unwrap() += 12;
     }
 
     fn dec(&mut self, value: u8) -> u8 {
@@ -1513,7 +1533,7 @@ impl GameboyCPU {
         self.set_r8(reg, result);
 
         self.pc += 1;
-        self.cycles += 4;
+        *self.gb_cyc.write().unwrap() += 4;
     }
 
     fn dec_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -1532,7 +1552,7 @@ impl GameboyCPU {
         }
 
         self.pc += 1;
-        self.cycles += 12;
+        *self.gb_cyc.write().unwrap() += 12;
     }
 
     fn add_hl_rp(&mut self, reg: Register) {
@@ -1547,7 +1567,7 @@ impl GameboyCPU {
         self.set_flag(Flag::Carry(carry));
         
         self.pc += 1;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn add(&mut self, value: u8) {
@@ -1567,7 +1587,7 @@ impl GameboyCPU {
         self.add(value);
 
         self.pc += 1;
-        self.cycles += 4;
+        *self.gb_cyc.write().unwrap() += 4;
     }
 
     fn add_u8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -1581,7 +1601,7 @@ impl GameboyCPU {
         self.add(value);
 
         self.pc += 2;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn add_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -1595,7 +1615,7 @@ impl GameboyCPU {
         self.add(value);
 
         self.pc += 1;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn adc(&mut self, value: u8) {
@@ -1616,7 +1636,7 @@ impl GameboyCPU {
         self.adc(value);
 
         self.pc += 1;
-        self.cycles += 4;
+        *self.gb_cyc.write().unwrap() += 4;
     }
 
     fn adc_u8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -1630,7 +1650,7 @@ impl GameboyCPU {
         self.adc(value);
 
         self.pc += 2;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn adc_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -1644,7 +1664,7 @@ impl GameboyCPU {
         self.adc(value);
 
         self.pc += 1;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn sub(&mut self, value: u8) {
@@ -1664,7 +1684,7 @@ impl GameboyCPU {
         self.sub(value);
 
         self.pc += 1;
-        self.cycles += 4;
+        *self.gb_cyc.write().unwrap() += 4;
     }
 
     fn sub_u8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -1678,7 +1698,7 @@ impl GameboyCPU {
         self.sub(value);
 
         self.pc += 2;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn sub_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -1692,7 +1712,7 @@ impl GameboyCPU {
         self.sub(value);
 
         self.pc += 1;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn sbc(&mut self, value: u8) {
@@ -1713,7 +1733,7 @@ impl GameboyCPU {
         self.sbc(value);
 
         self.pc += 1;
-        self.cycles += 4;
+        *self.gb_cyc.write().unwrap() += 4;
     }
 
     fn sbc_u8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -1727,7 +1747,7 @@ impl GameboyCPU {
         self.sbc(value);
 
         self.pc += 2;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn sbc_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -1741,7 +1761,7 @@ impl GameboyCPU {
         self.sbc(value);
 
         self.pc += 1;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn and(&mut self, value: u8) {
@@ -1761,7 +1781,7 @@ impl GameboyCPU {
         self.and(value);
 
         self.pc += 1;
-        self.cycles += 4;
+        *self.gb_cyc.write().unwrap() += 4;
     }
 
     fn and_u8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -1775,7 +1795,7 @@ impl GameboyCPU {
         self.and(value);
 
         self.pc += 2;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn and_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -1789,7 +1809,7 @@ impl GameboyCPU {
         self.and(value);
 
         self.pc += 1;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn xor(&mut self, value: u8) {
@@ -1809,7 +1829,7 @@ impl GameboyCPU {
         self.xor(value);
 
         self.pc += 1;
-        self.cycles += 4;
+        *self.gb_cyc.write().unwrap() += 4;
     }
 
     fn xor_u8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -1823,7 +1843,7 @@ impl GameboyCPU {
         self.xor(value);
 
         self.pc += 2;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn xor_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -1837,7 +1857,7 @@ impl GameboyCPU {
         self.xor(value);
 
         self.pc += 1;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn or(&mut self, value: u8) {
@@ -1857,7 +1877,7 @@ impl GameboyCPU {
         self.or(value);
 
         self.pc += 1;
-        self.cycles += 4;
+        *self.gb_cyc.write().unwrap() += 4;
     }
 
     fn or_u8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -1871,7 +1891,7 @@ impl GameboyCPU {
         self.or(value);
 
         self.pc += 2;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn or_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -1885,7 +1905,7 @@ impl GameboyCPU {
         self.or(value);
 
         self.pc += 1;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn cp(&mut self, value: u8) {
@@ -1902,7 +1922,7 @@ impl GameboyCPU {
         self.cp(value);
 
         self.pc += 1;
-        self.cycles += 4;
+        *self.gb_cyc.write().unwrap() += 4;
     }
 
     fn cp_u8(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -1916,7 +1936,7 @@ impl GameboyCPU {
         self.cp(value);
 
         self.pc += 2;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn cp_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -1930,7 +1950,7 @@ impl GameboyCPU {
         self.cp(value);
 
         self.pc += 1;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn call(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -1951,7 +1971,7 @@ impl GameboyCPU {
         }
 
         self.pc = address;
-        self.cycles += 24;
+        *self.gb_cyc.write().unwrap() += 24;
     }
 
     fn conditional_call(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, condition: Condition) {
@@ -1973,11 +1993,11 @@ impl GameboyCPU {
             }
 
             self.pc = address;
-            self.cycles += 24;
+            *self.gb_cyc.write().unwrap() += 24;
         }
         else {
             self.pc += 3;
-            self.cycles += 12;
+            *self.gb_cyc.write().unwrap() += 12;
         }
     }
 
@@ -1994,7 +2014,7 @@ impl GameboyCPU {
         }
 
         self.pc = address;
-        self.cycles += 12;
+        *self.gb_cyc.write().unwrap() += 12;
     }
 
     fn conditional_ret(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, condition: Condition) {
@@ -2011,11 +2031,11 @@ impl GameboyCPU {
             }
 
             self.pc = address;
-            self.cycles += 20;
+            *self.gb_cyc.write().unwrap() += 20;
         }
         else {
             self.pc += 1;
-            self.cycles += 8;
+            *self.gb_cyc.write().unwrap() += 8;
         }
     }
 
@@ -2034,7 +2054,7 @@ impl GameboyCPU {
         self.interrupt_handler.enable_interrupts(false);
 
         self.pc = address;
-        self.cycles += 16;
+        *self.gb_cyc.write().unwrap() += 16;
     }
 
     fn jump(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -2046,7 +2066,7 @@ impl GameboyCPU {
         }
 
         self.pc = address;
-        self.cycles += 16;
+        *self.gb_cyc.write().unwrap() += 16;
     }
 
     fn conditional_jump(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, condition: Condition) {
@@ -2059,11 +2079,11 @@ impl GameboyCPU {
             }
 
             self.pc = address;
-            self.cycles += 16;
+            *self.gb_cyc.write().unwrap() += 16;
         }
         else {
             self.pc += 3;
-            self.cycles += 12;
+            *self.gb_cyc.write().unwrap() += 12;
         }
     }
 
@@ -2079,7 +2099,7 @@ impl GameboyCPU {
         let target = self.pc.wrapping_add(offset as u16) + 2;
 
         self.pc = target;
-        self.cycles += 12;
+        *self.gb_cyc.write().unwrap() += 12;
     }
 
     fn conditional_jump_relative(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, condition: Condition) {
@@ -2095,17 +2115,17 @@ impl GameboyCPU {
             let target = self.pc.wrapping_add(offset as u16) + 2;
 
             self.pc = target;
-            self.cycles += 12;
+            *self.gb_cyc.write().unwrap() += 12;
         }
         else {
             self.pc += 2;
-            self.cycles += 8;
+            *self.gb_cyc.write().unwrap() += 8;
         }
     }
 
     fn jump_hl(&mut self) {
         self.pc = self.hl;
-        self.cycles += 4;
+        *self.gb_cyc.write().unwrap() += 4;
     }
 
     fn rst(&mut self, address: u16, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -2119,21 +2139,21 @@ impl GameboyCPU {
         }
 
         self.pc = address;
-        self.cycles += 16;
+        *self.gb_cyc.write().unwrap() += 16;
     }
 
     fn di(&mut self) {
         self.interrupt_handler.disable_interrupts();
 
         self.pc += 1;
-        self.cycles += 4;
+        *self.gb_cyc.write().unwrap() += 4;
     }
 
     fn ei(&mut self) {
         self.interrupt_handler.enable_interrupts(true);
         
         self.pc += 1;
-        self.cycles += 4;
+        *self.gb_cyc.write().unwrap() += 4;
     }
 
     fn rla(&mut self) {
@@ -2143,7 +2163,7 @@ impl GameboyCPU {
         self.set_flag(Flag::Zero(false));
 
         self.pc += 1;
-        self.cycles += 4;
+        *self.gb_cyc.write().unwrap() += 4;
     }
 
     fn rra(&mut self) {
@@ -2153,7 +2173,7 @@ impl GameboyCPU {
         self.set_flag(Flag::Zero(false));
 
         self.pc += 1;
-        self.cycles += 4;
+        *self.gb_cyc.write().unwrap() += 4;
     }
 
     fn rlca(&mut self) {
@@ -2163,7 +2183,7 @@ impl GameboyCPU {
         self.set_flag(Flag::Zero(false));
 
         self.pc += 1;
-        self.cycles += 4;
+        *self.gb_cyc.write().unwrap() += 4;
     }
 
     fn rrca(&mut self) {
@@ -2173,7 +2193,7 @@ impl GameboyCPU {
         self.set_flag(Flag::Zero(false));
 
         self.pc += 1;
-        self.cycles += 4;
+        *self.gb_cyc.write().unwrap() += 4;
     }
 
     fn rlc(&mut self, value: u8) -> u8 {
@@ -2193,7 +2213,7 @@ impl GameboyCPU {
         self.set_r8(reg, result);
 
         self.pc += 2;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn rlc_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -2212,7 +2232,7 @@ impl GameboyCPU {
         }
 
         self.pc += 2;
-        self.cycles += 16;
+        *self.gb_cyc.write().unwrap() += 16;
     }
 
     fn rrc(&mut self, value: u8) -> u8 {
@@ -2232,7 +2252,7 @@ impl GameboyCPU {
         self.set_r8(reg, result);
 
         self.pc += 2;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn rrc_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -2251,7 +2271,7 @@ impl GameboyCPU {
         }
 
         self.pc += 2;
-        self.cycles += 16;
+        *self.gb_cyc.write().unwrap() += 16;
     }
 
     fn rl(&mut self, value: u8) -> u8 {
@@ -2272,7 +2292,7 @@ impl GameboyCPU {
         self.set_r8(reg, result);
 
         self.pc += 2;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn rl_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -2291,7 +2311,7 @@ impl GameboyCPU {
         }
 
         self.pc += 2;
-        self.cycles += 16;
+        *self.gb_cyc.write().unwrap() += 16;
     }
 
     fn rr(&mut self, value: u8) -> u8 {
@@ -2312,7 +2332,7 @@ impl GameboyCPU {
         self.set_r8(reg, result);
 
         self.pc += 2;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn rr_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -2331,7 +2351,7 @@ impl GameboyCPU {
         }
 
         self.pc += 2;
-        self.cycles += 16;
+        *self.gb_cyc.write().unwrap() += 16;
     }
 
     fn sla(&mut self, value: u8) -> u8 {
@@ -2351,7 +2371,7 @@ impl GameboyCPU {
         self.set_r8(reg, result);
 
         self.pc += 2;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn sla_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -2370,7 +2390,7 @@ impl GameboyCPU {
         }
 
         self.pc += 2;
-        self.cycles += 16;
+        *self.gb_cyc.write().unwrap() += 16;
     }
 
     fn sra(&mut self, value: u8) -> u8 {
@@ -2391,7 +2411,7 @@ impl GameboyCPU {
         self.set_r8(reg, result);
         
         self.pc += 2;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn sra_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -2410,7 +2430,7 @@ impl GameboyCPU {
         }
 
         self.pc += 2;
-        self.cycles += 16;
+        *self.gb_cyc.write().unwrap() += 16;
     }
 
     fn swap(&mut self, value: u8) -> u8 {
@@ -2430,7 +2450,7 @@ impl GameboyCPU {
         self.set_r8(reg, result);
         
         self.pc += 2;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn swap_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -2449,7 +2469,7 @@ impl GameboyCPU {
         }
 
         self.pc += 2;
-        self.cycles += 16;
+        *self.gb_cyc.write().unwrap() += 16;
     }
 
     fn srl(&mut self, value: u8) -> u8 {
@@ -2469,7 +2489,7 @@ impl GameboyCPU {
         self.set_r8(reg, result);
 
         self.pc += 2;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn srl_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode) {
@@ -2488,7 +2508,7 @@ impl GameboyCPU {
         }
 
         self.pc += 2;
-        self.cycles += 16;
+        *self.gb_cyc.write().unwrap() += 16;
     }
 
     fn bit(&mut self, value: u8, bit: u8) {
@@ -2501,7 +2521,7 @@ impl GameboyCPU {
         self.bit(self.get_r8(&reg), bit);
 
         self.pc += 2;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn bit_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, bit: u8) {
@@ -2515,7 +2535,7 @@ impl GameboyCPU {
         self.bit(value, bit);
 
         self.pc += 2;
-        self.cycles += 12;
+        *self.gb_cyc.write().unwrap() += 12;
     }
 
     fn res_r8(&mut self, reg: Register, bit: u8) {
@@ -2525,7 +2545,7 @@ impl GameboyCPU {
         self.set_r8(reg, result);
 
         self.pc += 2;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn res_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, bit: u8) {
@@ -2544,7 +2564,7 @@ impl GameboyCPU {
         }
 
         self.pc += 2;
-        self.cycles += 16;
+        *self.gb_cyc.write().unwrap() += 16;
     }
 
     fn set(&mut self, reg: Register, bit: u8) {
@@ -2554,7 +2574,7 @@ impl GameboyCPU {
         self.set_r8(reg, result);
 
         self.pc += 2;
-        self.cycles += 8;
+        *self.gb_cyc.write().unwrap() += 8;
     }
 
     fn set_hl(&mut self, breakpoints: &[Breakpoint], dbg_mode: &mut EmulatorMode, bit: u8) {
@@ -2573,6 +2593,6 @@ impl GameboyCPU {
         }
 
         self.pc += 2;
-        self.cycles += 16;
+        *self.gb_cyc.write().unwrap() += 16;
     }
 }
