@@ -6,6 +6,7 @@ use std::sync::{Arc, RwLock};
 use utils::Palette;
 
 use crate::gameboy::memory::GameboyMemory;
+use crate::gameboy::memory::io::IoRegister;
 
 const SCREEN_WIDTH: usize = 160;
 const SCREEN_HEIGHT: usize = 144;
@@ -60,15 +61,17 @@ impl Sprite {
 }
 
 pub struct GameboyPPU {
-    ly: u8,
-    lyc: u8,
-    scy: u8,
-    scx: u8,
-    lcdc: u8,
-    stat: u8,
+    lcdc: Arc<IoRegister>,
+    stat: Arc<IoRegister>,
 
-    wy: u8,
-    wx: u8,
+    scy: Arc<IoRegister>,
+    scx: Arc<IoRegister>,
+
+    ly: Arc<IoRegister>,
+    lyc: Arc<IoRegister>,
+
+    wy: Arc<IoRegister>,
+    wx: Arc<IoRegister>,
 
     bg_palette: Palette,
     obj_palettes: Vec<Palette>,
@@ -84,16 +87,27 @@ pub struct GameboyPPU {
 
 impl GameboyPPU {
     pub fn init(gb_cyc: Arc<RwLock<usize>>, gb_mem: Arc<RwLock<GameboyMemory>>) -> GameboyPPU {
-        GameboyPPU {
-            ly: 0,
-            lyc: 0,
-            scy: 0,
-            scx: 0,
-            lcdc: 0,
-            stat: 0,
+        let lcdc = gb_mem.read().unwrap().get_io_reg(0xFF40);
+        let stat = gb_mem.read().unwrap().get_io_reg(0xFF41);
+        let scy = gb_mem.read().unwrap().get_io_reg(0xFF42);
+        let scx = gb_mem.read().unwrap().get_io_reg(0xFF43);
+        let ly = gb_mem.read().unwrap().get_io_reg(0xFF44);
+        let lyc = gb_mem.read().unwrap().get_io_reg(0xFF45);
+        let wy = gb_mem.read().unwrap().get_io_reg(0xFF4A);
+        let wx = gb_mem.read().unwrap().get_io_reg(0xFF4B);
 
-            wy: 0,
-            wx: 0,
+        GameboyPPU {
+            lcdc,
+            stat,
+
+            scy,
+            scx,
+
+            ly,
+            lyc,
+
+            wy,
+            wx,
 
             bg_palette: Palette::new(),
             obj_palettes: vec![Palette::new(); 2],
@@ -109,16 +123,6 @@ impl GameboyPPU {
     }
 
     pub fn ppu_cycle(&mut self) {
-        self.ly = self.read(0xFF44);
-        self.lyc = self.read(0xFF45);
-        self.scy = self.read(0xFF42);
-        self.scx = self.read(0xFF43);
-        self.lcdc = self.read(0xFF40);
-        self.stat = self.read(0xFF41);
-
-        self.wy = self.read(0xFF4A);
-        self.wx = self.read(0xFF4B);
-
         let bg_pal = self.read(0xFF47);
         let obj0_pal = self.read(0xFF48) & 0xFC;
         let obj1_pal = self.read(0xFF49) & 0xFC;
@@ -127,12 +131,12 @@ impl GameboyPPU {
         self.obj_palettes[0].update(obj0_pal);
         self.obj_palettes[1].update(obj1_pal);
 
-        if self.lcdc & 0x80 == 0 {
+        if self.lcdc.get() & 0x80 == 0 {
             self.frame_time = time::Instant::now();
             return;
         }
 
-        let current_mode = self.stat & 3;
+        let current_mode = self.stat.get() & 3;
 
         // Mode 2 - OAM scan.
         if *self.gb_cyc.read().unwrap() >= 80 && current_mode == 2 {
@@ -150,59 +154,57 @@ impl GameboyPPU {
         }
         // Mode 0 - H-Blank.
         else if *self.gb_cyc.read().unwrap() >= 204 && current_mode == 0 {
-            self.ly += 1;
+            self.ly.set(self.ly.get().wrapping_add(1));
 
-            if self.ly < 144 {
+            if self.ly.get() < 144 {
                 self.set_mode(Mode::OamScan);
             }
             else {
                 self.set_mode(Mode::Vblank);
             }
 
-            if self.ly == self.lyc {
-                self.stat |= LYC_BIT;
-                self.write(0xFF41, self.stat);
+            let mut stat = self.stat.get();
+
+            if self.ly.get() == self.lyc.get() {
+                stat |= LYC_BIT;
                 self.request_interrupt(Interrupt::Coincidence);
             }
             else {
-                self.stat &= !LYC_BIT;
-                self.write(0xFF41, self.stat);
+                stat &= !LYC_BIT;
             }
 
+            self.stat.set(stat);
             *self.gb_cyc.write().unwrap() = 0;
-
-            self.write(0xFF44, self.ly);
         }
         // Mode 1 - V-Blank.
         else if *self.gb_cyc.read().unwrap() >= 456 && current_mode == 1 {
-            self.ly += 1;
+            self.ly.set(self.ly.get().wrapping_add(1));
 
-            if self.ly > 153 {
+            if self.ly.get() > 153 {
                 if self.frame_time.elapsed() < time::Duration::from_millis(16) {
                     let time_to_sleep = time::Duration::from_millis(16).saturating_sub(self.frame_time.elapsed());
 
                     std::thread::sleep(time_to_sleep);
                 }
 
-                self.ly = 0;
+                self.ly.set(0);
                 self.set_mode(Mode::OamScan);
                 self.frame_time = time::Instant::now();
             }
 
-            if self.ly == self.lyc {
-                self.stat |= LYC_BIT;
-                self.write(0xFF41, self.stat);
+            let mut stat = self.stat.get();
+
+            if self.ly.get() == self.lyc.get() {
+                stat |= LYC_BIT;
                 self.request_interrupt(Interrupt::Coincidence);
             }
             else {
-                self.stat &= !LYC_BIT;
-                self.write(0xFF41, self.stat);
+                stat &= !LYC_BIT;
             }
 
-            *self.gb_cyc.write().unwrap() = 0;
-
+            self.stat.set(stat);
             self.draw_backgrounds();
-            self.write(0xFF44, self.ly);
+            *self.gb_cyc.write().unwrap() = 0;
         }
     }
 
@@ -230,16 +232,16 @@ impl GameboyPPU {
     }
 
     fn set_mode(&mut self, mode: Mode) {
-        self.stat &= 0xFC;
+        let mut stat = self.stat.get() & 0xFC;
 
         match mode {
-            Mode::Vblank => self.stat |= 1,
-            Mode::OamScan => self.stat |= 2,
-            Mode::LcdTransfer => self.stat |= 3,
+            Mode::Vblank => stat |= 1,
+            Mode::OamScan => stat |= 2,
+            Mode::LcdTransfer => stat |= 3,
             _ => {}
         }
 
-        self.write(0xFF41, self.stat);
+        self.stat.set(stat);
         self.request_interrupt(Interrupt::ModeSwitch(mode));
     }
 
@@ -249,15 +251,15 @@ impl GameboyPPU {
 
         let enabled = {
             match int {
-                Interrupt::Coincidence => (self.stat & LYC_INT_BIT) != 0,
+                Interrupt::Coincidence => (self.stat.get() & LYC_INT_BIT) != 0,
                 Interrupt::ModeSwitch(mode) => {
                     match mode {
                         Mode::Vblank => {
                             vblank = true;
-                            (self.stat & VBLANK_INT_BIT) != 0
+                            (self.stat.get() & VBLANK_INT_BIT) != 0
                         }
-                        Mode::Hblank => (self.stat & HBLANK_INT_BIT) != 0,
-                        Mode::OamScan => (self.stat & OAM_INT_BIT) != 0,
+                        Mode::Hblank => (self.stat.get() & HBLANK_INT_BIT) != 0,
+                        Mode::OamScan => (self.stat.get() & OAM_INT_BIT) != 0,
                         Mode::LcdTransfer => false
                     }
                 }
@@ -277,21 +279,26 @@ impl GameboyPPU {
 
     // Draw a screen line using the data in self.backgrounds.
     fn draw_screen_line(&mut self) {
-        if self.lcdc & 1 == 0 {
+        if self.lcdc.get() & 1 == 0 {
             return;
         }
 
-        if let Ok(backgrounds) = self.backgrounds.read() {
-            let start = 256 * self.ly.wrapping_add(self.scy) as usize;
+        let ly = self.ly.get();
+        let scy = self.scy.get();
+        let scx = self.scx.get();
+        let lcdc = self.lcdc.get();
 
-            let background = if self.lcdc & 0x08 == 0 { &backgrounds[0] } else { &backgrounds[1] };
+        if let Ok(backgrounds) = self.backgrounds.read() {
+            let start = 256 * ly.wrapping_add(scy) as usize;
+
+            let background = if lcdc & 0x08 == 0 { &backgrounds[0] } else { &backgrounds[1] };
             let background_line = &background[start..start+256];
 
-            let mut screen_idx = 160 * self.ly as usize;
+            let mut screen_idx = 160 * ly as usize;
 
             for screen_point in 0..160 {
                 let screen_point: u8 = screen_point;
-                let background_line_idx: u8 = screen_point.wrapping_add(self.scx);
+                let background_line_idx: u8 = screen_point.wrapping_add(scx);
 
                 if let Ok(mut screen) = self.screen.write() {
                     screen[screen_idx] = background_line[background_line_idx as usize];
@@ -300,26 +307,28 @@ impl GameboyPPU {
                 screen_idx += 1;
             }
 
-            let window_enabled = self.lcdc & 0x20 != 0;
+            let wy = self.wy.get();
+            let wx = self.wx.get();
+            let window_enabled = lcdc & 0x20 != 0;
 
-            if window_enabled && self.ly >= self.wy {
-                let window_on_screen = self.wx <= 166 && self.wy <= 143;
+            if window_enabled && ly >= wy {
+                let window_on_screen = wx <= 166 && wy <= 143;
 
                 if window_on_screen {
                     // The window doesn't have a "current line" counter,
                     // so this gives us the current line on the *window* background map.
-                    let window_line_offset = self.ly - self.wy;
-                    let current_window_line = self.wy + window_line_offset;
+                    let window_line_offset = ly - wy;
+                    let current_window_line = wy + window_line_offset;
                     let background_offset = 256 * window_line_offset as usize;
     
-                    let background = if self.lcdc & 0x40 == 0 { &backgrounds[0] } else { &backgrounds[1] };
+                    let background = if lcdc & 0x40 == 0 { &backgrounds[0] } else { &backgrounds[1] };
                     let background_line = &background[background_offset..background_offset+256];
     
                     screen_idx = 160 * current_window_line as usize;
     
                     for screen_point in 0..160 {
                         let screen_point: u8 = screen_point;
-                        let background_line_idx: u8 = screen_point.wrapping_add(self.wx - 7);
+                        let background_line_idx: u8 = screen_point.wrapping_add(wx - 7);
     
                         if let Ok(mut screen) = self.screen.write() {
                             screen[screen_idx] = background_line[background_line_idx as usize];
@@ -333,10 +342,13 @@ impl GameboyPPU {
     }
 
     fn draw_sprites(&mut self) {
+        let ly = self.ly.get();
+        let lcdc = self.lcdc.get();
+
         // OBJ Enabled flag.
-        if self.lcdc & 2 != 0 {
+        if lcdc & 2 != 0 {
             // Whether to use 8x16 sprites or 8x8.
-            let sprite_heigth = if self.lcdc & 4 != 0 {16} else {8};
+            let sprite_heigth = if lcdc & 4 != 0 {16} else {8};
             let mut oam_data = Vec::with_capacity(160);
             let mut sprites_to_draw = Vec::with_capacity(10);
 
@@ -347,10 +359,10 @@ impl GameboyPPU {
             for chunk in oam_data.chunks_exact(4) {
                 let sprite = Sprite::new(chunk);
                 
-                match self.ly.cmp(&sprite.pos_y){
+                match ly.cmp(&sprite.pos_y){
                     std::cmp::Ordering::Equal => sprites_to_draw.push(sprite),
                     std::cmp::Ordering::Greater => {
-                        if (self.ly - sprite.pos_y) < sprite_heigth {
+                        if (ly - sprite.pos_y) < sprite_heigth {
                             sprites_to_draw.push(sprite);
                         }
                     }
@@ -369,7 +381,7 @@ impl GameboyPPU {
                     continue;
                 }
 
-                let sprite_line_offset = (self.ly - sprite.pos_y) as usize;
+                let sprite_line_offset = (ly - sprite.pos_y) as usize;
                 let mut tile_data = Vec::with_capacity((sprite_heigth * 2) as usize);
 
                 let palette = if !sprite.palette {&self.obj_palettes[0]} else {&self.obj_palettes[1]};
@@ -405,7 +417,7 @@ impl GameboyPPU {
                 let sprite_line = &tile_data[idx..idx+2];
 
                 let mut result = Vec::new();
-                let mut screen_idx = (160 * self.ly as usize) + sprite.pos_x as usize;
+                let mut screen_idx = (160 * ly as usize) + sprite.pos_x as usize;
 
                 if sprite.flip_y {
                     for bit in 0..8 {
@@ -449,7 +461,7 @@ impl GameboyPPU {
     }
 
     fn draw_backgrounds(&mut self) {
-        let (signed, tiles_start, tiles_end) = if self.lcdc & 0x10 == 0 {(true, 0x8800, 0x9800)} else {(false, 0x8000, 0x9000)};
+        let (signed, tiles_start, tiles_end) = if self.lcdc.get() & 0x10 == 0 {(true, 0x8800, 0x9800)} else {(false, 0x8000, 0x9000)};
 
         if let Ok(mut lock) = self.backgrounds.write() {
             for (bg_idx, background) in lock.iter_mut().enumerate() {

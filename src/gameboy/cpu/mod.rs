@@ -403,11 +403,12 @@ impl GameboyCPU {
                 let elapsed = *cycles - self.div_cycles;
     
                 if elapsed >= 256 {
-                    if let Ok(mut lock) = self.gb_mem.write() {
-                        let div_value = lock.read(0xFF04);
+                    if let Ok(lock) = self.gb_mem.read() {
+                        let div = lock.get_io_reg(0xFF04);
+                        let div_value = div.get().wrapping_add(1);
     
+                        div.set(div_value);
                         self.div_cycles = *cycles;
-                        lock.write(0xFF04, div_value.wrapping_add(1));
                     }
                 }
             }

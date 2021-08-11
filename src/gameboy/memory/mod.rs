@@ -1,3 +1,4 @@
+pub mod io;
 pub mod dma;
 pub mod cart;
 pub mod regions;
@@ -5,6 +6,7 @@ pub mod regions;
 use std::sync::{Arc, RwLock};
 
 use regions::*;
+use io::IoRegister;
 use cart::{CartHeader, GameboyCart};
 
 use crate::gameboy::JoypadHandler;
@@ -17,7 +19,7 @@ pub struct GameboyMemory {
     wram: Vec<u8>,
 
     oam: Vec<u8>,
-    io: Vec<u8>,
+    io: Vec<Arc<IoRegister>>,
     hram: Vec<u8>,
 
     ie: u8,
@@ -28,6 +30,7 @@ pub struct GameboyMemory {
 
 impl GameboyMemory {
     pub fn init(bootrom: Vec<u8>, romfile_data: Vec<u8>, gb_joy: Arc<RwLock<JoypadHandler>>) -> GameboyMemory {
+        let io = io::init_io_regs();
         let cartridge = cart::create_cart(romfile_data);
 
         GameboyMemory {
@@ -38,7 +41,7 @@ impl GameboyMemory {
             wram: vec![0; 0x2000],
 
             oam: vec![0; 0x00A0],
-            io: vec![0; 0x0080],
+            io,
             hram: vec![0; 0x007F],
 
             ie: 0,
@@ -46,6 +49,10 @@ impl GameboyMemory {
             gb_joy,
             serial_output: Arc::new(RwLock::new(Vec::new()))
         }
+    }
+
+    pub fn get_io_reg(&self, address: u16) -> Arc<IoRegister> {
+        self.io[address as usize - 0xFF00].clone()
     }
 
     #[allow(clippy::borrowed_box)]
@@ -80,8 +87,8 @@ impl GameboyMemory {
             *b = 0;
         }
 
-        for b in self.io.iter_mut() {
-            *b = 0;
+        for b in self.io.iter() {
+            b.set(0);
         }
 
         for b in self.hram.iter_mut() {
@@ -97,7 +104,7 @@ impl GameboyMemory {
 
     pub fn read(&self, address: u16) -> u8 {
         if CARTRIDGE_ROM.contains(&address) {
-            let bootrom_enabled = self.read(0xFF50) == 0;
+            let bootrom_enabled = self.io[0x0050].read() & 1 == 0;
 
             if bootrom_enabled {
                 if address >= self.bootrom.len() as u16 {
@@ -137,7 +144,7 @@ impl GameboyMemory {
                 }
             }
 
-            self.io[address as usize - 0xFF00]
+            self.io[address as usize - 0xFF00].read()
         }
         else if HRAM.contains(&address) {
             self.hram[address as usize - 0xFF80]
@@ -183,7 +190,7 @@ impl GameboyMemory {
                 }
             }
 
-            self.io[address as usize - 0xFF00] = value;
+            self.io[address as usize - 0xFF00].write(value);
         }
         else if HRAM.contains(&address) {
             self.hram[address as usize - 0xFF80] = value;
@@ -229,7 +236,7 @@ impl GameboyMemory {
             
         }
         else if IO.contains(&address) {
-            self.io[address as usize - 0xFF00] = value;
+            self.io[address as usize - 0xFF00].set(value);
         }
         else if HRAM.contains(&address) {
             self.hram[address as usize - 0xFF80] = value;
