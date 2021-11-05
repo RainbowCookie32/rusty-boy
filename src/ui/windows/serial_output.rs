@@ -20,11 +20,11 @@ impl SerialWindow {
     }
 
     pub fn draw(&mut self, ui: &Ui) {
-        Window::new(im_str!("Serial Output")).size([475.0, 170.0], Condition::FirstUseEver).build(ui, || {
+        Window::new("Serial Output").size([475.0, 170.0], Condition::FirstUseEver).build(ui, || {
             if let Ok(lock) = self.gb_serial.read() {
                 let mut output = String::new();
 
-                ListBox::new(im_str!("")).size([420.0, 110.0]).build(ui, || {
+                ListBox::new("").size([420.0, 110.0]).build(ui, || {
                     if self.serial_show_lines_as_hex {
                         for b in lock.iter() {
                             if *b == 0x0A {
@@ -44,7 +44,7 @@ impl SerialWindow {
                     }
                 });
 
-                ui.checkbox(im_str!("Show lines as hex"), &mut self.serial_show_lines_as_hex);
+                ui.checkbox("Show lines as hex", &mut self.serial_show_lines_as_hex);
             }
         });
     }

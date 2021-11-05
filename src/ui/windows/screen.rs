@@ -37,7 +37,7 @@ impl ScreenWindow {
     pub fn draw(&mut self, config: &mut AppConfig, ui: &Ui, display: &Display, textures: &mut Textures<Texture>) -> bool {
         let mut focused = false;
 
-        Window::new(im_str!("Screen")).size(config.screen_size, Condition::Always).build(ui, || {
+        Window::new("Screen").size(config.screen_size, Condition::Always).build(ui, || {
             let window_size = ui.content_region_avail();
 
             let x_scale = window_size[0] / SCREEN_WIDTH as f32;

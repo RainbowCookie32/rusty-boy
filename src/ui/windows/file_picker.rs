@@ -21,9 +21,9 @@ impl FilePickerWindow {
     pub fn draw(&mut self, ui: &Ui) -> Option<PathBuf> {
         let mut chosen_file = None;
 
-        ui.popup_modal(im_str!("File Picker")).build(|| {
+        if let Some(_token) = PopupModal::new("File Picker").begin_popup(ui) {
             if self.current_path.exists() {
-                ListBox::new(im_str!("")).size([400.0, 200.0]).build(ui, || {
+                ListBox::new("").size([400.0, 200.0]).build(ui, || {
                     if let Ok(mut entries) = self.current_path.read_dir() {
                         let mut dirs = Vec::new();
                         let mut files = Vec::new();
@@ -52,7 +52,7 @@ impl FilePickerWindow {
                         }
 
                         if let Some(parent) = self.current_path.parent() {
-                            if Selectable::new(im_str!("../")).build(ui) {
+                            if Selectable::new("../").build(ui) {
                                 self.current_path = PathBuf::from(parent);
                             }
                         }
@@ -83,14 +83,14 @@ impl FilePickerWindow {
                     }
                 });
 
-                ui.checkbox(im_str!("Show entries starting with ."), &mut self.show_dot_entries);
+                ui.checkbox("Show entries starting with .", &mut self.show_dot_entries);
             }
             else {
-                ui.text_colored([1.0, 0.0, 0.0, 1.0], im_str!("Couldn't open current path."));
+                ui.text_colored([1.0, 0.0, 0.0, 1.0], "Couldn't open current path.");
             }
-        });
+        };
 
-        ui.open_popup(im_str!("File Picker"));
+        ui.open_popup("File Picker");
 
         chosen_file
     }

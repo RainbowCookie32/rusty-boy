@@ -37,7 +37,7 @@ impl DisassemblerWindow {
             }
         };
 
-        Window::new(im_str!("Disassembler")).size([300.0, 325.0], Condition::FirstUseEver).build(ui, || {
+        Window::new("Disassembler").size([300.0, 325.0], Condition::FirstUseEver).build(ui, || {
             let mut clipper = ListClipper::new(0xFFFF).items_height(ui.text_line_height() / 2.0).begin(ui);
             clipper.step();
 
@@ -134,14 +134,14 @@ impl DisassemblerWindow {
 
                         (entry)();
 
-                        token.pop(ui);
+                        token.pop();
                     }
                     else if pc == current_addr {
                         let token = ui.push_style_color(StyleColor::Text, [0.0, 1.0, 0.0, 1.0]);
 
                         (entry)();
 
-                        token.pop(ui);
+                        token.pop();
                     }
                     else {
                         (entry)();
