@@ -120,7 +120,7 @@ pub fn create_cart(data: Vec<u8>) -> Box<dyn GameboyCart + Send + Sync> {
         CartridgeType::MBC1 => Box::new(mbc1::MBC1::new(header, data)),
         CartridgeType::MBC2 => todo!(),
         CartridgeType::MBC3 => todo!(),
-        CartridgeType::MBC5 => todo!(),
+        CartridgeType::MBC5 => Box::new(mbc5::MBC5::new(header, data)),
         CartridgeType::MBC6 => todo!(),
         CartridgeType::NoController => Box::new(no_mbc::NoMBC::new(header, data))
     }

@@ -10,11 +10,11 @@ pub struct MBC1 {
     rom_banks: Vec<Vec<u8>>,
     ram_banks: Vec<Vec<u8>>,
 
-    ram_enabled: bool,
+    mode: u8,
+    bank1: u8,
+    bank2: u8,
 
-    banking_mode: u8,
-    selected_rom_bank: u8,
-    selected_ram_bank: u8
+    ramg: bool,
 }
 
 impl MBC1 {
@@ -51,11 +51,11 @@ impl MBC1 {
             rom_banks,
             ram_banks,
 
-            ram_enabled: false,
+            mode: 0,
+            bank1: 1,
+            bank2: 0,
 
-            banking_mode: 0,
-            selected_rom_bank: 1,
-            selected_ram_bank: 0
+            ramg: false
         }
     }
 
@@ -80,15 +80,15 @@ impl MBC1 {
     }
 
     fn get_rom_bank(&self) -> usize {
-        ((self.selected_ram_bank << 5) | self.selected_rom_bank) as usize
+        ((self.bank2 << 5) | self.bank1) as usize
     }
 }
 
 impl GameboyCart for MBC1 {
     fn read(&self, address: u16) -> u8 {
         if CARTRIDGE_ROM_BANK0.contains(&address) {
-            if self.banking_mode == 1 {
-                let bank = (self.selected_ram_bank << 5) as usize;
+            if self.mode == 1 {
+                let bank = (self.bank2 << 5) as usize;
 
                 if let Some(bank) = self.rom_banks.get(bank) {
                     return bank[address as usize];
@@ -110,7 +110,7 @@ impl GameboyCart for MBC1 {
         else if CARTRIDGE_RAM.contains(&address) && self.is_ram_enabled() {
             let address = (address - 0xA000) as usize;
 
-            if self.banking_mode == 0 {
+            if self.mode == 0 {
                 if let Some(bank) = self.ram_banks.get(0) {
                     return bank[address as usize];
                 }
@@ -118,7 +118,7 @@ impl GameboyCart for MBC1 {
             else {
                 // MBC1 carts can have 0, 1, or 4 banks of RAM.
                 // The bank register is only used if the cart is the latter.
-                let bank = if self.ram_banks.len() == 4 {self.selected_ram_bank as usize} else {0};
+                let bank = if self.ram_banks.len() == 4 {self.bank2 as usize} else {0};
             
                 if let Some(bank) = self.ram_banks.get(bank) {
                     return bank[address as usize];
@@ -130,16 +130,16 @@ impl GameboyCart for MBC1 {
     }
 
     fn write(&mut self, address: u16, value: u8) {
-        if MBC1_ENABLE_RAM.contains(&address) {
+        if MBC1_RAMG.contains(&address) {
             let enable_ram = (value & 0x0F) == 0x0A;
 
             if !enable_ram {
                 self.save_ram();
             }
 
-            self.ram_enabled = enable_ram;
+            self.ramg = enable_ram;
         }
-        else if MBC1_ROM_BANK.contains(&address) {
+        else if MBC1_BANK1.contains(&address) {
             // Mask the bank value to fit the amount of banks on the cart.
             let value = match self.rom_banks.len() {
                 2 => value & 1,
@@ -149,18 +149,18 @@ impl GameboyCart for MBC1 {
                 _ => value & 0x1F
             };
 
-            self.selected_rom_bank = if value == 0 {1} else {value};
+            self.bank1 = if value == 0 {1} else {value};
         }
-        else if MBC1_RAM_BANK.contains(&address) {
-            self.selected_ram_bank = value & 3;
+        else if MBC1_BANK2.contains(&address) {
+            self.bank2 = value & 3;
         }
-        else if MBC1_BANKING_MODE.contains(&address) {
-            self.banking_mode = value & 1;
+        else if MBC1_MODE.contains(&address) {
+            self.mode = value & 1;
         }
         else if CARTRIDGE_RAM.contains(&address) && self.is_ram_enabled() {
             let address = (address - 0xA000) as usize;
 
-            if self.banking_mode == 0 {
+            if self.mode == 0 {
                 if let Some(bank) = self.ram_banks.get_mut(0) {
                     bank[address as usize] = value;
                 }
@@ -168,7 +168,7 @@ impl GameboyCart for MBC1 {
             else {
                 // MBC1 carts can have no 0, 1, or 4 banks of RAM.
                 // The bank register is only used if the cart is the latter.
-                let bank = if self.ram_banks.len() == 4 {self.selected_ram_bank as usize} else {0};
+                let bank = if self.ram_banks.len() == 4 {self.bank2 as usize} else {0};
                 
                 if let Some(bank) = self.ram_banks.get_mut(bank) {
                     bank[address as usize] = value;
@@ -188,10 +188,10 @@ impl GameboyCart for MBC1 {
     }
 
     fn reset(&mut self) {
-        self.banking_mode = 0;
-        self.selected_rom_bank = 1;
-        self.selected_ram_bank = 0;
-        self.ram_enabled = false;
+        self.mode = 0;
+        self.bank1 = 1;
+        self.bank2 = 0;
+        self.ramg = false;
     }
 
     fn get_header(&self) -> Arc<CartHeader> {
@@ -199,7 +199,7 @@ impl GameboyCart for MBC1 {
     }
 
     fn is_ram_enabled(&self) -> bool {
-        self.ram_enabled
+        self.ramg
     }
 
     fn get_selected_rom_bank(&self) -> usize {
@@ -207,6 +207,6 @@ impl GameboyCart for MBC1 {
     }
 
     fn get_selected_ram_bank(&self) -> usize {
-        self.selected_ram_bank as usize
+        self.bank2 as usize
     }
 }
