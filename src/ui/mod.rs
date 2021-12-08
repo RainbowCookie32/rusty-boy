@@ -485,48 +485,36 @@ fn draw_menu_bar(app_state: &mut AppState, ui: &Ui, control_flow: &mut ControlFl
 fn draw_windows(app_state: &mut AppState, ui: &Ui, display: &Display, textures: &mut Textures<Texture>) {
     let mut adjust = false;
 
-    if app_state.window_cart_info.0 {
-        if let Some(cart_win) = app_state.window_cart_info.1.as_ref() {
-            cart_win.draw(ui);
-        }
+    if let Some(cart_win) = app_state.window_cart_info.1.as_ref() {
+        cart_win.draw(ui, &mut app_state.window_cart_info.0);
     }
-    
-    if app_state.window_cpu_debugger.0 {
-        if let Some(cpu_win) = app_state.window_cpu_debugger.1.as_mut() {
-            adjust = cpu_win.draw(ui);
+
+    if let Some(cpu_win) = app_state.window_cpu_debugger.1.as_mut() {
+        adjust = cpu_win.draw(ui, &mut app_state.window_cpu_debugger.0);
+    }
+
+    if let Some(disas_win) = app_state.window_disassembler.1.as_mut() {
+        disas_win.draw(ui, adjust, &mut app_state.window_disassembler.0);
+    }
+
+    if let Some(mem_win) = app_state.window_memory_viewer.1.as_mut() {
+        mem_win.draw(ui, &mut app_state.window_memory_viewer.0);
+    }
+
+    if let Some(screen_win) = app_state.window_screen.1.as_mut() {
+        let focused = screen_win.draw(&mut app_state.config, ui, &mut app_state.window_screen.0, display, textures);
+        
+        if !focused && app_state.config.pause_emulator_on_focus_loss {
+            app_state.emu_set_mode(EmulatorMode::Paused);
         }
     }
 
-    if app_state.window_disassembler.0 {
-        if let Some(disas_win) = app_state.window_disassembler.1.as_mut() {
-            disas_win.draw(ui, adjust);
-        }
+    if let Some(serial_win) = app_state.window_serial.1.as_mut() {
+        serial_win.draw(ui, &mut app_state.window_serial.0);
     }
 
-    if app_state.window_memory_viewer.0 {
-        if let Some(mem_win) = app_state.window_memory_viewer.1.as_mut() {
-            mem_win.draw(ui);
-        }
-    }
-
-    if app_state.window_screen.0 {
-        if let Some(screen_win) = app_state.window_screen.1.as_mut() {
-            if !screen_win.draw(&mut app_state.config, ui, display, textures) && app_state.config.pause_emulator_on_focus_loss {
-                app_state.emu_set_mode(EmulatorMode::Paused);
-            }
-        }
-    }
-
-    if app_state.window_serial.0 {
-        if let Some(serial_win) = app_state.window_serial.1.as_mut() {
-            serial_win.draw(ui);
-        }
-    }
-
-    if app_state.window_vram_viewer.0 {
-        if let Some(vram_win) = app_state.window_vram_viewer.1.as_mut() {
-            vram_win.draw(ui, display, textures);
-        }
+    if let Some(vram_win) = app_state.window_vram_viewer.1.as_mut() {
+        vram_win.draw(ui, &mut app_state.window_vram_viewer.0, display, textures);
     }
 }
 

@@ -43,10 +43,14 @@ impl CPUWindow {
         }
     }
 
-    pub fn draw(&mut self, ui: &Ui) -> bool {
+    pub fn draw(&mut self, ui: &Ui, opened: &mut bool) -> bool {
+        if !*opened {
+            return false;
+        }
+
         let mut adjust_cursor = false;
 
-        Window::new("CPU Debugger").size([290.0, 400.0], Condition::FirstUseEver).build(ui, || {
+        Window::new("CPU Debugger").size([290.0, 400.0], Condition::FirstUseEver).opened(opened).build(ui, || {
             if ui.is_window_focused() {
                 if let Ok(lock) = self.gb.read() {
                     let (af, bc, de, hl, sp, pc) = lock.ui_get_cpu_registers();

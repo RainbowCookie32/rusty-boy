@@ -19,8 +19,12 @@ impl SerialWindow {
         }
     }
 
-    pub fn draw(&mut self, ui: &Ui) {
-        Window::new("Serial Output").size([475.0, 170.0], Condition::FirstUseEver).build(ui, || {
+    pub fn draw(&mut self, ui: &Ui, opened: &mut bool) {
+        if !*opened {
+            return;
+        }
+        
+        Window::new("Serial Output").size([475.0, 170.0], Condition::FirstUseEver).opened(opened).build(ui, || {
             if let Ok(lock) = self.gb_serial.read() {
                 let mut output = String::new();
 

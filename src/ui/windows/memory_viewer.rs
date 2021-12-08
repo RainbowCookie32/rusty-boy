@@ -23,8 +23,12 @@ impl MemoryWindow {
         }
     }
 
-    pub fn draw(&mut self, ui: &Ui) {
-        Window::new("Memory Viewer").size([350.0, 170.0], Condition::FirstUseEver).build(ui, || {
+    pub fn draw(&mut self, ui: &Ui, opened: &mut bool) {
+        if !*opened {
+            return;
+        }
+
+        Window::new("Memory Viewer").size([350.0, 170.0], Condition::FirstUseEver).opened(opened).build(ui, || {
             let style_padding = ui.push_style_var(StyleVar::FramePadding([0.0, 0.0]));
             let style_spacing = ui.push_style_var(StyleVar::ItemSpacing([5.0, 1.0]));
 

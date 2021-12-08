@@ -26,7 +26,11 @@ impl DisassemblerWindow {
         }
     }
 
-    pub fn draw(&mut self, ui: &Ui, adjust: bool) {
+    pub fn draw(&mut self, ui: &Ui, adjust: bool, opened: &mut bool) {
+        if !*opened {
+            return;
+        }
+
         let pc = {
             if let Ok(lock) = self.gb.read() {
                 let (_, _, _, _, _, pc) = lock.ui_get_cpu_registers();
@@ -37,7 +41,7 @@ impl DisassemblerWindow {
             }
         };
 
-        Window::new("Disassembler").size([300.0, 325.0], Condition::FirstUseEver).build(ui, || {
+        Window::new("Disassembler").size([300.0, 325.0], Condition::FirstUseEver).opened(opened).build(ui, || {
             let mut clipper = ListClipper::new(0xFFFF).items_height(ui.text_line_height() / 2.0).begin(ui);
             clipper.step();
 
