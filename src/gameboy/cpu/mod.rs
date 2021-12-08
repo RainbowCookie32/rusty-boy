@@ -264,7 +264,7 @@ impl GameboyCPU {
 
         for bp in matching_bps {
             // Don't trigger the breakpoint if we are stepping.
-            // Assume you are paying attention to what's going on, and makes access breakpoints useable.
+            // Assume user's paying attention to what's going on, and makes access breakpoints useable.
             if *bp.read() && *dbg_mode != EmulatorMode::Stepping {
                 found_bp = true;
                 break;
@@ -440,7 +440,7 @@ impl GameboyCPU {
         if self.halted || self.stopped {
             // HACK: Since the CPU is stopped, the cycle counter doesn't increase.
             // If the cycle counter doesn't increase, other parts of the system
-            // wont' move either, so interrupts won't be triggered. In this case,
+            // won't move either, so interrupts won't be triggered. In this case,
             // that'd mean it gets stuck on a halted or stop state forever.
             if let Ok(mut cycles) = self.gb_cyc.write() {
                 *cycles += 4;
