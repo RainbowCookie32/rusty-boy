@@ -24,7 +24,7 @@ impl SerialWindow {
             return;
         }
         
-        Window::new("Serial Output").size([475.0, 170.0], Condition::FirstUseEver).opened(opened).build(ui, || {
+        ui.window("Serial Output").size([475.0, 170.0], Condition::FirstUseEver).opened(opened).build(|| {
             if let Ok(lock) = self.gb_serial.read() {
                 let mut output = String::new();
 
@@ -44,7 +44,7 @@ impl SerialWindow {
                     }
 
                     for line in output.lines() {
-                        Selectable::new(&ImString::from(line.to_string())).build(ui);
+                        ui.selectable(&ImString::from(line.to_string()));
                     }
                 });
 

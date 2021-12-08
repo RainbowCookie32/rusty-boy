@@ -41,7 +41,7 @@ impl VramViewerWindow {
             return;
         }
         
-        Window::new("VRAM Viewer").size([256.0, 256.0], Condition::FirstUseEver).opened(opened).build(ui, || {
+        ui.window("VRAM Viewer").size([256.0, 256.0], Condition::FirstUseEver).opened(opened).build(|| {
             TabBar::new("Viewer Tabs").build(ui, || {
                 TabItem::new("Background 0").build(ui, || {
                     let window_size = ui.content_region_avail();

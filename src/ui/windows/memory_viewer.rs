@@ -28,7 +28,7 @@ impl MemoryWindow {
             return;
         }
 
-        Window::new("Memory Viewer").size([350.0, 170.0], Condition::FirstUseEver).opened(opened).build(ui, || {
+        ui.window("Memory Viewer").size([350.0, 170.0], Condition::FirstUseEver).opened(opened).build(|| {
             let style_padding = ui.push_style_var(StyleVar::FramePadding([0.0, 0.0]));
             let style_spacing = ui.push_style_var(StyleVar::ItemSpacing([5.0, 1.0]));
 
@@ -85,7 +85,7 @@ impl MemoryWindow {
                             self.target_byte_new_value = String::new();
                         }
                     }
-                    else if Selectable::new(&ImString::from(format!("{:02X}", value))).allow_double_click(true).size(size).build(ui) {
+                    else if ui.selectable_config(&ImString::from(format!("{:02X}", value))).allow_double_click(true).size(size).build() {
                         self.editing_byte = true;
                         self.target_byte_address = (current_addr - 8) + idx as u16;
                         self.target_byte_new_value = format!("{:02X}", value);
@@ -101,7 +101,8 @@ impl MemoryWindow {
                 for (idx, value) in values.iter().enumerate() {
                     let value = if *value == 0 {'.'} else {*value as char};
                     let size = ui.calc_text_size("F");
-                    if Selectable::new(&ImString::from(format!("{}", value))).allow_double_click(true).size(size).build(ui) {
+                    
+                    if ui.selectable_config(&ImString::from(format!("{}", value))).allow_double_click(true).size(size).build() {
 
                     }
 

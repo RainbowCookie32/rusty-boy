@@ -41,7 +41,7 @@ impl ScreenWindow {
         
         let mut focused = false;
 
-        Window::new("Screen").size(config.screen_size, Condition::Always).opened(opened).build(ui, || {
+        ui.window("Screen").size(config.screen_size, Condition::Always).opened(opened).build(|| {
             let window_size = ui.content_region_avail();
 
             let x_scale = window_size[0] / SCREEN_WIDTH as f32;

@@ -52,7 +52,7 @@ impl FilePickerWindow {
                         }
 
                         if let Some(parent) = self.current_path.parent() {
-                            if Selectable::new("../").build(ui) {
+                            if ui.selectable("../") {
                                 self.current_path = PathBuf::from(parent);
                             }
                         }
@@ -64,7 +64,7 @@ impl FilePickerWindow {
                             if let Some(path) = dir.file_name().to_str() {
                                 let path = format!("{}/", path);
 
-                                if Selectable::new(&ImString::from(path)).build(ui) {
+                                if ui.selectable(&ImString::from(path)) {
                                     self.current_path = dir.path();
                                 }
                             }
@@ -74,7 +74,7 @@ impl FilePickerWindow {
                             if let Some(path) = file.file_name().to_str() {
                                 let path = path.to_string();
 
-                                if Selectable::new(&ImString::from(path)).build(ui) {
+                                if ui.selectable(&ImString::from(path)) {
                                     chosen_file = Some(file.path());
                                     ui.close_current_popup();
                                 }

@@ -41,7 +41,7 @@ impl DisassemblerWindow {
             }
         };
 
-        Window::new("Disassembler").size([300.0, 325.0], Condition::FirstUseEver).opened(opened).build(ui, || {
+        ui.window("Disassembler").size([300.0, 325.0], Condition::FirstUseEver).opened(opened).build(|| {
             let mut clipper = ListClipper::new(0xFFFF).items_height(ui.text_line_height() / 2.0).begin(ui);
             clipper.step();
 
@@ -118,9 +118,9 @@ impl DisassemblerWindow {
                     }
 
                     let text = ImString::from(line_str);
-                    let widget = Selectable::new(&text).allow_double_click(true);
+                    let widget = ui.selectable_config(&text).allow_double_click(true);
 
-                    let entry = || if widget.build(ui) && ui.is_mouse_double_clicked(MouseButton::Left) {
+                    let entry = || if widget.build() && ui.is_mouse_double_clicked(MouseButton::Left) {
                         if let Ok(mut lock) = self.gb.write() {
                             if address_is_bp {
                                 lock.dbg_breakpoint_list.remove(bp_idx);

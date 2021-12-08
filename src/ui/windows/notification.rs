@@ -43,7 +43,7 @@ impl Notification {
 
         let title = ImString::from(format!("Notification {}", idx));
 
-        let window = Window::new(&title)
+        let window = ui.window(&title)
             .flags(flags)    
             .bg_alpha(opacity as f32)
             .size([400.0, 55.0], Condition::Always)
@@ -51,7 +51,7 @@ impl Notification {
             .position_pivot([1.0, 1.0])
         ;
 
-        window.build(ui, || {
+        window.build(|| {
             ui.text(&self.title);
             ui.separator();
             ui.text_wrapped(&self.content);

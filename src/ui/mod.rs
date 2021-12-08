@@ -219,6 +219,8 @@ pub fn run_app() {
     let mut app_state = AppState::init();
     let mut settings_window = SettingsWindow::init();
 
+    imgui_ctx.io_mut().config_flags |= imgui::ConfigFlags::DOCKING_ENABLE;
+
     event_loop.run(move | event, _, control_flow| {
         match event {
             Event::MainEventsCleared => {
@@ -230,36 +232,36 @@ pub fn run_app() {
             Event::RedrawRequested(_) => {
                 let ui = imgui_ctx.frame();
                 
-                draw_menu_bar(&mut app_state, &ui, control_flow);
+                draw_menu_bar(&mut app_state, ui, control_flow);
 
                 if app_state.picking_rom {
-                    draw_rom_picker(&mut app_state, &ui);
+                    draw_rom_picker(&mut app_state, ui);
                 }
 
                 if app_state.picking_bootrom {
-                    draw_bootrom_picker(&mut app_state, &ui);
+                    draw_bootrom_picker(&mut app_state, ui);
                 }
 
                 if app_state.settings_opened {
-                    settings_window.draw(&ui, &mut app_state);
+                    settings_window.draw(ui, &mut app_state);
                 }
 
                 if app_state.reload {
-                    reload_app(&mut app_state, &ui);
+                    reload_app(&mut app_state, ui);
                 }
                 else if app_state.gb.is_some() {
-                    draw_windows(&mut app_state, &ui, &display, renderer.textures());
+                    draw_windows(&mut app_state, ui, &display, renderer.textures());
                 }
 
-                show_notifications(&mut app_state, &ui);
+                show_notifications(&mut app_state, ui);
 
                 let gl_window = display.gl_window();
                 let mut target = display.draw();
 
                 target.clear_color_srgb(0.2, 0.2, 0.2, 1.0);
-                winit_platform.prepare_render(&ui, gl_window.window());
+                winit_platform.prepare_render(ui, gl_window.window());
 
-                let draw_data = ui.render();
+                let draw_data = imgui_ctx.render();
 
                 renderer.render(&mut target, draw_data).unwrap();
                 target.finish().unwrap();
@@ -365,19 +367,19 @@ fn show_notifications(app_state: &mut AppState, ui: &Ui) {
 fn draw_menu_bar(app_state: &mut AppState, ui: &Ui, control_flow: &mut ControlFlow) {
     ui.main_menu_bar(|| {
         ui.menu("File", || {
-            if MenuItem::new("Load ROM").build(ui) {
+            if ui.menu_item("Load ROM") {
                 app_state.picking_rom = true;
                 app_state.file_picker_instance = FilePickerWindow::init(app_state.config.last_dir_rom.clone());
             }
 
-            if MenuItem::new("Load Bootrom").build(ui) {
+            if ui.menu_item("Load Bootrom") {
                 app_state.picking_bootrom = true;
                 app_state.file_picker_instance = FilePickerWindow::init(app_state.config.last_dir_bootrom.clone());
             }
 
             ui.separator();
 
-            if MenuItem::new("Reload").enabled(app_state.gb.is_some()).build(ui) {
+            if ui.menu_item_config("Reload").enabled(app_state.gb.is_some()).build() {
                 if let Some(tx) = app_state.gb_exit_tx.as_ref() {
                     tx.send(()).unwrap();
                 }
@@ -391,11 +393,11 @@ fn draw_menu_bar(app_state: &mut AppState, ui: &Ui, control_flow: &mut ControlFl
 
             ui.separator();
 
-            if MenuItem::new("Settings").build(ui) {
+            if ui.menu_item("Settings") {
                 app_state.settings_opened = true;
             }
 
-            if MenuItem::new("Exit").build(ui) {
+            if ui.menu_item("Exit") {
                 *control_flow = ControlFlow::Exit;
             }
         });
@@ -405,77 +407,77 @@ fn draw_menu_bar(app_state: &mut AppState, ui: &Ui, control_flow: &mut ControlFl
             
             match mode {
                 EmulatorMode::Running => {
-                    if MenuItem::new("Pause").build(ui) {
+                    if ui.menu_item("Pause") {
                         app_state.emu_set_mode(EmulatorMode::Paused);
                     }
                 }
                 EmulatorMode::UnknownInstruction(_, _) => {
-                    MenuItem::new("Resume").enabled(false).build(ui);
+                    ui.menu_item_config("Resume").enabled(false).build();
                 }
                 _ => {
-                    if MenuItem::new("Resume").build(ui) {
+                    if ui.menu_item("Resume") {
                         app_state.emu_set_mode(EmulatorMode::Running);
                     }
                 }
             }
 
-            if MenuItem::new("Restart").build(ui) {
+            if ui.menu_item("Restart") {
                 app_state.emu_reset();
             }
         });
 
         ui.menu_with_enabled("View", app_state.gb.is_some(), || {
             if app_state.window_cart_info.0 {
-                if MenuItem::new("Hide cartridge info").build(ui) {
+                if ui.menu_item("Hide cartridge info") {
                     app_state.window_cart_info.0 = false;
                 }
             }
-            else if MenuItem::new("Show cartridge info").build(ui) {
+            else if ui.menu_item("Show cartridge info") {
                 app_state.window_cart_info.0 = true;
             }
 
             if app_state.window_cpu_debugger.0 {
-                if MenuItem::new("Hide CPU debugger").build(ui) {
+                if ui.menu_item("Hide CPU debugger") {
                     app_state.window_cpu_debugger.0 = false;
                 }
             }
-            else if MenuItem::new("Show CPU debugger").build(ui) {
+            else if ui.menu_item("Show CPU debugger") {
                 app_state.window_cpu_debugger.0 = true;
             }
 
             if app_state.window_disassembler.0 {
-                if MenuItem::new("Hide disassembler").build(ui) {
+                if ui.menu_item("Hide disassembler") {
                     app_state.window_disassembler.0 = false;
                 }
             }
-            else if MenuItem::new("Show disassembler").build(ui) {
+            else if ui.menu_item("Show disassembler") {
                 app_state.window_disassembler.0 = true;
             }
 
             if app_state.window_memory_viewer.0 {
-                if MenuItem::new("Hide memory viewer").build(ui) {
+                if ui.menu_item("Hide memory viewer") {
                     app_state.window_memory_viewer.0 = false;
                 }
             }
-            else if MenuItem::new("Show memory viewer").build(ui) {
+            else if ui.menu_item("Show memory viewer") {
                 app_state.window_memory_viewer.0 = true;
             }
 
             if app_state.window_serial.0 {
-                if MenuItem::new("Hide serial output").build(ui) {
+                if ui.menu_item("Hide serial output") {
                     app_state.window_serial.0 = false;
                 }
             }
-            else if MenuItem::new("Show serial output").build(ui) {
+            else if ui.menu_item("Show serial output") {
                 app_state.window_serial.0 = true;
             }
 
             if app_state.window_vram_viewer.0 {
-                if MenuItem::new("Hide VRAM viewer").build(ui) {
+                if ui.menu_item("Hide VRAM viewer") {
                     app_state.window_vram_viewer.0 = false;
                 }
             }
-            else if MenuItem::new("Show VRAM viewer").build(ui) {
+            else if ui.menu_item("Show VRAM viewer") {
                 app_state.window_vram_viewer.0 = true;
             }
         });

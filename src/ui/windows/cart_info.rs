@@ -23,7 +23,7 @@ impl CartWindow {
             return;
         }
 
-        Window::new("Cartridge Info").size([290.0, 105.0], Condition::Always).opened(opened).resizable(false).build(ui, || {
+        ui.window("Cartridge Info").size([290.0, 105.0], Condition::Always).opened(opened).resizable(false).build(|| {
             ui.text(format!("Cartridge Title: {}", self.header.title()));
             ui.text(format!("Cartridge Controller: {}", self.header.cart_type()));
             
